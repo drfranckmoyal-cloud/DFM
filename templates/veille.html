@@ -1,0 +1,396 @@
+{% extends "base.html" %}
+{% block titre %}{{ e.axe.titre }}{% endblock %}
+{% block entete %}<i class="ti {{ e.axe.icone }}" style="color:{{ e.axe.couleur }};vertical-align:-3px;margin-right:6px"></i>{{ e.axe.titre }}{% endblock %}
+{% block sous_entete %}Indicateur {{ e.axe.indicateur }} — {{ e.axe.sous_titre }}{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" href="/veilles"><i class="ti ti-arrow-left"></i>Toutes les veilles</a>
+{% endblock %}
+{% block corps %}
+{#
+  UN AXE DE VEILLE.
+
+  Trois zones, dans l'ordre ou l'auditeur les regarde :
+    1. ce que vous suivez        (des sources nommees)
+    2. ce que vous avez relevé   (des entrees datees)
+    3. ce que vous en avez fait  (l'exploitation, sur chaque entree)
+
+  LE REGISTRE PASSE AVANT LE FORMULAIRE. Il etait dessous : sur un axe deja
+  fourni, il fallait faire defiler tout l'ecran pour voir ce qui avait ete
+  consigne, alors que c'est la premiere chose qu'on vient verifier — et la
+  seule qu'un auditeur regarde.
+#}
+<style>
+.vx-i{background:var(--carte);border:1px solid var(--border);border-left:3px solid {{ e.axe.couleur }};
+  border-radius:12px;padding:15px 18px;margin-bottom:14px;font-size:12.5px;color:var(--muted);line-height:1.7}
+.vx-i b{color:var(--text)}
+.vx-g{font-size:11.5px;color:var(--muted);margin-top:7px;padding-top:7px;border-top:1px solid var(--border)}
+.vx-a{font-size:12.5px;line-height:1.55;padding:10px 13px;border-radius:9px;margin-bottom:9px}
+.a-rouge{background:rgba(208,59,59,.09);color:#b03030;border:1px solid rgba(208,59,59,.22)}
+.a-orange{background:rgba(212,137,10,.10);color:#8a5a06;border:1px solid rgba(212,137,10,.24)}
+.a-vert{background:rgba(15,158,106,.09);color:#0f6e56;border:1px solid rgba(15,158,106,.22)}
+html[data-sombre] .a-rouge{color:#ff9b9b}
+html[data-sombre] .a-orange{color:#ffc978}
+html[data-sombre] .a-vert{color:#6ee7b7}
+
+.vx-c{background:var(--carte);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden}
+.vx-ct{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);
+  font-size:13px;font-weight:500}
+.vx-ct .n{margin-left:auto;font-size:11.5px;color:var(--muted);font-weight:400}
+.vx-b{padding:14px 18px}
+
+.src{display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)}
+.src:last-child{border-bottom:none}
+.src-n{font-size:13px;font-weight:500}
+.src-q{font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:2px}
+.src-r{font-size:10.5px;color:var(--muted);border:1px solid var(--border);border-radius:20px;
+  padding:1px 9px;flex:none;white-space:nowrap}
+.src a{color:var(--accent);font-size:11.5px;text-decoration:none}
+
+.prop{display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px dashed var(--border)}
+.prop:last-child{border-bottom:none}
+
+.frm{display:grid;grid-template-columns:150px 1fr;gap:10px 14px;align-items:start}
+.frm label{font-size:12px;color:var(--muted);padding-top:8px}
+.frm input,.frm textarea,.frm select{width:100%;padding:8px 11px;border:1px solid var(--border2);
+  border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--text)}
+.frm textarea{min-height:74px;resize:vertical;line-height:1.5}
+.frm .aide{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.45}
+
+.ent{border:1px solid var(--border);border-radius:10px;padding:13px 15px;margin-bottom:10px}
+.ent-h{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;margin-bottom:6px}
+.ent-d{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;flex:none}
+.ent-q{font-size:13.5px;font-weight:500;line-height:1.4}
+.ent-s{font-size:11.5px;color:var(--muted)}
+.ent-x{font-size:12.5px;line-height:1.55;background:var(--bg);border-radius:8px;padding:9px 12px;margin-top:8px}
+.ent-x .et{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);display:block;margin-bottom:3px}
+.ent-manque{font-size:12px;color:#8a5a06;background:rgba(212,137,10,.10);border:1px solid rgba(212,137,10,.24);
+  border-radius:8px;padding:8px 12px;margin-top:8px;line-height:1.5}
+html[data-sombre] .ent-manque{color:#ffc978}
+.ent-sup{margin-left:auto;color:var(--muted);background:none;border:none;cursor:pointer;font-size:15px;padding:0}
+.ent-sup:hover{color:var(--danger)}
+.vide{text-align:center;color:var(--muted);font-size:12.5px;padding:24px 10px;line-height:1.6}
+.jpj{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:500;text-decoration:none;
+  color:var(--accent);background:rgba(79,126,248,.10);border:1px solid rgba(79,126,248,.25);
+  border-radius:7px;padding:3px 10px}
+.jpj-l{color:var(--muted);background:transparent;border-color:var(--border2);font-weight:400}
+
+/* LE CADRE « À AJOUTER » EST MINEUR, ET DOIT LE PARAITRE. C'est un catalogue
+   de suggestions, pas une piece du dossier : il avait exactement le meme poids
+   visuel que les relevés, ce qui brouillait la lecture de la page. Tout y est
+   reduit d'un cran — police, retraits, epaisseur — sans le rendre illisible. */
+.vx-mineur{background:transparent;border-style:dashed;border-color:var(--border2)}
+.vx-mineur .vx-ct{font-size:12px;font-weight:400;color:var(--muted);padding:10px 15px}
+.vx-mineur .vx-ct .n{font-size:10.5px}
+.vx-mineur .vx-b{padding:9px 15px 13px}
+.vx-mineur .src-n{font-size:12px;font-weight:500}
+.vx-mineur .src-q{font-size:10.5px}
+.vx-mineur .src-r{font-size:9.5px;padding:0 7px}
+.vx-mineur .prop{padding:8px 0;gap:10px}
+.vx-mineur .prop a{font-size:10.5px}
+.vx-mineur .btn{font-size:11px;padding:4px 9px}
+.vx-mineur .frm{grid-template-columns:130px 1fr;gap:7px 12px}
+.vx-mineur .frm label{font-size:11px;padding-top:6px}
+.vx-mineur .frm input{font-size:12px;padding:6px 9px}
+
+/* LE CADRE DES RELEVES EST LA PIECE MAITRESSE, et il avait exactement la meme
+   allure que les trois autres : la page se lisait comme quatre boites
+   interchangeables. C'est pourtant le seul cadre qu'un auditeur regarde.
+   D'ou une forme differente — bordure pleine, bandeau sombre, compteur — et
+   non simplement une couleur de plus. */
+/* JAMAIS var(--text) EN FOND. C'est ce que j'avais ecrit, et en mode sombre
+   --text vaut #e9ebf2 : le bandeau devenait blanc, le titre blanc dessus,
+   invisible. Une couleur de TEXTE s'inverse avec le theme ; un fond doit etre
+   choisi pour chaque theme. Meme famille de defaut que la pastille bleu sur
+   bleu du 03/08/2026. */
+.vx-maitre{border:2px solid #1e2235;border-radius:14px}
+.vx-mt{background:#1e2235;color:#fff;padding:14px 19px;display:flex;align-items:baseline;gap:12px}
+.vx-mt .vt{font-size:16px;font-weight:600}
+.vx-mt .st{font-size:11.5px;opacity:.65}
+.vx-mt .nb{margin-left:auto;font-size:25px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.vx-mt .nb small{font-size:11px;font-weight:400;opacity:.65;margin-left:5px}
+.vx-maitre .vx-b{padding:4px 19px 14px}
+
+/* Une ligne de releve : la date en colonne, format calendrier. Le gros
+   chiffre du jour rend la chronologie lisible sans lire les dates. */
+.rl{display:flex;gap:16px;padding:15px 0;border-bottom:1px solid var(--border)}
+.rl:last-child{border-bottom:none}
+.rl-g{flex:none;width:74px;text-align:right;padding-top:1px}
+.rl-j{font-size:20px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.rl-m{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-top:2px}
+.rl-e{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.3}
+.rl-c{flex:1;min-width:0}
+.rl-q{font-size:14px;font-weight:600;line-height:1.35}
+.rl-s{font-size:11.5px;color:var(--muted);margin-top:2px}
+.rl-sup{flex:none;color:var(--muted);background:none;border:none;cursor:pointer;font-size:15px;padding:0;
+  align-self:flex-start}
+.rl-sup:hover{color:var(--danger)}
+.rl-liens{margin-top:7px;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.rl-x{margin-top:8px;background:var(--bg);border-radius:8px;padding:9px 12px;font-size:12.5px;line-height:1.5}
+.rl-x .et{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);
+  margin-bottom:3px}
+/* En mode sombre, un bandeau sombre ne se detacherait pas d'une carte deja
+   sombre (#1c2029) : il devient donc PLUS CLAIR que la carte. Le principe est
+   respecte dans les deux cas — le bandeau tranche —, la couleur non. */
+html[data-sombre] .vx-maitre{border-color:#454d66}
+html[data-sombre] .vx-mt{background:#2b3245;color:#f2f4fa}
+</style>
+
+<div class="vx-i">
+  <b>Ce que l'auditeur attend&nbsp;:</b> {{ e.axe.attendu }}
+  <div class="vx-g"><b>Ce qu'il vérifie vraiment&nbsp;:</b> {{ e.axe.verifie }}<br>
+    <b>Gravité&nbsp;:</b> {{ e.axe.gravite }}</div>
+</div>
+
+{% for al in e.alertes %}
+<div class="vx-a a-{{ al.ton }}">{{ al.texte }}
+  {% if e.en_attente and loop.last %}
+  <button class="btn btn-ghost" style="font-size:11.5px;padding:4px 11px;margin-left:8px"
+    onclick="vRemonter(this)"><i class="ti ti-cloud-upload"></i>Remonter dans le Drive</button>
+  <span id="q_remonte" style="font-size:11.5px;margin-left:7px"></span>
+  {% endif %}</div>
+{% else %}
+<div class="vx-a a-vert">Rien à signaler sur cet indicateur.</div>
+{% endfor %}
+
+<div class="vx-c">
+  <div class="vx-ct"><i class="ti ti-list-check" style="color:{{ e.axe.couleur }}"></i>
+    {{ "Ce que vous suivez" if e.axe.champs != 'formation' else "Vos axes de formation" }}
+    <span class="n">{{ e.nb_sources }} déclarée{{ 's' if e.nb_sources > 1 }}</span></div>
+  <div class="vx-b">
+    {% if e.sources %}
+      {% for s in e.sources %}
+      <div class="src">
+        <div style="flex:1;min-width:0">
+          <div class="src-n">{{ s.nom }}</div>
+          {% if s.quoi %}<div class="src-q">{{ s.quoi }}</div>{% endif %}
+          {% if s.url %}<a href="{{ s.url }}" target="_blank" rel="noopener"><i class="ti ti-external-link" style="font-size:12px;vertical-align:-1px"></i> {{ s.url }}</a>{% endif %}
+        </div>
+        {% if s.rythme %}<span class="src-r">{{ s.rythme }}</span>{% endif %}
+        <button class="ent-sup" title="Retirer cette source" onclick="vRetirerSource('{{ s.id }}')"><i class="ti ti-x"></i></button>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="vide">Aucune source déclarée.<br>Choisissez ci-dessous celles que vous suivez réellement&nbsp;—
+        une source cochée sans être lue est une faiblesse de plus dans le dossier, pas une force.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="vx-c vx-maitre">
+  <div class="vx-mt">
+    <span class="vt">{{ "Formations consignées" if e.axe.champs == 'formation' else "Relevés" }}</span>
+    <span class="st">{{ "ce que vous avez suivi, et ce que ça a changé" if e.axe.champs == 'formation' else "ce que vous avez lu, et ce que vous en avez fait" }}</span>
+    <span class="nb">{{ e.nb_entrees }}{% if e.sans_exploitation %}<small>dont {{ e.sans_exploitation }} sans {{ 'apport' if e.axe.champs == 'formation' else 'exploitation' }}</small>{% endif %}</span></div>
+  <div class="vx-b">
+    {% if e.entrees %}
+      {% for x in e.entrees %}
+      {# TOUT EST VISIBLE ICI. Un releve n'a que six champs, et ils tiennent
+         tous sur la ligne : rien ne se cache derriere un clic, donc il n'y a
+         rien a ouvrir. Seuls le lien et la piece jointe sont cliquables —
+         parce qu'ils mènent ailleurs. #}
+      <div class="rl">
+        <div class="rl-g">
+          <div class="rl-j">{{ x.quand_fr[:2] }}</div>
+          <div class="rl-m">{{ mois_court[x.quand_fr[3:5]|int] }} {{ x.quand_fr[8:] }}</div>
+          {% if x.ecart is not none %}<div class="rl-e">{% if x.ecart == 0 %}le même jour{% else %}{{ x.ecart }} j après{% endif %}</div>{% endif %}
+        </div>
+        <div class="rl-c">
+          <div class="rl-q">{{ x.quoi }}</div>
+          {% if x.source %}<div class="rl-s">{{ x.source }}</div>{% endif %}
+          {% if x.lien or x.fichier %}
+          <div class="rl-liens">
+            {% if x.lien %}<a href="{{ x.lien }}" target="_blank" rel="noopener" class="jpj jpj-l"><i class="ti ti-link" style="font-size:13px;vertical-align:-2px"></i> le lien</a>{% endif %}
+            {% if x.fichier %}
+              {% if x.drive %}
+              <a href="{{ x.drive }}" target="_blank" rel="noopener" class="jpj"><i class="ti ti-brand-google-drive" style="font-size:13px;vertical-align:-2px"></i> {{ x.fichier_nom or 'Justificatif' }}</a>
+              <a href="/justificatif/{{ x.fichier }}" target="_blank" rel="noopener" class="jpj jpj-l" title="La copie gardée sur cet ordinateur"><i class="ti ti-device-laptop" style="font-size:13px;vertical-align:-2px"></i> copie locale</a>
+              {% else %}
+              <a href="/justificatif/{{ x.fichier }}" target="_blank" rel="noopener" class="jpj jpj-l"><i class="ti ti-paperclip" style="font-size:13px;vertical-align:-2px"></i> {{ x.fichier_nom or 'Justificatif' }}</a>
+              <span style="font-size:11px;color:#8a5a06">sur cet ordinateur seulement</span>
+              {% endif %}
+            {% endif %}
+          </div>
+          {% endif %}
+          {% if x.exploitation %}
+          <div class="rl-x"><span class="et">{{ "Ce que ça a changé" if e.axe.champs == 'formation' else "Exploitation" }}</span>{{ x.exploitation }}</div>
+          {% else %}
+          <div class="ent-manque">Sans {{ 'apport' if e.axe.champs == 'formation' else 'exploitation' }} renseigné{{ 'e' if e.axe.champs != 'formation' }}. C'est ce que l'auditeur regarde en premier — complétez cette ligne.</div>
+          {% endif %}
+        </div>
+        <button class="rl-sup" title="Retirer du registre" onclick="vRetirer('{{ x.id }}')"><i class="ti ti-trash"></i></button>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="vide">Aucun {{ 'enregistrement' if e.axe.champs == 'formation' else 'relevé' }} pour l'instant.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="vx-c">
+  <div class="vx-ct"><i class="ti ti-pencil-plus" style="color:{{ e.axe.couleur }}"></i>
+    {{ "Consigner une formation suivie" if e.axe.champs == 'formation' else "Consigner un relevé" }}</div>
+  <div class="vx-b">
+    <div class="frm">
+      <label>Quand</label><input type="date" id="q_quand" value="{{ aujourdhui.isoformat() }}">
+      <label>{{ "Organisme" if e.axe.champs == 'formation' else "Source" }}</label>
+      <input id="q_source" list="l_sources" placeholder="{{ 'Qui a dispensé la formation' if e.axe.champs == 'formation' else 'Choisissez une source déclarée, ou tapez-en une' }}">
+      <datalist id="l_sources">{% for s in e.sources %}<option value="{{ s.nom }}">{% endfor %}</datalist>
+      <label>{{ "Intitulé" if e.axe.champs == 'formation' else "Ce que vous avez lu ou suivi" }}</label>
+      <div><input id="q_quoi" placeholder="En une ligne, précise : un titre, un texte, une séance">
+        <div class="aide">Nommez la chose, pas la catégorie. « Décret n° 2024-… du 12 mars » vaut mieux que « veille réglementaire ».</div></div>
+      <label>{{ "Ce que ça a changé" if e.axe.champs == 'formation' else "Exploitation" }}</label>
+      <div><textarea id="q_exploitation" placeholder="{{ "Ce que vous avez rapporté dans vos formations, votre pratique, vos supports." if e.axe.champs == 'formation' else "Ce que vous en avez tiré : un support modifié, une mention ajoutée à une convention, un point vérifié — ou pourquoi cela ne change rien." }}"></textarea>
+        <div class="aide"><b>C'est le champ qui est vérifié.</b> Un relevé sans suite est une non-conformité mineure ; le guide le dit mot pour mot.</div></div>
+      <label>Lien ou justificatif</label>
+      <div>
+        <input id="q_lien" placeholder="https://… ou la référence d'une attestation">
+        <div style="display:flex;align-items:center;gap:10px;margin-top:7px;flex-wrap:wrap">
+          <button type="button" class="btn btn-ghost" style="font-size:12px;padding:6px 12px"
+            onclick="document.getElementById('q_fichier').click()"><i class="ti ti-paperclip"></i>Joindre un fichier</button>
+          <input type="file" id="q_fichier" style="display:none"
+            accept=".pdf,.png,.jpg,.jpeg,.heic,.webp,.gif,.doc,.docx,.odt,.txt,.md,.eml,.msg,.zip,.xls,.xlsx,.ods,.ppt,.pptx,.csv"
+            onchange="vJoindre(this)">
+          <span id="q_joint" style="font-size:12px;color:var(--muted)"></span>
+          <input type="hidden" id="q_fchemin"><input type="hidden" id="q_fnom">
+        </div>
+        <div class="aide">Attestation de DPC, programme d'un congrès, capture d'un texte&nbsp;— 20 Mo au plus.
+          Le fichier part dans votre Drive, dossier «&nbsp;Veille Qualiopi&nbsp;», et une copie reste
+          sur cet ordinateur&nbsp;: consultable de partout, et lisible même sans réseau.</div>
+      </div>
+      <div></div>
+      <div><button class="btn btn-primary" onclick="vConsigner(this)"><i class="ti ti-plus"></i>Consigner</button>
+        <span style="font-size:12px;color:var(--muted);margin-left:9px" id="q_etat"></span></div>
+    </div>
+  </div>
+</div>
+
+{% if e.catalogue %}
+<div class="vx-c vx-mineur">
+  <div class="vx-ct"><i class="ti ti-plus" style="color:var(--muted)"></i>À ajouter
+    <span class="n">{{ e.catalogue|length }} proposition{{ 's' if e.catalogue|length > 1 }} — rien n'est pré-coché</span></div>
+  <div class="vx-b">
+    {% for c in e.catalogue %}
+    <div class="prop">
+      <div style="flex:1;min-width:0">
+        <div class="src-n">{{ c.nom }}</div>
+        <div class="src-q">{{ c.quoi }}</div>
+        {% if c.url %}<a href="{{ c.url }}" target="_blank" rel="noopener" style="color:var(--accent);font-size:11.5px;text-decoration:none"><i class="ti ti-external-link" style="font-size:12px;vertical-align:-1px"></i> {{ c.url }}</a>{% endif %}
+      </div>
+      <span class="src-r">{{ c.rythme }}</span>
+      <button class="btn btn-ghost" style="font-size:11.5px;padding:5px 11px;flex:none"
+        onclick='vAjouterSource({{ c|tojson }}, this)'><i class="ti ti-plus"></i>Je suis ça</button>
+    </div>
+    {% endfor %}
+    <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:14px">
+      <div style="font-size:12.5px;font-weight:500;margin-bottom:10px">Une autre source</div>
+      <div class="frm">
+        <label>Nom</label><input id="s_nom" placeholder="Revue, congrès, site, newsletter…">
+        <label>Adresse</label><input id="s_url" placeholder="https://… (facultatif)">
+        <label>Ce qu'elle apporte</label><input id="s_quoi" placeholder="En une ligne — l'auditeur demande pourquoi cette source">
+        <label>Rythme</label><input id="s_rythme" placeholder="Mensuel, trimestriel, annuel…">
+        <div></div><div><button class="btn btn-secondary" onclick="vAjouterLibre(this)"><i class="ti ti-plus"></i>Ajouter</button>
+          <span style="font-size:12px;color:var(--muted);margin-left:9px" id="s_etat"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+var VCLE = "{{ e.cle }}";
+function vPost(url, fd, bouton, etat, ok){
+  if(bouton){ bouton.disabled = true; }
+  if(etat){ etat.textContent = "Enregistrement…"; }
+  fetch(url, {method:"POST", body:fd}).then(function(r){ return r.json(); }).then(function(d){
+    if(bouton){ bouton.disabled = false; }
+    if(!d.ok){ if(etat){ etat.textContent = d.message || "Échec."; } return; }
+    location.reload();
+  }).catch(function(){
+    if(bouton){ bouton.disabled = false; }
+    if(etat){ etat.textContent = "Échec réseau."; }
+  });
+}
+function vAjouterSource(c, bouton){
+  var fd = new FormData();
+  fd.append("cle", VCLE); fd.append("nom", c.nom);
+  fd.append("url", c.url || ""); fd.append("quoi", c.quoi || ""); fd.append("rythme", c.rythme || "");
+  vPost("/veille/source/ajouter", fd, bouton, null);
+}
+function vAjouterLibre(bouton){
+  var nom = document.getElementById("s_nom").value.trim();
+  var etat = document.getElementById("s_etat");
+  if(!nom){ etat.textContent = "Donnez un nom."; return; }
+  var fd = new FormData();
+  fd.append("cle", VCLE); fd.append("nom", nom);
+  fd.append("url", document.getElementById("s_url").value.trim());
+  fd.append("quoi", document.getElementById("s_quoi").value.trim());
+  fd.append("rythme", document.getElementById("s_rythme").value.trim());
+  vPost("/veille/source/ajouter", fd, bouton, etat);
+}
+function vRetirerSource(id){
+  if(!confirm("Retirer cette source ? Les relevés déjà consignés ne sont pas touchés.")) return;
+  var fd = new FormData(); fd.append("cle", VCLE); fd.append("id", id);
+  vPost("/veille/source/retirer", fd, null, null);
+}
+function vJoindre(champ){
+  var f = champ.files && champ.files[0];
+  var vu = document.getElementById("q_joint");
+  if(!f) return;
+  vu.textContent = "Dépôt de « " + f.name + " »…";
+  var fd = new FormData();
+  fd.append("cle", VCLE); fd.append("fichier", f);
+  fetch("/veille/justificatif", {method:"POST", body:fd})
+    .then(function(r){ return r.json(); }).then(function(d){
+      if(!d.ok){ vu.textContent = d.message || "Dépôt refusé."; champ.value = ""; return; }
+      document.getElementById("q_fchemin").value = d.chemin;
+      document.getElementById("q_fnom").value = d.nom;
+      var ou = d.drive
+        ? '<span style="color:var(--ok,#0f9e6a);font-size:11.5px">déposé dans le Drive</span>'
+        : '<span style="color:#8a5a06;font-size:11.5px">gardé ici — le Drive n\'a pas répondu, il sera remonté plus tard</span>';
+      vu.innerHTML = '<span class="jpj"><i class="ti ti-paperclip" style="font-size:13px;vertical-align:-2px"></i> '
+        + d.nom + "</span> " + ou
+        + " <a href=\"#\" onclick=\"vDetacher();return false\" style=\"color:var(--muted);font-size:11.5px\">retirer</a>";
+    }).catch(function(){ vu.textContent = "Échec réseau."; champ.value = ""; });
+}
+function vRemonter(bouton){
+  var etat = document.getElementById("q_remonte");
+  bouton.disabled = true; etat.textContent = "Remontée…";
+  fetch("/veille/justificatifs/remonter", {method:"POST"})
+    .then(function(r){ return r.json(); }).then(function(d){
+      bouton.disabled = false;
+      if(!d.ok){ etat.textContent = d.message || "Échec."; return; }
+      location.reload();
+    }).catch(function(){ bouton.disabled = false; etat.textContent = "Échec réseau."; });
+}
+function vDetacher(){
+  // Le fichier RESTE sur le disque : il a pu etre depose volontairement et
+  // servir a une autre ligne. On le detache de la saisie en cours, rien de plus.
+  document.getElementById("q_fchemin").value = "";
+  document.getElementById("q_fnom").value = "";
+  document.getElementById("q_fichier").value = "";
+  document.getElementById("q_joint").textContent = "";
+}
+function vConsigner(bouton){
+  var etat = document.getElementById("q_etat");
+  var quoi = document.getElementById("q_quoi").value.trim();
+  if(!quoi){ etat.textContent = "Dites ce que vous avez lu ou suivi."; return; }
+  var expl = document.getElementById("q_exploitation").value.trim();
+  if(!expl && !confirm("Aucune exploitation renseignée.\n\nC'est précisément ce que l'auditeur vérifie : une veille sans suite est une non-conformité mineure.\n\nConsigner quand même ? Vous pourrez compléter plus tard.")) return;
+  var fd = new FormData();
+  fd.append("registre", VCLE);
+  fd.append("quand", document.getElementById("q_quand").value);
+  fd.append("source", document.getElementById("q_source").value.trim());
+  fd.append("quoi", quoi);
+  fd.append("exploitation", expl);
+  fd.append("lien", document.getElementById("q_lien").value.trim());
+  fd.append("fichier", document.getElementById("q_fchemin").value);
+  fd.append("fichier_nom", document.getElementById("q_fnom").value);
+  vPost("/audit/consigner", fd, bouton, etat);
+}
+function vRetirer(id){
+  if(!confirm("Retirer cette ligne du registre ?")) return;
+  var fd = new FormData(); fd.append("registre", VCLE); fd.append("id", id);
+  vPost("/audit/consignation/retirer", fd, null, null);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block titre %}Base clients{% endblock %}
+{% block entete %}Base clients{% endblock %}
+{% block sous_entete %}Les structures qui achètent une formation pour leurs employés{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" href="/contacts"><i class="ti ti-database"></i>Bases de données</a>
+{% endblock %}
+{% block corps %}
+<style>
+.cl-actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.cl-gros{display:inline-flex;align-items:center;gap:9px;border-radius:10px;padding:12px 22px;font-size:14px;
+  font-weight:600;font-family:inherit;cursor:pointer;border:none;background:var(--accent);color:#fff}
+.cl-gros:hover{filter:brightness(1.07)}
+.cl-gros i{font-size:19px}
+.cl-chapeau{background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:13px 16px;
+  font-size:12.5px;line-height:1.65;color:var(--muted);margin-bottom:14px;display:flex;gap:11px}
+.cl-c{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:14px 17px;margin-bottom:11px}
+.cl-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:7px}
+.cl-n{font-size:15px;font-weight:600}
+/* La raison sociale accompagne le nom d'usage sans le concurrencer : elle ne
+   sert qu'aux documents contractuels, mais doit rester lisible d'un coup d'oeil
+   pour verifier qu'une convention nommera la bonne personne morale. */
+.cl-rs{font-size:11.5px;color:var(--muted);font-weight:400}
+.cl-m{font-size:10.5px;padding:2px 9px;border-radius:20px;font-weight:600;color:#fff}
+/* base.html colore TOUS les liens en accent sous mode sombre, et sa regle est
+   emise apres celle-ci : la pastille devenait bleue sur bleue. On reprend la
+   main avec une specificite superieure plutot qu'avec un style en dur. */
+html[data-sombre] a.cl-m{color:#fff}
+.cl-al{font-size:10.5px;padding:2px 9px;border-radius:20px;font-weight:600;
+  background:#fdf3e3;color:#8a5606;border:1px solid #f0dcb4}
+.cl-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:9px 20px;font-size:12.5px}
+.cl-l{color:var(--muted);font-size:11px}
+.cl-v{word-break:break-word}
+.cl-b{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.cl-btn{border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:8px;
+  padding:6px 13px;font-size:12.5px;font-family:inherit;cursor:pointer;text-decoration:none;
+  display:inline-flex;align-items:center;gap:6px}
+.cl-btn:hover{border-color:var(--border2)}
+.cl-vide{padding:36px 16px;text-align:center;color:var(--muted);font-size:13px;
+  background:var(--carte);border:1px solid var(--border);border-radius:12px}
+html[data-sombre] a.cl-btn{color:var(--text)}
+/* Consommation OPCO (palier 8). La jauge se lit d'un coup d'oeil ; le montant
+   reste ecrit en clair a cote, car une barre seule ne dit pas combien. */
+.cl-opco{margin:14px 0 0;padding:12px 14px;border:1px solid var(--border);
+  border-radius:10px;background:var(--bg)}
+.cl-opco-t{display:flex;justify-content:space-between;align-items:baseline;
+  gap:12px;font-size:13px;color:var(--muted)}
+.cl-opco-c{font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+.cl-jauge{height:8px;border-radius:99px;background:var(--border);margin:8px 0 6px;overflow:hidden}
+.cl-jauge-r{height:100%;border-radius:99px;background:#0f9e6a;transition:width .3s}
+.cl-opco-p{font-size:12px;color:var(--muted)}
+/* Depassement : la couleur ALERTE, elle n'informe pas seule — le texte dit de
+   combien. Un daltonien doit pouvoir lire l'information sans la teinte. */
+.cl-opco-rouge{border-color:#c2492f}
+.cl-opco-rouge .cl-jauge-r{background:#c2492f}
+.cl-opco-rouge .cl-opco-p{color:#c2492f;font-weight:600}
+.cl-pieces{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.cl-piece{display:inline-flex;align-items:center;gap:8px;padding:4px 10px;
+  border:1px solid var(--border);border-radius:99px;font-size:12px;
+  text-decoration:none;color:var(--text);background:var(--bg2)}
+.cl-piece:hover{border-color:var(--border2)}
+.cl-piece-n{font-weight:600;font-variant-numeric:tabular-nums}
+.cl-piece-d,.cl-piece-m{color:var(--muted)}
+.cl-piece-m{font-variant-numeric:tabular-nums}
+/* Mode sombre : la regle html[data-sombre] a{color:var(--accent)} l'emporte
+   sur .cl-piece (0,1,0). On repasse au-dessus avec la meme arme. */
+html[data-sombre] a.cl-piece{color:var(--text)}
+html[data-sombre] a.cl-piece .cl-piece-d,
+html[data-sombre] a.cl-piece .cl-piece-m{color:var(--muted)}
+html[data-sombre] .cl-jauge{background:var(--border2)}
+</style>
+
+<div class="cl-actions">
+  <button class="cl-gros" onclick="clEditer('')"><i class="ti ti-building-plus"></i>Nouveau client</button>
+</div>
+
+<div class="cl-chapeau">
+  <i class="ti ti-info-circle" style="font-size:16px;flex:none"></i>
+  <span>Un client est une <b>structure</b>, pas une personne : c'est elle qui achète la formation,
+  ses employés qui la suivent. Chaque client crée <b>son propre marqueur</b>, posable sur les fiches
+  de ses employés dans Bases de données.<br>
+  Supprimer un client <b>ne supprime jamais son marqueur</b> : il redevient un marqueur ordinaire,
+  et les employés qui le portent le gardent.</span>
+</div>
+
+{% for c in clients %}
+<div class="cl-c" id="cl-{{ c.id }}">
+  <div class="cl-h">
+    <span class="cl-n">{{ c.nom_usage or c.raison_sociale }}</span>
+    {% if c.raison_sociale and c.raison_sociale != (c.nom_usage or c.raison_sociale) %}
+    <span class="cl-rs" title="Raison sociale — reprise sur les conventions et les factures">{{ c.raison_sociale }}</span>
+    {% endif %}
+    <a class="cl-m" style="background:#4f7ef8"
+       href="/contacts?m={{ c.marqueur }}">{{ compte.get(c.marqueur, 0) }} employé{{ 's' if compte.get(c.marqueur, 0) > 1 }}</a>
+    {% if manques.get(c.id) %}
+    <span class="cl-al" title="Nécessaire pour éditer une convention et une facture">
+      incomplet : {{ manques[c.id]|join(', ') }}</span>
+    {% endif %}
+  </div>
+  <div class="cl-g">
+    {% for cle, libelle, _ in champs %}{% if c[cle] and cle not in ('raison_sociale', 'nom_usage') %}
+    <div><div class="cl-l">{{ libelle }}</div><div class="cl-v">{{ c[cle] }}</div></div>
+    {% endif %}{% endfor %}
+  </div>
+  {% set b = bilan.get(c.id) %}
+  {% if b and (b.plafond or b.nb_factures) %}
+  <div class="cl-opco{{ ' cl-opco-rouge' if b.depasse else '' }}">
+    <div class="cl-opco-t">
+      <span>Consommation OPCO {{ annee }}</span>
+      <span class="cl-opco-c">
+        {{ '{:,.0f}'.format(b.cumul).replace(',', ' ') }} €
+        {% if b.plafond %} / {{ '{:,.0f}'.format(b.plafond).replace(',', ' ') }} €{% endif %}
+      </span>
+    </div>
+    {% if b.plafond %}
+    <div class="cl-jauge"><div class="cl-jauge-r" style="width:{{ b.part }}%"></div></div>
+    <div class="cl-opco-p">
+      {% if b.depasse %}
+        Plafond dépassé de {{ '{:,.0f}'.format(b.cumul - b.plafond).replace(',', ' ') }} €
+      {% else %}
+        Reste {{ '{:,.0f}'.format(b.reste).replace(',', ' ') }} €
+      {% endif %}
+      · {{ b.nb_factures }} facture{{ 's' if b.nb_factures > 1 }}
+      · {{ b.nb_sessions }} session{{ 's' if b.nb_sessions > 1 }}
+    </div>
+    {% else %}
+    <div class="cl-opco-p">Aucun plafond renseigné · {{ b.nb_factures }} facture{{ 's' if b.nb_factures > 1 }}</div>
+    {% endif %}
+    {% if b.factures %}
+    <div class="cl-pieces">
+      {% for f in b.factures %}
+      <a class="cl-piece" href="{{ f.lien }}" target="_blank" rel="noopener">
+        <span class="cl-piece-n">{{ f.numero }}</span>
+        <span class="cl-piece-d">{{ f.date }}</span>
+        <span class="cl-piece-m">{{ '{:,.0f}'.format(f.total).replace(',', ' ') }} €</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+  <div class="cl-b">
+    <button class="cl-btn" onclick='clEditer({{ c|tojson }})'><i class="ti ti-pencil"></i>Modifier</button>
+    <a class="cl-btn" href="/contacts?m={{ c.marqueur }}"><i class="ti ti-users"></i>Voir ses employés</a>
+    <button class="cl-btn" onclick="clSupprimer('{{ c.id }}', '{{ (c.nom_usage or c.raison_sociale)|e }}')">
+      <i class="ti ti-trash"></i>Supprimer</button>
+  </div>
+</div>
+{% else %}
+<div class="cl-vide">
+  <i class="ti ti-building" style="font-size:24px"></i><br>
+  Aucun client pour l'instant.<br>
+  Créez-en un dès qu'un centre vous achète une formation pour ses employés.
+</div>
+{% endfor %}
+
+<script>
+var CL_CHAMPS = {{ champs|tojson }};
+var CL_CHOIX = {{ choix|tojson }};
+var CL_STRICT = {{ strict|tojson }};
+var CL_STYLE = 'width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:8px;'
+             + 'background:var(--bg);color:var(--text);font-size:13px;font-family:inherit';
+function clEch(v){ return String(v || "").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
+function clChamp(cle, libelle, obligatoire, valeur){
+  var h = '<div style="margin-bottom:9px"><div style="font-size:11px;color:var(--muted);margin-bottom:3px">'
+        + libelle + (obligatoire ? ' <span style="color:var(--danger)">*</span>' : '') + '</div>';
+  var options = CL_CHOIX[cle];
+  if(options){
+    // Menu deroulant, avec « Autre » qui ouvre un champ libre : les fonctions
+    // courantes se choisissent, les autres se saisissent.
+    var connue = options.indexOf(valeur) >= 0;
+    var vide = !valeur;
+    h += '<select id="cl_' + cle + '_choix" style="' + CL_STYLE + '" '
+       + 'onchange="clAutre(\'' + cle + '\')">';
+    h += '<option value=""' + (vide ? " selected" : "") + '>—</option>';
+    options.forEach(function(o){
+      h += '<option value="' + clEch(o) + '"' + (o === valeur ? " selected" : "") + '>' + clEch(o) + '</option>';
+    });
+    if(CL_STRICT.indexOf(cle) < 0){
+      h += '<option value="__autre"' + ((!connue && !vide) ? " selected" : "") + '>Autre…</option>';
+    }
+    h += '</select>';
+    var strict = CL_STRICT.indexOf(cle) >= 0;
+    h += '<input id="cl_' + cle + '" type="text" placeholder="Précisez" '
+       + 'value="' + clEch((connue || strict) ? "" : valeur) + '" style="' + CL_STYLE + ';margin-top:7px;'
+       + 'display:' + ((!connue && !vide && !strict) ? "block" : "none") + '">';
+  } else {
+    h += '<input id="cl_' + cle + '" type="text" value="' + clEch(valeur) + '" style="' + CL_STYLE + '">';
+  }
+  return h + '</div>';
+}
+function clAutre(cle){
+  var menu = document.getElementById("cl_" + cle + "_choix");
+  var libre = document.getElementById("cl_" + cle);
+  if(!menu || !libre) return;
+  var autre = menu.value === "__autre";
+  libre.style.display = autre ? "block" : "none";
+  if(autre){ libre.focus(); } else { libre.value = ""; }
+}
+function clValeur(cle){
+  var menu = document.getElementById("cl_" + cle + "_choix");
+  var libre = document.getElementById("cl_" + cle);
+  if(menu && menu.value !== "__autre"){ return menu.value; }
+  return libre ? libre.value : "";
+}
+function clEditer(fiche){
+  fiche = fiche || {};
+  var corps = "";
+  CL_CHAMPS.forEach(function(c){ corps += clChamp(c[0], c[1], c[2], fiche[c[0]] || ""); });
+  corps += '<p style="font-size:12px;color:var(--muted)">Seule la raison sociale est obligatoire. '
+    + 'Adresse, SIRET, représentant légal et sa fonction seront nécessaires pour <b>éditer</b> la '
+    + 'convention, et l\'adresse mail pour <b>l\'envoyer à signer</b> — vous pourrez les compléter '
+    + 'plus tard.</p>';
+  dfmFenetre({ton: "info", titre: fiche.id ? "Modifier le client" : "Nouveau client",
+    sous: fiche.id ? (fiche.nom_usage || fiche.raison_sociale) : "Un marqueur sera créé à son nom", corps: corps,
+    boutons: [{libelle: "Annuler", style: "neutre"},
+              {libelle: "Enregistrer", style: "primaire", garder: true, action: function(){
+      var fd = new FormData();
+      if(fiche.id) fd.append("id", fiche.id);
+      CL_CHAMPS.forEach(function(c){ fd.append(c[0], clValeur(c[0])); });
+      dfmFermer();
+      fetch("/clients/enregistrer", {method:"POST", body:fd}).then(function(r){return r.json()})
+      .then(function(j){
+        if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+        location.reload();
+      });
+    }}]});
+}
+function clSupprimer(id, nom){
+  dfmConfirmer({ton: "attention", titre: "Supprimer « " + nom + " » ?",
+    sous: "Le marqueur est conservé",
+    corps: "<p>La fiche du client est supprimée.</p>"
+         + "<p style=\"font-size:12.5px;color:var(--muted)\"><b>Son marqueur reste en place</b> et "
+         + "redevient un marqueur ordinaire. Les employés qui le portent le gardent — ils ont bien "
+         + "été formés par ce centre. À vous de le retirer, fiche par fiche, si vous le décidez.</p>",
+    valider: "Supprimer le client", styleValider: "attention", action: function(){
+      fetch("/clients/" + encodeURIComponent(id) + "/supprimer", {method:"POST"})
+      .then(function(r){return r.json()}).then(function(j){
+        if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+        location.reload();
+      });
+    }});
+}
+</script>
+{% endblock %}

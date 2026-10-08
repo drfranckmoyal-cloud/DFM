@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Récapitulatif — {{ r.nom }}</title>
+<style>
+@page{size:A4;margin:14mm}
+*{box-sizing:border-box}
+body{margin:0;background:#f4f5f8;color:#1a1d2e;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.55;font-size:13px}
+.page{max-width:780px;margin:0 auto;background:#fff;padding:36px 42px 50px}
+.entete{border-bottom:2px solid #1a1d2e;padding-bottom:15px;margin-bottom:22px}
+.org{font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:#6b7280}
+h1{font-size:22px;margin:9px 0 3px;font-weight:600}
+.sous{font-size:13.5px;color:#3d4250}
+.meta{display:flex;gap:22px;margin-top:12px;font-size:11.5px;color:#5b6172;flex-wrap:wrap}
+h2{font-size:11.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:#6b7280;margin:26px 0 12px;padding-bottom:5px;border-bottom:1px solid #e5e8f0}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.bloc{border:1px solid #e5e8f0;border-radius:8px;padding:15px 12px;text-align:center}
+.bloc-l{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px}
+.bloc-v{font-size:30px;font-weight:600;line-height:1.15;margin-top:4px;font-variant-numeric:tabular-nums}
+.vert{color:#0f9e6a}.rouge{color:#d03b3b}.bleu{color:#2a5fd6}.gris{color:#6b7280}
+.bien{background:#f0faf6;border-left:3px solid #0f9e6a;padding:11px 14px;font-size:12px;color:#0f6e56;margin-bottom:12px}
+.note{background:#f7f8fb;border-left:3px solid #d1d5e0;padding:11px 14px;font-size:11.5px;color:#5b6172;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+td{padding:7px 0;border-bottom:1px solid #eef0f5}
+.droite{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.q{border-left:3px solid #d1d5e0;padding:2px 0 2px 14px;margin-bottom:17px;page-break-inside:avoid}
+.q.juste{border-color:#0f9e6a}
+.q.faux{border-color:#d03b3b}
+.q-n{font-size:10px;color:#8a90a2;text-transform:uppercase;letter-spacing:.5px}
+.q-t{font-size:13.5px;font-weight:600;margin:3px 0 8px}
+.q-r{font-size:12.5px;margin-bottom:2px}
+.q-e{font-size:12px;color:#5b6172;font-style:italic;margin-top:5px}
+.pastille{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;margin-left:6px}
+.p-ok{background:#eafaf3;color:#0f9e6a}
+.p-ko{background:#fdeaea;color:#d03b3b}
+.p-new{background:#eef3fe;color:#2a5fd6}
+.pied{margin-top:30px;padding-top:13px;border-top:1px solid #e5e8f0;font-size:10px;color:#8a90a2;line-height:1.7}
+.imprimer{position:fixed;top:16px;right:16px;background:#4f7ef8;color:#fff;border:none;border-radius:8px;padding:11px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 3px 12px rgba(0,0,0,.18)}
+@media print{.imprimer{display:none}body{background:#fff}.page{padding:0;max-width:none}h2{page-break-after:avoid}}
+</style>
+</head>
+<body>
+<button class="imprimer" onclick="window.print()">Imprimer ou enregistrer en PDF</button>
+<div class="page">
+  <div class="entete">
+    <div class="org">{{ organisme }}{% if marque and marque != organisme %} · {{ marque }}{% endif %}</div>
+    <h1>Votre progression</h1>
+    <div class="sous">{{ r.titre or r.formation }}</div>
+    <div class="meta">
+      <span><b>Participant</b> {{ r.nom }}</span>
+      <span><b>Session</b> {{ r.date_texte }}</span>
+      <span><b>Édité le</b> {{ edite }}</span>
+    </div>
+  </div>
+  <div class="trio">
+    <div class="bloc"><div class="bloc-l">À l'entrée</div>
+      <div class="bloc-v gris">{{ r.score_init if r.score_init is not none else '—' }}{% if r.score_init is not none %} %{% endif %}</div></div>
+    <div class="bloc"><div class="bloc-l">En sortie</div>
+      <div class="bloc-v vert">{{ r.score_fin }} %</div></div>
+    <div class="bloc"><div class="bloc-l">Progression</div>
+      <div class="bloc-v bleu">{% if r.progression is not none %}{{ '+' if r.progression >= 0 }}{{ r.progression }}{% else %}—{% endif %}</div></div>
+  </div>
+  {% if r.gagnees %}
+  <div class="bien">Vous avez acquis <b>{{ r.gagnees }} notion{{ 's' if r.gagnees > 1 }}</b> au cours de la journée, et vous répondez juste à <b>{{ r.justes_fin }} question{{ 's' if r.justes_fin > 1 }} sur {{ r.total }}</b>.{% if r.perdues %} {{ r.perdues }} réponse{{ 's' if r.perdues > 1 }} juste{{ 's' if r.perdues > 1 }} à l'entrée {{ 'sont' if r.perdues > 1 else 'est' }} devenue{{ 's' if r.perdues > 1 }} fausse{{ 's' if r.perdues > 1 }} — cela arrive, et c'est souvent le signe d'une notion nuancée pendant la journée.{% endif %}</div>
+  {% endif %}
+  <div class="note">Ce document est personnel. Le seuil d'atteinte des objectifs est fixé à {{ r.seuil }} % : votre score de sortie {{ 'atteint ce seuil' if r.atteint else 'reste en dessous de ce seuil' }}. Il ne conditionne ni votre attestation ni votre participation, il sert à mesurer la progression.</div>
+  {% if r.objectifs %}
+  <h2>Par objectif pédagogique</h2>
+  <table>
+  {% for o in r.objectifs %}
+    <tr><td>{{ o.libelle }}</td>
+      <td class="droite">{% if o.init is not none and o.fin is not none %}{{ o.init }} % → <b>{{ o.fin }} %</b>{% if o.progression is not none %} <span class="{{ 'vert' if o.progression >= 0 else 'rouge' }}">({{ '+' if o.progression >= 0 }}{{ o.progression }})</span>{% endif %}{% else %}—{% endif %}</td></tr>
+  {% endfor %}
+  </table>
+  {% endif %}
+  <h2>Le corrigé commenté</h2>
+  {% for q in r.questions %}
+  <div class="q {{ 'juste' if q.fin_juste else 'faux' }}">
+    <div class="q-n">Question {{ loop.index }}{% if q.fin_juste %}<span class="pastille p-ok">juste</span>{% else %}<span class="pastille p-ko">à revoir</span>{% endif %}{% if q.fin_juste and not q.init_juste %}<span class="pastille p-new">acquis pendant la journée</span>{% endif %}</div>
+    <div class="q-t">{{ q.enonce }}</div>
+    {% if not q.fin_juste and q.fin_texte %}
+    <div class="q-r rouge">Votre réponse : {{ q.fin_texte }}</div>
+    {% endif %}
+    <div class="q-r vert">Réponse attendue : <b>{{ q.attendu_texte }}</b></div>
+    {% if q.explication %}
+    <div class="q-e">{{ q.explication }}</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+  <div class="pied">
+    Document édité le {{ edite }} depuis DFM · {{ organisme }}<br>
+    {{ formateur }}{% if marque %} · {{ marque }}{% endif %} — ce récapitulatif est remis à titre pédagogique et ne constitue pas une attestation de formation.
+  </div>
+</div>
+</body>
+</html>

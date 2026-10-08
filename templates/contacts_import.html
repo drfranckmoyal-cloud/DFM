@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+{% block titre %}Importer une liste{% endblock %}
+{% block entete %}Importer une liste{% endblock %}
+{% block sous_entete %}Rien n'est écrit avant votre validation{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" href="/contacts"><i class="ti ti-arrow-left"></i>Bases de données</a>
+{% endblock %}
+{% block corps %}
+<style>
+.im-e{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.im-t{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:11px;font-weight:600}
+.im-f{display:flex;align-items:center;gap:11px;padding:9px 12px;border:1px solid var(--border);
+  border-radius:9px;margin-bottom:7px;cursor:pointer;background:var(--bg)}
+.im-f:hover{border-color:var(--accent)}
+.im-f.on{border-color:var(--accent);background:var(--bg2)}
+.im-f-n{flex:1;font-size:13px;font-weight:500;word-break:break-all}
+.im-f-t{font-size:11.5px;color:var(--muted);flex:none}
+.im-vide{color:var(--muted);font-size:12.5px;line-height:1.6}
+.im-tab{width:100%;border-collapse:collapse;font-size:12.5px}
+.im-tab th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;
+  color:var(--muted);padding:0 9px 7px 0;font-weight:600}
+.im-tab td{padding:6px 9px 6px 0;border-top:1px solid var(--border);vertical-align:top}
+.im-tab select{padding:5px 8px;border:1px solid var(--border);border-radius:7px;background:var(--bg);
+  color:var(--text);font-size:12.5px;font-family:inherit;max-width:170px}
+.im-ex{font-size:11px;color:var(--muted);line-height:1.5;word-break:break-word}
+.im-r{font-size:11px;color:var(--muted);font-style:italic}
+.im-chif{display:flex;gap:20px;flex-wrap:wrap;margin:12px 0 4px}
+.im-c{min-width:88px}
+.im-c b{display:block;font-size:20px;font-weight:600;line-height:1.2}
+.im-c span{font-size:11px;color:var(--muted)}
+.im-m{border:1px solid var(--border);background:var(--bg);color:var(--muted);border-radius:20px;
+  padding:5px 13px;font-size:12px;cursor:pointer;font-family:inherit;margin:0 6px 6px 0}
+.im-m.on{background:var(--accent);border-color:transparent;color:#fff}
+.im-av{background:#fdf3e3;border:1px solid #f0dcb4;color:#8a5606;border-radius:9px;
+  padding:10px 13px;font-size:12px;line-height:1.6;margin-top:11px}
+.im-ko{background:#fdeaea;border:1px solid #f2cccc;color:#a33333;border-radius:9px;
+  padding:10px 13px;font-size:12.5px;line-height:1.6}
+.im-att{opacity:.45;pointer-events:none}
+.im-zone{border:2px dashed var(--border2);border-radius:12px;padding:26px 18px;text-align:center;
+  background:var(--bg);transition:all .15s;margin-bottom:14px}
+.im-zone.survol{border-color:var(--accent);background:var(--bg2)}
+.im-zone i{font-size:30px;color:var(--muted);display:block;margin-bottom:9px}
+.im-zone b{font-size:14px;display:block;margin-bottom:5px}
+.im-zone span{font-size:12px;color:var(--muted)}
+.im-gros{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border:none;
+  border-radius:9px;padding:11px 22px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;
+  margin:12px 0 4px}
+.im-gros:hover{filter:brightness(1.06)}
+</style>
+
+{% if not pret %}
+<div class="im-ko"><b>La base de contacts n'est pas prête.</b><br>{{ souci }}</div>
+{% else %}
+
+<div class="im-e">
+  <div class="im-t">1 · Le fichier</div>
+
+  <div class="im-zone" id="im_zone">
+    <i class="ti ti-cloud-upload"></i>
+    <b>Glissez votre fichier ici</b>
+    <span>ou choisissez-le sur votre ordinateur — .csv ou .xlsx, 25 Mo maximum</span><br>
+    <button class="im-gros" onclick="document.getElementById('im_input').click()">
+      <i class="ti ti-folder-open"></i>Choisir un fichier</button>
+    <input type="file" id="im_input" accept=".csv,.tsv,.txt,.xlsx" style="display:none"
+           onchange="imTeleverser(this.files[0])">
+    <div id="im_etat" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+  </div>
+
+  {% if fichiers %}
+  <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:4px 0 8px">
+    Ou reprendre un fichier déjà présent</div>
+  {% endif %}
+  {% if fichiers %}
+    {% for f in fichiers %}
+    <div class="im-f" onclick="imChoisir(this, '{{ f.nom|replace("'", "\\'") }}')">
+      <i class="ti ti-file-spreadsheet" style="font-size:17px;color:var(--muted)"></i>
+      <span class="im-f-n">{{ f.nom }}</span>
+      <span class="im-f-t">{{ f.taille }} Ko</span>
+    </div>
+    {% endfor %}
+  {% endif %}
+  <div class="im-r" style="margin-top:6px">Les .xls et .numbers ne sont pas lus : ouvrez-les et exportez en .xlsx.</div>
+</div>
+
+<div id="im_z2" style="display:none">
+  <div class="im-e">
+    <div class="im-t">2 · Ce que DFM a reconnu — corrigez si besoin</div>
+    <div id="im_detail" class="im-r" style="margin-bottom:10px"></div>
+    <table class="im-tab"><thead><tr>
+      <th style="width:26%">Colonne du fichier</th><th style="width:23%">Reconnue comme</th>
+      <th style="width:51%">Exemples et raison</th></tr></thead>
+      <tbody id="im_cols"></tbody></table>
+  </div>
+
+  <div class="im-e">
+    <div class="im-t">3 · Aperçu du résultat</div>
+    <table class="im-tab"><thead><tr>
+      <th>Nom (tel que saisi)</th><th>Prénom</th><th>Adresse mail</th><th>Téléphone</th><th>Ville</th>
+    </tr></thead><tbody id="im_ap"></tbody></table>
+    <div class="im-chif" id="im_chif"></div>
+    <div id="im_av"></div>
+  </div>
+
+  <div class="im-e">
+    <div class="im-t">4 · Marqueurs — facultatif</div>
+    <div id="im_marq">
+      {% for m in marqueurs %}
+      <button class="im-m" data-cle="{{ m.cle }}" onclick="this.classList.toggle('on')">{{ m.libelle }}</button>
+      {% endfor %}
+      <button class="im-m" onclick="imNouveau()"><i class="ti ti-plus"></i> Nouveau</button>
+    </div>
+    <div class="im-r" style="margin-top:9px">Choisissez un marqueur existant, créez-en un, ou n'en mettez
+      aucun — ces contacts seront alors de simples prospects. Un marqueur reste posable après coup,
+      depuis la liste ou depuis chaque fiche.</div>
+  </div>
+
+  <div style="display:flex;gap:9px;justify-content:flex-end;margin-bottom:22px">
+    <a class="btn btn-ghost" href="/contacts">Annuler</a>
+    <button class="btn" id="im_go" onclick="imExecuter(this)"><i class="ti ti-file-import"></i>Importer</button>
+  </div>
+</div>
+
+<div id="im_rap" style="display:none"></div>
+
+<script>
+var IM_FICHIER = "", IM_COLS = [], IM_LIB = {};
+(function(){
+  var z = document.getElementById("im_zone");
+  if(!z) return;
+  ["dragenter","dragover"].forEach(function(e){
+    z.addEventListener(e, function(ev){ ev.preventDefault(); z.classList.add("survol"); });
+  });
+  ["dragleave","drop"].forEach(function(e){
+    z.addEventListener(e, function(ev){ ev.preventDefault(); z.classList.remove("survol"); });
+  });
+  z.addEventListener("drop", function(ev){
+    if(ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files.length){
+      imTeleverser(ev.dataTransfer.files[0]);
+    }
+  });
+  // Sans ceci, laisser tomber le fichier a cote de la zone ferait quitter DFM
+  // pour ouvrir le fichier dans le navigateur.
+  ["dragover","drop"].forEach(function(e){
+    document.addEventListener(e, function(ev){ ev.preventDefault(); });
+  });
+})();
+function imTeleverser(fichier){
+  if(!fichier) return;
+  var etat = document.getElementById("im_etat");
+  etat.textContent = "Envoi de « " + fichier.name + " »…";
+  var fd = new FormData(); fd.append("fichier", fichier);
+  fetch("/contacts/import/televerser", {method:"POST", body:fd})
+  .then(function(r){return r.json()}).then(function(j){
+    if(!j.ok){ etat.textContent = ""; dfmInfo("Fichier refusé", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+    etat.textContent = j.nom + " · " + j.taille + " Ko — analyse en cours…";
+    imAnalyser(j.nom);
+  }).catch(function(e){ etat.textContent = ""; dfmInfo("Erreur", "<p>" + e.message + "</p>", "danger"); });
+}
+function imChoisir(el, nom){
+  var t = document.querySelectorAll(".im-f");
+  for(var i = 0; i < t.length; i++){ t[i].className = "im-f"; }
+  el.className = "im-f on";
+  imAnalyser(nom);
+}
+function imAnalyser(nom){
+  IM_FICHIER = nom;
+  var fd = new FormData(); fd.append("fichier", nom);
+  fetch("/contacts/import/analyser", {method:"POST", body:fd}).then(function(r){return r.json()})
+  .then(function(j){
+    if(!j.ok){ dfmInfo("Lecture impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+    IM_COLS = j.colonnes; IM_LIB = j.libelles;
+    document.getElementById("im_detail").textContent =
+      j.detail + (j.avec_entetes ? " · première ligne prise pour des en-têtes"
+                                 : " · aucun en-tête détecté, les colonnes sont numérotées");
+    imDessinerColonnes();
+    imPoser(j.apercu, j.bilan, j.retenus);
+    document.getElementById("im_z2").style.display = "";
+    document.getElementById("im_z2").scrollIntoView({behavior: "smooth", block: "start"});
+  });
+}
+function imDessinerColonnes(){
+  var h = "";
+  IM_COLS.forEach(function(c, k){
+    h += '<tr><td><b>' + imEch(c.titre) + '</b><div class="im-ex">'
+       + c.remplies + '/' + c.vues + ' remplies</div></td><td><select onchange="imChanger(' + k + ', this.value)">';
+    ["mail","telephone","nom","prenom","ville","ignore"].forEach(function(v){
+      h += '<option value="' + v + '"' + (v === c.champ ? " selected" : "") + '>' + IM_LIB[v] + '</option>';
+    });
+    h += '</select>';
+    h += '</td><td><div class="im-ex">' + imEch((c.exemples || []).join("  ·  ")) + '</div>'
+       + '<div class="im-r">' + imEch(c.raison || "") + '</div></td></tr>';
+  });
+  document.getElementById("im_cols").innerHTML = h;
+}
+function imEch(t){
+  return String(t == null ? "" : t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function imChanger(k, v){ IM_COLS[k].champ = v; imDessinerColonnes(); imRecalculer(); }
+function imPlan(){
+  return JSON.stringify(IM_COLS.map(function(c){
+    return {index: c.index, champ: c.champ};
+  }));
+}
+function imRecalculer(){
+  var z = document.getElementById("im_z2"); z.className = "im-att";
+  var fd = new FormData(); fd.append("fichier", IM_FICHIER); fd.append("plan", imPlan());
+  fetch("/contacts/import/recalculer", {method:"POST", body:fd}).then(function(r){return r.json()})
+  .then(function(j){ z.className = ""; if(j.ok){ imPoser(j.apercu, j.bilan, j.retenus); } });
+}
+function imPoser(apercu, bilan, retenus){
+  var h = "";
+  apercu.forEach(function(f){
+    var sansNom = !f.nom && !f.prenom;
+    h += "<tr><td>" + (sansNom ? '<span style="color:var(--muted);font-weight:600">SNC</span>' : imEch(f.nom))
+       + "</td><td>" + imEch(f.prenom) + "</td><td>" + imEch(f.mail)
+       + "</td><td>" + imEch(f.telephone) + "</td><td>" + imEch(f.ville) + "</td></tr>";
+  });
+  document.getElementById("im_ap").innerHTML = h || '<tr><td colspan="5" class="im-r">Aucune ligne exploitable.</td></tr>';
+  document.getElementById("im_chif").innerHTML =
+      imChif(bilan.lues, "lignes lues") + imChif(retenus, "contacts")
+    + imChif(bilan.avec_mail, "avec adresse") + imChif(bilan.avec_tel, "avec téléphone")
+    + imChif(bilan.sans_nom, "sans nom (SNC)");
+  var av = "";
+  if(bilan.doublons_internes){
+    av += "<b>" + bilan.doublons_internes + " doublon(s) à l'intérieur du fichier</b> — "
+       + "mêmes personnes sur plusieurs lignes, fondues en une seule fiche.<br>";
+  }
+  if(bilan.ecartees && bilan.ecartees.length){
+    av += "<b>" + bilan.ecartees.length + " ligne(s) écartée(s)</b> — ni adresse mail ni téléphone, "
+       + "donc aucun moyen de rapprocher ni de contacter.";
+  }
+  document.getElementById("im_av").innerHTML = av ? '<div class="im-av">' + av + '</div>' : "";
+  document.getElementById("im_go").innerHTML =
+    '<i class="ti ti-file-import"></i>Importer les ' + retenus + ' contacts';
+}
+function imChif(n, t){
+  return '<div class="im-c"><b>' + n + '</b><span>' + t + '</span></div>';
+}
+function imMarqueurs(){
+  return Array.prototype.slice.call(document.querySelectorAll("#im_marq .im-m.on"))
+    .map(function(b){ return b.getAttribute("data-cle"); }).filter(Boolean);
+}
+function imNouveau(){
+  dfmFenetre({titre: "Nouveau marqueur", sous: "Il sera appliqué à tout l'import",
+    corps: '<input id="im_lib" type="text" placeholder="Congrès ADF 2026" '
+         + 'style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;'
+         + 'background:var(--bg);color:var(--text);font-size:13px;font-family:inherit">',
+    boutons: [{libelle: "Annuler", style: "neutre"},
+              {libelle: "Créer", style: "primaire", garder: true, action: function(){
+      var v = (document.getElementById("im_lib") || {}).value || "";
+      if(!v.trim()){ dfmFermer(); return; }
+      dfmFermer();
+      var fd = new FormData(); fd.append("action", "creer"); fd.append("libelle", v);
+      fetch("/contacts/marqueur", {method:"POST", body:fd}).then(function(r){return r.json()})
+      .then(function(j){
+        if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+        location.reload();
+      });
+    }}]});
+}
+function imExecuter(bouton){
+  var marq = imMarqueurs();
+  var corps = "<p>Les contacts vont être ajoutés à votre base.</p>"
+    + "<p style=\"font-size:12.5px;color:var(--muted)\">Un contact déjà connu ne sera pas créé deux fois : "
+    + "seules ses informations manquantes seront complétées, jamais remplacées. "
+    + (marq.length ? "Les marqueurs choisis seront ajoutés à tous."
+                   : "Aucun marqueur n'est sélectionné : ces contacts entreront comme simples prospects. "
+                   + "Vous pourrez leur en poser un plus tard.")
+    + "</p><p style=\"font-size:12.5px;color:var(--muted)\">L'import restera annulable depuis le compte rendu.</p>";
+  dfmConfirmer({ton: "info", titre: "Importer maintenant ?", sous: IM_FICHIER, corps: corps,
+    valider: "Importer", styleValider: "primaire", action: function(){
+      bouton.disabled = true; bouton.innerHTML = "Import en cours…";
+      var fd = new FormData();
+      fd.append("fichier", IM_FICHIER); fd.append("plan", imPlan());
+      fd.append("marqueurs", marq.join(","));
+      fetch("/contacts/import/executer", {method:"POST", body:fd}).then(function(r){return r.json()})
+      .then(function(j){
+        bouton.disabled = false;
+        if(!j.ok){ dfmInfo("Import impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+        imRapport(j);
+      });
+    }});
+}
+function imRapport(j){
+  document.getElementById("im_z2").style.display = "none";
+  var h = '<div class="im-e"><div class="im-t">Import terminé · ' + imEch(j.fichier) + '</div>';
+  h += '<div class="im-chif">' + imChif(j.crees, "créés") + imChif(j.completes, "déjà connus, complétés")
+     + imChif(j.inchanges, "déjà connus, inchangés")
+     + imChif((j.divergences || []).length, "informations divergentes") + '</div>';
+  if(j.divergences && j.divergences.length){
+    h += '<div class="im-av"><b>Ces informations diffèrent de ce que vous aviez déjà.</b> '
+       + 'Rien n\'a été remplacé — c\'est à vous de trancher.<table class="im-tab" style="margin-top:8px">';
+    j.divergences.slice(0, 40).forEach(function(d){
+      h += '<tr><td>' + imEch(d.qui) + '</td><td>' + imEch(d.champ) + '</td><td>connu : <b>'
+         + imEch(d.connu) + '</b></td><td>fichier : <b>' + imEch(d.fichier) + '</b></td></tr>';
+    });
+    h += '</table></div>';
+  }
+  if(j.ecartees && j.ecartees.length){
+    h += '<div class="im-av"><b>' + j.ecartees.length + ' ligne(s) écartée(s)</b><br>';
+    j.ecartees.slice(0, 12).forEach(function(e){
+      h += 'ligne ' + e.ligne + ' — ' + imEch(e.motif) + ' : ' + imEch(e.apercu) + '<br>';
+    });
+    h += '</div>';
+  }
+  h += '<div style="display:flex;gap:9px;margin-top:16px">'
+     + '<a class="btn" href="/contacts">Voir la base</a>'
+     + '<button class="btn btn-ghost" onclick="imAnnuler(\'' + j.lot + '\', this)">'
+     + '<i class="ti ti-arrow-back-up"></i>Annuler cet import</button></div></div>';
+  var z = document.getElementById("im_rap");
+  z.innerHTML = h; z.style.display = "";
+  window.scrollTo(0, 0);
+}
+function imAnnuler(lot, bouton){
+  dfmConfirmer({titre: "Annuler cet import ?",
+    sous: "Les fiches créées par cet import seront supprimées",
+    corps: "<p>Les contacts <b>créés</b> par cet import seront retirés de la base.</p>"
+         + "<p style=\"font-size:12.5px;color:var(--muted)\">Les fiches qui existaient déjà et que "
+         + "l'import a complétées ne sont pas défaites : elles n'ont reçu que des informations qui "
+         + "leur manquaient.</p>",
+    valider: "Annuler l'import", styleValider: "attention", action: function(){
+      bouton.disabled = true;
+      var fd = new FormData(); fd.append("lot", lot);
+      fetch("/contacts/import/annuler", {method:"POST", body:fd}).then(function(r){return r.json()})
+      .then(function(j){
+        if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+        dfmInfo("Import annulé", "<p><b>" + j.retirees + "</b> fiche(s) retirée(s).</p>");
+        setTimeout(function(){ location.href = "/contacts"; }, 1300);
+      });
+    }});
+}
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,196 @@
+{#
+  ATTESTATION DE FIN DE FORMATION — article L.6353-1 du code du travail.
+
+  Ce modele remplace les presentations Slides, une par formation, dont le titre
+  etait ecrit en dur : c'etait la seule raison de leur multiplication.
+
+  IL SUIT LE MODELE OFFICIEL diffuse par les DEETS. L'ordre des rubriques, les
+  six categories d'action et la grille d'evaluation en sont repris tels quels —
+  un auditeur qui connait ce document doit le reconnaitre.
+
+  LES QUATRE MENTIONS EXIGEES par l'article L.6353-1 sont nommees et reperables :
+  les objectifs, la nature, la duree, et les resultats de l'evaluation des
+  acquis. Les trois dernieres manquaient au certificat precedent.
+#}<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Attestation — {{ a.nom_prenom }}</title>
+<style>
+  @page { size: A4 portrait; margin: 14mm 15mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+         color: #16191f; font-size: 10.5pt; line-height: 1.5; }
+
+  .entete { display: flex; align-items: flex-start; gap: 16px;
+            border-bottom: 2px solid #16191f; padding-bottom: 10px; margin-bottom: 14px; }
+  .logo { max-height: 46px; max-width: 150px; flex: none; }
+  .of { flex: 1; min-width: 0; font-size: 8.6pt; line-height: 1.45; color: #3d4250; }
+  .of b { font-size: 11pt; color: #16191f; display: block; margin-bottom: 2px; }
+  .ref { text-align: right; font-size: 8pt; color: #6b7280; flex: none; line-height: 1.5; }
+
+  h1 { font-size: 15pt; text-align: center; letter-spacing: .5px; margin: 0 0 2px; }
+  .loi { text-align: center; font-size: 8.4pt; color: #6b7280; margin-bottom: 14px; }
+
+  .certifie { background: #f6f8fc; border-left: 3px solid #16191f; padding: 9px 13px;
+              margin-bottom: 12px; font-size: 10pt; line-height: 1.55; }
+  .qui { font-size: 13pt; font-weight: 600; text-align: center; margin: 4px 0 12px; }
+
+  h2 { font-size: 8.4pt; text-transform: uppercase; letter-spacing: 1px; color: #6b7280;
+       margin: 11px 0 5px; padding-bottom: 3px; border-bottom: 1px solid #dfe3ec; }
+  .l { display: grid; grid-template-columns: 138px 1fr; gap: 3px 12px; font-size: 10pt; }
+  .l dt { color: #5b6172; }
+  .l dd { margin: 0; }
+  dl { margin: 0; }
+
+  .cat { list-style: none; padding: 0; margin: 2px 0 0;
+         columns: 2; column-gap: 22px; font-size: 9.6pt; }
+  .cat li { margin-bottom: 2px; break-inside: avoid; color: #6b7280; }
+  .cat li.on { color: #16191f; font-weight: 600; }
+  .case { display: inline-block; width: 9px; height: 9px; border: 1px solid #8a90a2;
+          margin-right: 6px; vertical-align: -1px; }
+  .cat li.on .case { background: #16191f; border-color: #16191f;
+                     box-shadow: inset 0 0 0 1.5px #fff; }
+
+  .jours { margin: 3px 0 0; padding-left: 15px; font-size: 9.6pt; }
+  .jours li { margin-bottom: 1px; }
+
+  .expl { font-size: 8.6pt; color: #5b6172; line-height: 1.45; margin: 3px 0 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 9.6pt; }
+  th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: .6px;
+       color: #6b7280; font-weight: 600; padding: 5px 8px 5px 0;
+       border-bottom: 1px solid #16191f; }
+  th.c { text-align: center; width: 96px; padding: 5px 4px; }
+  td { padding: 5px 8px 5px 0; border-bottom: 1px solid #eef0f5; vertical-align: top; }
+  td.c { text-align: center; padding: 5px 4px; }
+  tr:last-child td { border-bottom: none; }
+  .obj-c { font-weight: 600; color: #6b7280; margin-right: 5px; }
+
+  .score { margin-top: 8px; font-size: 9.6pt; background: #f6f8fc; border-radius: 6px;
+           padding: 7px 12px; }
+  .score b { font-size: 11pt; }
+  .sans { font-size: 9pt; color: #8a5606; background: #fdf6ec; border: 1px solid #f0dcb4;
+          border-radius: 6px; padding: 7px 11px; line-height: 1.45; margin-top: 8px; }
+
+  .pied { display: flex; justify-content: space-between; align-items: flex-end;
+          gap: 30px; margin-top: 14px; padding-top: 10px; border-top: 1px solid #dfe3ec; }
+  .fait { font-size: 9.6pt; }
+  .sign { text-align: center; font-size: 9.6pt; min-width: 220px; }
+  .sign .nom { font-weight: 600; margin-top: 2px; }
+  .sign .q { color: #6b7280; font-size: 8.6pt; }
+  .sign img { max-height: 52px; margin: 2px 0; }
+  .mentions { margin-top: 10px; font-size: 7.6pt; color: #8a90a2; line-height: 1.5;
+              text-align: justify; }
+  /* Le pied et les mentions ne se separent JAMAIS du document : une attestation
+     dont la signature part seule sur une deuxieme page n'est pas presentable. */
+  .pied, .mentions { break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<div class="entete">
+  {% if a.logo %}<img class="logo" src="{{ a.logo }}" alt="{{ a.marque }}">{% endif %}
+  <div class="of">
+    <b>{{ a.marque }}</b>
+    {{ a.organisme }}{% if a.adresse_organisme %} — {{ a.adresse_organisme }}{% endif %}<br>
+    {% if a.siret %}SIRET {{ a.siret }}{% endif %}
+    {% if a.numero_declaration %} · Déclaration d'activité {{ a.numero_declaration }}{% endif %}
+    {% if a.mail_contact %}<br>{{ a.mail_contact }}{% endif %}
+    {% if a.telephone %} · {{ a.telephone }}{% endif %}
+  </div>
+  <div class="ref">N° {{ a.numero }}<br>Éditée le {{ a.date_du_jour }}</div>
+</div>
+
+<h1>ATTESTATION DE FIN DE FORMATION</h1>
+<div class="loi">Article L.6353-1 du code du travail</div>
+
+<div class="certifie">
+  <b>{{ a.marque }}</b> certifie par la présente attestation que la personne
+  ci-dessous dénommée a bien suivi la formation décrite, conformément aux
+  dispositions de l'article L.6353-1 du code du travail.
+</div>
+
+<div class="qui">{{ a.civilite }}{% if a.civilite %} {% endif %}{{ a.nom_prenom }}</div>
+
+<h2>L'action de formation</h2>
+<dl class="l">
+  <dt>Intitulé</dt><dd><b>{{ a.titre_formation }}</b></dd>
+  {% if a.public %}<dt>Public visé</dt><dd>{{ a.public }}</dd>{% endif %}
+  <dt>Lieu de formation</dt><dd>{{ a.lieu or "—" }}</dd>
+  <dt>Dates</dt><dd>{{ a.dates }}</dd>
+  <dt>Début / fin</dt><dd>{{ a.date_debut }} — {{ a.date_fin }}</dd>
+  <dt>Durée</dt><dd><b>{{ a.duree }}</b>{% if a.nb_jours %}, soit {{ a.nb_jours }} journée{{ 's' if a.nb_jours > 1 }}{% endif %}</dd>
+</dl>
+{% if a.jours|length > 1 %}
+<ul class="jours">
+  {% for j in a.jours %}<li>{{ j }}</li>{% endfor %}
+</ul>
+{% endif %}
+
+<h2>Nature de l'action</h2>
+<div class="expl">L'action entre dans l'une des catégories prévues aux articles
+  L.6313-1 et L.6314-1 du code du travail&nbsp;:</div>
+<ul class="cat">
+  {% for cle, libelle in a.categories %}
+  <li class="{{ 'on' if cle == a.nature }}"><span class="case"></span>{{ libelle }}</li>
+  {% endfor %}
+</ul>
+
+<h2>Objectifs et résultats de l'évaluation des acquis</h2>
+{% if a.objectifs %}
+<div class="expl">Au regard de chaque objectif, les connaissances et compétences du
+  stagiaire sont évaluées à l'appui des questionnaires d'entrée et de sortie
+  corrigés par l'organisme. Le seuil d'acquisition est fixé à {{ a.seuil }}&nbsp;%.</div>
+<table>
+  <thead>
+    <tr><th>Objectifs de la formation</th>
+      <th class="c">Acquises</th><th class="c">En cours<br>d'acquisition</th><th class="c">À acquérir</th></tr>
+  </thead>
+  <tbody>
+    {% for o in a.objectifs %}
+    <tr>
+      <td>{% if o.cle %}<span class="obj-c">{{ o.cle }}</span>{% endif %}{{ o.libelle }}</td>
+      <td class="c"><span class="case" style="{{ 'background:#16191f;border-color:#16191f;box-shadow:inset 0 0 0 1.5px #fff' if o.etat == 'acquis' }}"></span></td>
+      <td class="c"><span class="case" style="{{ 'background:#16191f;border-color:#16191f;box-shadow:inset 0 0 0 1.5px #fff' if o.etat == 'en_cours' }}"></span></td>
+      <td class="c"><span class="case" style="{{ 'background:#16191f;border-color:#16191f;box-shadow:inset 0 0 0 1.5px #fff' if o.etat == 'a_acquerir' }}"></span></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if a.score_fin is not none %}
+<div class="score">Résultat global à l'évaluation de sortie&nbsp;: <b>{{ a.score_fin }} %</b>
+  {%- if a.score_init is not none %} — évaluation d'entrée&nbsp;: {{ a.score_init }} %,
+  progression de {{ '+' if a.progression >= 0 }}{{ a.progression }} points{% endif %}.</div>
+{% else %}
+{# Des cases toutes vides se lisent « rien n'est acquis ». Il faut DIRE que
+   l'evaluation n'a pas eu lieu, sinon le document accuse le beneficiaire. #}
+<div class="sans">Évaluation de sortie non enregistrée pour cette personne&nbsp;: les cases
+  ci-dessus sont vides faute de résultat, et non parce que les objectifs ne seraient pas
+  atteints. Relevez le questionnaire de fin avant de remettre cette attestation.</div>
+{% endif %}
+{% else %}
+<div class="sans">Aucun objectif n'est déclaré pour cette formation, ou aucune évaluation
+  n'a été enregistrée pour cette personne. L'article L.6353-1 exige que l'attestation
+  mentionne les objectifs et les résultats de l'évaluation des acquis&nbsp;: complétez la
+  fiche de formation et relevez les questionnaires avant de délivrer ce document.</div>
+{% endif %}
+
+<div class="pied">
+  <div class="fait">Fait à {{ a.ville_of }}, le {{ a.date_du_jour }}.</div>
+  <div class="sign">
+    {% if a.signature %}<img src="{{ a.signature }}" alt="">{% endif %}
+    <div class="nom">{{ a.formateur }}</div>
+    <div class="q">{{ a.qualite_signataire }}</div>
+  </div>
+</div>
+
+<div class="mentions">
+  Cette attestation est délivrée au bénéficiaire à l'issue de l'action de formation.
+  Elle ne vaut pas certification professionnelle et n'ouvre droit à aucune inscription
+  au répertoire national des certifications professionnelles ni au répertoire spécifique.
+  {% if a.numero_declaration %}L'enregistrement de la déclaration d'activité ne vaut pas
+  agrément de l'État.{% endif %}
+</div>
+
+</body>
+</html>

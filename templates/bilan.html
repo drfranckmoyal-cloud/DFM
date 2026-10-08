@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>{{ d.titre }} — {{ d.sous }}</title>
+<style>
+@page{size:A4;margin:13mm}
+*{box-sizing:border-box}
+body{margin:0;background:#f4f5f8;color:#1a1d2e;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.5;font-size:12.5px}
+.page{max-width:840px;margin:0 auto;background:#fff;padding:36px 42px 52px}
+.entete{border-bottom:2px solid #1a1d2e;padding-bottom:15px;margin-bottom:22px}
+.org{font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:#6b7280}
+h1{font-size:23px;margin:9px 0 3px;font-weight:600}
+.sous{font-size:14px;color:#3d4250}
+.meta{display:flex;gap:22px;margin-top:13px;font-size:11.5px;color:#5b6172;flex-wrap:wrap}
+h2{font-size:11.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:#6b7280;margin:26px 0 11px;padding-bottom:5px;border-bottom:1px solid #e5e8f0}
+h3{font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#8a90a2;margin:16px 0 8px}
+.grille{display:grid;gap:9px;margin-bottom:9px}
+.g6{grid-template-columns:repeat(6,1fr)}
+.g5{grid-template-columns:repeat(5,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g2{grid-template-columns:1fr 1fr}
+.bloc{border:1px solid #e5e8f0;border-radius:7px;padding:11px 12px}
+.bloc-l{font-size:9.5px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;line-height:1.3}
+.bloc-v{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.bloc-s{font-size:9.5px;color:#8a90a2;margin-top:3px}
+.vert{color:#0f9e6a}.rouge{color:#d03b3b}.bleu{color:#2a5fd6}.orange{color:#d4890a}.violet{color:#7c5bf7}
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:8px}
+th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:#6b7280;font-weight:600;padding:6px 8px;border-bottom:1px solid #d1d5e0}
+td{padding:6px 8px;border-bottom:1px solid #eef0f5}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.piste{height:7px;background:#e5e8f0;border-radius:4px;overflow:hidden;margin-top:4px}
+.piste div{height:100%;border-radius:4px}
+.obj{border:1px solid #e5e8f0;border-radius:7px;padding:12px 14px;margin-bottom:8px}
+.obj-t{font-size:12px;font-weight:600;margin-bottom:8px}
+.note{background:#f7f8fb;border-left:3px solid #d1d5e0;padding:10px 13px;font-size:11px;color:#5b6172;margin-bottom:11px}
+.alerte{background:#fdf7ec;border-left:3px solid #d4890a;padding:10px 13px;font-size:11px;color:#8a5a06;margin-bottom:11px}
+.bien{background:#f0faf6;border-left:3px solid #0f9e6a;padding:10px 13px;font-size:11px;color:#0f6e56;margin-bottom:11px}
+.verb{background:#f7f8fb;border-radius:6px;padding:10px 12px;margin-bottom:7px;font-size:11.5px}
+.verb-q{font-size:9.5px;color:#6b7280;margin-bottom:3px;text-transform:uppercase;letter-spacing:.3px}
+.plan{border:1px dashed #b9bfcc;border-radius:7px;padding:13px}
+.plan-l{border-bottom:1px solid #e5e8f0;height:25px}
+.pied{margin-top:28px;padding-top:13px;border-top:1px solid #e5e8f0;font-size:10px;color:#8a90a2;line-height:1.7}
+.imprimer{position:fixed;top:16px;right:16px;background:#4f7ef8;color:#fff;border:none;border-radius:8px;padding:11px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 3px 12px rgba(0,0,0,.18);z-index:9}
+.carte-g{border:1px solid #e5e8f0;border-radius:7px;padding:14px;text-align:center}
+.carte-g-t{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;margin-bottom:8px}
+.legende{display:flex;flex-direction:column;gap:4px;margin-top:8px;font-size:10px;text-align:left}
+.legende span{display:flex;align-items:center;gap:6px}
+.puce{width:9px;height:9px;border-radius:2px;flex:none}
+.cols{display:flex;align-items:flex-end;gap:7px;height:150px;padding:10px 5px 0;border-bottom:1px solid #d1d5e0;margin-bottom:6px}
+.col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
+.col-v{font-size:9.5px;font-weight:600;margin-bottom:3px;font-variant-numeric:tabular-nums}
+.col-b{width:100%;max-width:48px;border-radius:3px 3px 0 0;min-height:3px}
+.duo-b{display:flex;gap:3px;width:100%;max-width:54px;align-items:flex-end;height:100%}
+.duo-b div{flex:1;border-radius:3px 3px 0 0;min-height:3px}
+.col-etiq{display:flex;gap:7px;padding:0 5px}
+.col-l{flex:1;text-align:center;font-size:9.5px;color:#6b7280;word-break:break-word;line-height:1.25}
+.satis-l{display:flex;align-items:center;gap:11px;margin-bottom:7px;font-size:11px}
+.satis-t{flex:1}
+.satis-p{width:140px;height:8px;background:#e5e8f0;border-radius:4px;overflow:hidden;flex:none}
+.satis-p div{height:100%;border-radius:4px}
+.satis-n{width:32px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;flex:none}
+.saut{page-break-before:always}
+.qualiopi{border:1px solid #e5e8f0;border-radius:7px;overflow:hidden}
+.qualiopi-l{display:flex;gap:12px;padding:9px 13px;border-bottom:1px solid #eef0f5;font-size:11px}
+.qualiopi-l:last-child{border-bottom:none}
+.qualiopi-n{font-weight:700;color:#2a5fd6;flex:none;width:56px}
+@media print{.imprimer{display:none}body{background:#fff}.page{padding:0;max-width:none}h2{page-break-after:avoid}.obj,.bloc,.verb,.carte-g{page-break-inside:avoid}}
+</style>
+</head>
+<body>
+<button class="imprimer" onclick="window.print()">Imprimer ou enregistrer en PDF</button>
+<div class="page">
+  <div class="entete">
+    <div class="org">{{ organisme }}{% if marque and marque != organisme %} · {{ marque }}{% endif %}</div>
+    <h1>{{ d.titre }}</h1>
+    <div class="sous">{{ d.sous }}</div>
+    <div class="meta">
+      <span><b>Périmètre</b> {{ d.contexte }}</span>
+      <span><b>Formateur</b> {{ formateur }}</span>
+      <span><b>Référence</b> {{ d.reference }}</span>
+      <span><b>Édité le</b> {{ d.edite }}</span>
+    </div>
+  </div>
+  <h2>Chiffres clés</h2>
+  <div class="grille g6">
+    <div class="bloc"><div class="bloc-l">Inscrits</div><div class="bloc-v">{{ d.synth.participants }}</div>
+      <div class="bloc-s">{{ d.praticiens }} praticien{{ 's' if d.praticiens > 1 }} distinct{{ 's' if d.praticiens > 1 }}</div></div>
+    <div class="bloc"><div class="bloc-l">Sessions</div><div class="bloc-v">{{ d.synth.sessions }}</div>
+      <div class="bloc-s">{{ d.formations|length }} formation{{ 's' if d.formations|length > 1 }}</div></div>
+    <div class="bloc"><div class="bloc-l">Score entrée</div>
+      <div class="bloc-v">{{ d.synth.moy_init if d.synth.moy_init is not none else '—' }}{% if d.synth.moy_init is not none %} %{% endif %}</div>
+      <div class="bloc-s">{{ d.synth.nb_init }} évaluation{{ 's' if d.synth.nb_init > 1 }}</div></div>
+    <div class="bloc"><div class="bloc-l">Score sortie</div>
+      <div class="bloc-v vert">{{ d.synth.moy_fin if d.synth.moy_fin is not none else '—' }}{% if d.synth.moy_fin is not none %} %{% endif %}</div>
+      <div class="bloc-s">{{ d.synth.nb_fin }} évaluation{{ 's' if d.synth.nb_fin > 1 }}</div></div>
+    <div class="bloc"><div class="bloc-l">Progression</div>
+      <div class="bloc-v bleu">{% if d.synth.progression is not none %}{{ '+' if d.synth.progression >= 0 }}{{ d.synth.progression }}{% else %}—{% endif %}</div>
+      <div class="bloc-s">points de pourcentage</div></div>
+    <div class="bloc"><div class="bloc-l">Objectifs atteints</div>
+      <div class="bloc-v">{% if d.synth.taux_atteinte is not none %}{{ d.synth.taux_atteinte }} %{% else %}—{% endif %}</div>
+      <div class="bloc-s">seuil {{ d.seuil }} %</div></div>
+  </div>
+  <div class="grille g5">
+    <div class="bloc"><div class="bloc-l">Satisfaction</div>
+      <div class="bloc-v orange">{{ d.synth.moy_satis if d.synth.moy_satis is not none else '—' }}{% if d.synth.moy_satis is not none %}/5{% endif %}</div>
+      <div class="bloc-s">{{ d.synth.nb_satis }} réponse{{ 's' if d.synth.nb_satis > 1 }}</div></div>
+    <div class="bloc"><div class="bloc-l">Recommandation</div>
+      <div class="bloc-v violet">{{ d.sat.reco_moyenne if d.sat.reco_moyenne is not none else '—' }}{% if d.sat.reco_moyenne is not none %}/10{% endif %}</div>
+      <div class="bloc-s">{% if d.sat.nps is not none %}indice net {{ d.sat.nps }}{% else %}non mesuré{% endif %}</div></div>
+    <div class="bloc"><div class="bloc-l">Ont progressé</div>
+      <div class="bloc-v vert">{{ d.progresses }}</div>
+      <div class="bloc-s">{{ d.stables }} stable{{ 's' if d.stables > 1 }} · {{ d.regresses }} en recul</div></div>
+    <div class="bloc"><div class="bloc-l">Taux de réponse</div>
+      <div class="bloc-v">{% if d.synth.participants %}{{ (100 * d.synth.nb_fin / d.synth.participants)|round|int }} %{% else %}—{% endif %}</div>
+      <div class="bloc-s">évaluation de sortie</div></div>
+    <div class="bloc"><div class="bloc-l">Verbatims</div>
+      <div class="bloc-v">{{ d.sat.verbatims|length }}</div>
+      <div class="bloc-s">commentaires libres</div></div>
+  </div>
+  <div class="note">
+    Le processus d'évaluation repose sur un questionnaire identique administré à l'entrée et en fin de formation,
+    dont chaque question est rattachée à un objectif pédagogique annoncé dans le programme. La comparaison des deux
+    passages mesure la progression réelle des acquis. Le seuil d'atteinte des objectifs est fixé à {{ d.seuil }} %.
+  </div>
+  <h2>Dispersion des résultats</h2>
+  <table>
+    <thead><tr><th>Indicateur</th><th class="num">Effectif</th><th class="num">Minimum</th><th class="num">Médiane</th>
+      <th class="num">Moyenne</th><th class="num">Maximum</th><th class="num">Écart-type</th></tr></thead>
+    <tbody>
+    {% for nom, st, unite in [("Score à l'entrée", d.stats_init, "%"), ("Score en sortie", d.stats_fin, "%"), ("Progression individuelle", d.stats_prog, "pts"), ("Satisfaction individuelle", d.stats_satis, "/5")] %}
+      <tr><td><b>{{ nom }}</b></td>
+        {% if st %}
+        <td class="num">{{ st.n }}</td><td class="num">{{ st.min }} {{ unite }}</td><td class="num">{{ st.mediane }} {{ unite }}</td>
+        <td class="num"><b>{{ st.moy }} {{ unite }}</b></td><td class="num">{{ st.max }} {{ unite }}</td><td class="num">{{ st.ecart }}</td>
+        {% else %}
+        <td class="num" colspan="6" style="color:#8a90a2">aucune donnée</td>
+        {% endif %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="note">L'écart-type mesure l'hétérogénéité du groupe. Un écart-type élevé à l'entrée et faible en sortie indique une homogénéisation du niveau, ce qui est le signe d'une formation efficace sur les publics les moins avancés.</div>
+  {% if d.coherence and d.coherence.ecart and not d.coherence.vide %}
+  <div class="alerte" style="margin-top:18px">
+    <b>Écart entre le programme annoncé et les objectifs évalués.</b>
+    {% if d.coherence.manquants %}<br>Non évalué{{ 's' if d.coherence.manquants|length > 1 }} par le questionnaire :
+    {% for x in d.coherence.manquants %}« {{ x }} »{{ ", " if not loop.last }}{% endfor %}.{% endif %}
+    {% if d.coherence.en_trop %}<br>Évalué{{ 's' if d.coherence.en_trop|length > 1 }} sans figurer au programme :
+    {% for x in d.coherence.en_trop %}« {{ x }} »{{ ", " if not loop.last }}{% endfor %}.{% endif %}
+    <br><span style="font-size:10.5px">Le référentiel attend une correspondance entre les objectifs annoncés et ceux qui sont mesurés.</span>
+  </div>
+  {% endif %}
+  {% if d.objectifs %}
+  <h2>Atteinte des objectifs pédagogiques</h2>
+    {% for o in d.objectifs %}
+    <div class="obj">
+      <div class="obj-t">{{ o.libelle }}</div>
+      {% if o.init is not none and o.fin is not none %}
+      <div style="display:flex;gap:14px">
+        <div style="flex:1"><div style="font-size:10px;color:#6b7280">Entrée · {{ o.init }} %</div>
+          <div class="piste"><div style="width:{{ o.init }}%;background:#b9bfcc"></div></div></div>
+        <div style="flex:1"><div style="font-size:10px;color:#6b7280">Sortie · {{ o.fin }} %</div>
+          <div class="piste"><div style="width:{{ o.fin }}%;background:#0f9e6a"></div></div></div>
+      </div>
+      <div style="margin-top:7px;font-size:11px;color:#5b6172">Progression <b class="{{ 'vert' if o.progression >= 0 else 'rouge' }}">{{ '+' if o.progression >= 0 }}{{ o.progression }} points</b></div>
+      {% else %}
+      <div style="font-size:11px;color:#5b6172">Données incomplètes : les deux passages sont nécessaires.</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  {% endif %}
+  {% if d.duo %}
+  <div class="carte-g" style="text-align:left;margin-top:14px">
+    <div class="carte-g-t">{{ d.titre_duo }}</div>
+    <div class="cols">
+    {% for c in d.duo %}
+      <div class="col"><div class="col-v">{{ c.b if c.b is not none else '' }}</div>
+        <div class="duo-b"><div style="height:{{ c.ha }}%;background:#b9bfcc"></div><div style="height:{{ c.hb }}%;background:#0f9e6a"></div></div></div>
+    {% endfor %}
+    </div>
+    <div class="col-etiq">{% for c in d.duo %}<div class="col-l">{{ c.libelle }}</div>{% endfor %}</div>
+    <div class="legende" style="flex-direction:row;gap:18px;margin-top:10px">
+      <span><span class="puce" style="background:#b9bfcc"></span>Entrée</span>
+      <span><span class="puce" style="background:#0f9e6a"></span>Sortie</span>
+    </div>
+  </div>
+  {% endif %}
+  <div class="saut"></div>
+  <h2>Distribution des résultats</h2>
+  <div class="grille g2">
+    <div class="carte-g" style="text-align:left">
+      <div class="carte-g-t">Répartition des scores de sortie</div>
+      <div class="cols">
+      {% for c in d.histo_scores %}
+        <div class="col"><div class="col-v">{{ c.valeur }}</div>
+          <div class="col-b" style="height:{{ c.hauteur }}%;background:{{ c.couleur }}"></div></div>
+      {% endfor %}
+      </div>
+      <div class="col-etiq">{% for c in d.histo_scores %}<div class="col-l">{{ c.libelle }}</div>{% endfor %}</div>
+      <div style="font-size:10px;color:#8a90a2;margin-top:7px">Nombre de participants par tranche de score, en pourcentage de réussite.</div>
+    </div>
+    <div class="carte-g" style="text-align:left">
+      <div class="carte-g-t">Ampleur de la progression</div>
+      <div class="cols">
+      {% for c in d.histo_prog %}
+        <div class="col"><div class="col-v">{{ c.valeur }}</div>
+          <div class="col-b" style="height:{{ c.hauteur }}%;background:{{ c.couleur }}"></div></div>
+      {% endfor %}
+      </div>
+      <div class="col-etiq">{% for c in d.histo_prog %}<div class="col-l">{{ c.libelle }}</div>{% endfor %}</div>
+      <div style="font-size:10px;color:#8a90a2;margin-top:7px">Nombre de participants par tranche de progression, en points.</div>
+    </div>
+  </div>
+  <h2>Répartitions</h2>
+  <div class="grille g4">
+    {% for dn, titre in [(d.donut_objectifs, "Atteinte des objectifs"), (d.donut_reponses, "Participation"), (d.donut_progression, "Sens de l'évolution"), (d.donut_reco, "Recommandation")] %}
+    <div class="carte-g">
+      <div class="carte-g-t">{{ titre }}</div>
+      <svg viewBox="0 0 160 160" width="122" height="122">
+        <g transform="rotate(-90 80 80)">
+        {% for sg in dn.segments %}
+          <circle cx="80" cy="80" r="{{ dn.rayon }}" fill="none" stroke="{{ sg.couleur }}" stroke-width="22"
+            stroke-dasharray="{{ sg.dash }} {{ sg.reste }}" stroke-dashoffset="{{ sg.offset }}"></circle>
+        {% endfor %}
+        </g>
+        <text x="80" y="78" text-anchor="middle" font-size="24" font-weight="600" fill="#1a1d2e">{{ dn.centre }}</text>
+        <text x="80" y="96" text-anchor="middle" font-size="10" fill="#6b7280">{{ dn.centre_sous }}</text>
+      </svg>
+      <div class="legende">
+      {% for sg in dn.segments %}
+        <span><span class="puce" style="background:{{ sg.couleur }}"></span>{{ sg.libelle }} — {{ sg.valeur }} ({{ sg.pct }} %)</span>
+      {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% if d.portee == 'session' and d.personnes %}
+  <div class="saut"></div>
+  <h2>Résultats individuels</h2>
+  <table>
+    <thead><tr><th>Participant</th><th class="num" style="width:74px">Entrée</th><th class="num" style="width:74px">Sortie</th>
+      <th class="num" style="width:88px">Progression</th><th style="width:104px">Objectifs</th></tr></thead>
+    <tbody>
+    {% for p in d.personnes %}
+      <tr><td>{{ p.nom }}</td>
+        <td class="num">{{ p.init if p.init is not none else '—' }}{% if p.init is not none %} %{% endif %}</td>
+        <td class="num">{{ p.fin if p.fin is not none else '—' }}{% if p.fin is not none %} %{% endif %}</td>
+        <td class="num">{% if p.init is not none and p.fin is not none %}<span class="{{ 'vert' if (p.fin - p.init) >= 0 else 'rouge' }}">{{ '+' if (p.fin - p.init) >= 0 }}{{ p.fin - p.init }}</span>{% else %}—{% endif %}</td>
+        <td>{% if p.fin is not none %}{{ 'Atteints' if p.fin >= d.seuil else 'Partiellement' }}{% else %}Non évalué{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="note">Le référentiel n'exige pas que tous les bénéficiaires atteignent le seuil, mais que l'atteinte des objectifs soit mesurée et tracée pour chacun.</div>
+  {% endif %}
+  {% if d.maitrisees or d.fragiles %}
+  <h2>Palmarès des notions</h2>
+  <div class="grille g2">
+    <div>
+      <h3>Les mieux maîtrisées en sortie</h3>
+      {% for q in d.maitrisees %}
+      <div class="obj"><div style="font-size:11.5px">{{ q.enonce }}</div>
+        <div style="font-size:10.5px;color:#5b6172;margin-top:5px">entrée {{ q.init if q.init is not none else '—' }} % → sortie <b class="vert">{{ q.fin }} %</b> · objectif {{ q.objectif }}</div></div>
+      {% endfor %}
+    </div>
+    <div>
+      <h3>Celles qui résistent</h3>
+      {% for q in d.fragiles %}
+      <div class="obj"><div style="font-size:11.5px">{{ q.enonce }}</div>
+        <div style="font-size:10.5px;color:#5b6172;margin-top:5px">entrée {{ q.init if q.init is not none else '—' }} % → sortie <b class="{{ 'rouge' if q.fin < 60 else 'orange' }}">{{ q.fin }} %</b> · objectif {{ q.objectif }}</div></div>
+      {% endfor %}
+    </div>
+  </div>
+  {% set faibles = d.questions|selectattr('fin', 'ne', None)|selectattr('fin', 'lt', 60)|list %}
+  {% if faibles %}
+  <div class="alerte">{{ faibles|length }} notion(s) restent sous 60 % de réussite en fin de formation. Elles constituent la matière du plan d'amélioration.</div>
+  {% else %}
+  <div class="bien">Aucune notion ne reste sous 60 % de réussite en fin de formation.</div>
+  {% endif %}
+  {% endif %}
+  <div class="saut"></div>
+  <h2>Satisfaction des bénéficiaires</h2>
+  {% if d.sat.note_globale is not none %}
+  <div class="grille g3">
+    <div class="bloc"><div class="bloc-l">Note globale</div><div class="bloc-v">{{ d.sat.note_globale }}/5</div>
+      <div class="bloc-s">moyenne des items notés</div></div>
+    <div class="bloc"><div class="bloc-l">Recommandation nette</div>
+      <div class="bloc-v">{{ d.sat.nps if d.sat.nps is not none else '—' }}</div>
+      <div class="bloc-s">{{ d.promoteurs }} promoteur{{ 's' if d.promoteurs > 1 }} · {{ d.detracteurs }} détracteur{{ 's' if d.detracteurs > 1 }}</div></div>
+    <div class="bloc"><div class="bloc-l">Répondants</div><div class="bloc-v">{{ d.synth.nb_satis }}</div>
+      <div class="bloc-s">sur {{ d.synth.participants }} inscrits</div></div>
+  </div>
+  <h3>Par grand axe</h3>
+  {% for b in d.barres_axes %}
+  <div class="satis-l"><span class="satis-t"><b>{{ b.libelle }}</b></span>
+    <span class="satis-p"><div style="width:{{ b.largeur }}%;background:{{ b.couleur }}"></div></span>
+    <span class="satis-n">{{ b.note }}</span></div>
+  {% endfor %}
+  <h3>Item par item</h3>
+  {% for b in d.barres_satis %}
+  <div class="satis-l"><span class="satis-t">{{ b.libelle }}</span>
+    <span class="satis-p"><div style="width:{{ b.largeur }}%;background:{{ b.couleur }}"></div></span>
+    <span class="satis-n">{{ b.note }}</span></div>
+  {% endfor %}
+  {% if d.sat.adaptation and d.sat.adaptation.concernes %}
+  <div class="note" style="margin-top:11px">{{ d.sat.adaptation.concernes }} participant(s) ont déclaré un besoin particulier d'adaptation, dont {{ d.sat.adaptation.pris }} pleinement pris en compte. Cette question documente la prise en compte des situations de handicap.</div>
+  {% else %}
+  <div class="note" style="margin-top:11px">Aucun besoin particulier d'adaptation n'a été déclaré sur ce périmètre.</div>
+  {% endif %}
+  {% else %}
+  <div class="note">Aucun questionnaire de satisfaction reçu sur ce périmètre.</div>
+  {% endif %}
+  {% if d.sat.verbatims %}
+  <h2>Appréciations libres</h2>
+  {% for v in d.sat.verbatims %}
+  <div class="verb"><div class="verb-q">{{ v.question }}</div>{{ v.texte }}</div>
+  {% endfor %}
+  {% endif %}
+  <div class="saut"></div>
+  {% if d.portee == 'global' and d.formations %}
+  <h2>Résultats par formation</h2>
+  <table>
+    <thead><tr><th>Formation</th><th class="num" style="width:62px">Sess.</th><th class="num" style="width:66px">Inscrits</th>
+      <th class="num" style="width:60px">Entrée</th><th class="num" style="width:60px">Sortie</th>
+      <th class="num" style="width:74px">Progr.</th><th class="num" style="width:70px">Objectifs</th><th class="num" style="width:66px">Satisf.</th></tr></thead>
+    <tbody>
+    {% for f in d.formations %}
+      <tr><td><b>{{ f.formation }}</b></td>
+        <td class="num">{{ f.sessions }}</td><td class="num">{{ f.participants }}</td>
+        <td class="num">{{ f.moy_init if f.moy_init is not none else '—' }}</td>
+        <td class="num">{{ f.moy_fin if f.moy_fin is not none else '—' }}</td>
+        <td class="num">{% if f.progression is not none %}<span class="{{ 'vert' if f.progression >= 0 else 'rouge' }}">{{ '+' if f.progression >= 0 }}{{ f.progression }}</span>{% else %}—{% endif %}</td>
+        <td class="num">{{ f.taux_atteinte if f.taux_atteinte is not none else '—' }}{% if f.taux_atteinte is not none %} %{% endif %}</td>
+        <td class="num">{{ f.moy_satis if f.moy_satis is not none else '—' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% if d.portee != 'session' and d.sessions %}
+  <h2>Détail des sessions</h2>
+  <table>
+    <thead><tr><th>Formation</th><th>Dates</th><th class="num" style="width:66px">Inscrits</th>
+      <th class="num" style="width:60px">Entrée</th><th class="num" style="width:60px">Sortie</th>
+      <th class="num" style="width:74px">Progr.</th><th class="num" style="width:66px">Satisf.</th></tr></thead>
+    <tbody>
+    {% for s in d.sessions %}
+      <tr><td><b>{{ s.formation }}</b></td><td>{{ s.date_texte }}</td>
+        <td class="num">{{ s.participants }}</td>
+        <td class="num">{{ s.moy_init if s.moy_init is not none else '—' }}</td>
+        <td class="num">{{ s.moy_fin if s.moy_fin is not none else '—' }}</td>
+        <td class="num">{% if s.progression is not none %}<span class="{{ 'vert' if s.progression >= 0 else 'rouge' }}">{{ '+' if s.progression >= 0 }}{{ s.progression }}</span>{% else %}—{% endif %}</td>
+        <td class="num">{{ s.moy_satis if s.moy_satis is not none else '—' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% if d.villes %}
+  <h2>Origine géographique des participants</h2>
+  {% for ville, n in d.villes %}
+  <div class="satis-l"><span class="satis-t">{{ ville }}</span>
+    <span class="satis-p"><div style="width:{{ (100 * n / d.villes[0][1])|round|int }}%;background:#7c5bf7"></div></span>
+    <span class="satis-n">{{ n }}</span></div>
+  {% endfor %}
+  <div style="font-size:10px;color:#8a90a2;margin-top:6px">Huit premières villes représentées, par nombre d'inscrits.</div>
+  {% endif %}
+  {% if d.operationnel %}
+  {% set o = d.operationnel %}
+  <div class="saut"></div>
+  <h2>Suivi administratif de la session</h2>
+  <div class="grille g4">
+    <div class="bloc"><div class="bloc-l">Conventions signées</div>
+      <div class="bloc-v {{ 'vert' if o.nb_conventions == o.nb else 'rouge' }}">{{ o.nb_conventions }}<span style="font-size:13px;color:#8a90a2"> / {{ o.nb }}</span></div>
+      <div class="bloc-s">pièce contractuelle</div></div>
+    <div class="bloc"><div class="bloc-l">Règlements encaissés</div>
+      <div class="bloc-v {{ 'vert' if o.nb_reglements == o.nb else 'rouge' }}">{{ o.nb_reglements }}<span style="font-size:13px;color:#8a90a2"> / {{ o.nb }}</span></div>
+      <div class="bloc-s">{{ o.ca_encaisse|round|int }} € sur {{ o.ca_attendu|round|int }} €</div></div>
+    <div class="bloc"><div class="bloc-l">Attestations émises</div>
+      <div class="bloc-v {{ 'vert' if o.nb_attestations == o.nb else 'orange' }}">{{ o.nb_attestations }}<span style="font-size:13px;color:#8a90a2"> / {{ o.nb }}</span></div>
+      <div class="bloc-s">remises aux participants</div></div>
+    <div class="bloc"><div class="bloc-l">Émargement signé</div>
+      <div class="bloc-v {{ 'vert' if o.emargement.signe_le else 'rouge' }}" style="font-size:15px">{{ o.emargement.signe_le or 'Non reçu' }}</div>
+      <div class="bloc-s">preuve de présence</div></div>
+  </div>
+  {% if o.reste > 0 %}
+  <div class="alerte"><b>{{ o.reste|round|int }} € restent à encaisser</b> sur cette session.</div>
+  {% endif %}
+  {% if not o.emargement.signe_le %}
+  <div class="alerte"><b>La feuille d'émargement signée n'a pas été enregistrée.</b> C'est la pièce qui atteste matériellement de la présence des bénéficiaires : elle est systématiquement demandée en audit et en cas de contrôle de financement.</div>
+  {% endif %}
+  <h3 style="margin-top:20px">Détail par participant</h3>
+  <table>
+    <thead><tr><th>Participant</th><th style="width:88px">Convention</th>
+      <th class="num" style="width:76px">Montant</th><th style="width:88px">Réglé le</th>
+      <th style="width:74px">Facture</th><th style="width:88px">Attestation</th></tr></thead>
+    <tbody>
+    {% for p in o.participants %}
+      <tr>
+        <td><b>{{ p.nom }}</b>{% if p.promu %} <span style="font-size:9.5px;color:#8a90a2">promu de la file d'attente</span>{% endif %}
+          {% if p.ville %}<div style="font-size:10px;color:#8a90a2">{{ p.ville }}</div>{% endif %}</td>
+        <td>{% if p.convention_le %}<span class="vert">{{ p.convention_le }}</span>{% else %}<span class="rouge">non signée</span>{% endif %}</td>
+        <td class="num">{{ p.du|round|int }} €</td>
+        <td>{% if p.reglement_le %}<span class="vert">{{ p.reglement_le }}</span>{% if p.mode %}<div style="font-size:9.5px;color:#8a90a2">{{ p.mode }}</div>{% endif %}{% else %}<span class="rouge">en attente</span>{% endif %}</td>
+        <td>{% if p.facture_lien %}<span class="vert">émise</span>{% else %}<span style="color:#b9bfcc">—</span>{% endif %}</td>
+        <td>{% if p.attestation_lien %}<span class="vert">{{ p.attestation_le or 'émise' }}</span>{% else %}<span style="color:#b9bfcc">—</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if o.annulations or o.attente %}
+  <h3 style="margin-top:20px">Mouvements sur les inscriptions</h3>
+  <table>
+    <thead><tr><th>Praticien</th><th style="width:120px">Situation</th><th>Précision</th></tr></thead>
+    <tbody>
+    {% for a in o.annulations %}
+      <tr><td>{{ a.nom }}</td><td><span class="rouge">Annulée</span></td>
+        <td style="font-size:11px">{{ a.le }}{% if a.motif %} · {{ a.motif }}{% endif %}</td></tr>
+    {% endfor %}
+    {% for a in o.attente %}
+      <tr><td>{{ a.nom }}</td><td><span class="orange">File d'attente</span></td>
+        <td style="font-size:11px">depuis le {{ a.depuis }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="note">Ces mouvements documentent la gestion des places et le traitement des demandes, y compris celles qui n'ont pas abouti.</div>
+  {% endif %}
+  <h3 style="margin-top:20px">Conditions de réalisation</h3>
+  <table>
+    <tbody>
+      <tr><td style="width:180px;color:#6b7280">Lieu</td><td><b>{{ o.adresse or '—' }}</b></td></tr>
+      <tr><td style="color:#6b7280">Horaires</td><td><b>{{ o.horaires or '—' }}</b></td></tr>
+      <tr><td style="color:#6b7280">Durée</td><td><b>{{ o.duree or '—' }}</b></td></tr>
+      <tr><td style="color:#6b7280">Formateur</td><td><b>{{ o.formateur or formateur }}</b></td></tr>
+      <tr><td style="color:#6b7280">Tarif unitaire</td><td><b>{{ o.tarif|round|int }} € TTC</b></td></tr>
+      <tr><td style="color:#6b7280">Feuille d'émargement</td>
+        <td>{% if o.emargement.signe_le %}<b class="vert">signée et archivée le {{ o.emargement.signe_le }}</b>{% else %}<b class="rouge">non enregistrée</b>{% endif %}</td></tr>
+    </tbody>
+  </table>
+  {% endif %}
+  <h2>Correspondance avec le référentiel national qualité</h2>
+  <div class="qualiopi">
+    <div class="qualiopi-l"><span class="qualiopi-n">Ind. 2</span><span>Indicateurs de résultats publiés : taux de satisfaction, progression moyenne et taux d'atteinte des objectifs figurent en tête de ce document.</span></div>
+    <div class="qualiopi-l"><span class="qualiopi-n">Ind. 8</span><span>Positionnement à l'entrée : l'évaluation initiale établit le niveau de chaque bénéficiaire avant la prestation.</span></div>
+    <div class="qualiopi-l"><span class="qualiopi-n">Ind. 11</span><span>Atteinte des objectifs : processus formalisé, outils définis en amont, résultats tracés individuellement et par objectif pédagogique.</span></div>
+    <div class="qualiopi-l"><span class="qualiopi-n">Ind. 26</span><span>Prise en compte des situations de handicap : question dédiée dans le questionnaire de satisfaction, résultat reporté ci-dessus.</span></div>
+    <div class="qualiopi-l"><span class="qualiopi-n">Ind. 30</span><span>Recueil des appréciations des bénéficiaires : questionnaire de satisfaction structuré en axes, verbatims conservés.</span></div>
+    <div class="qualiopi-l"><span class="qualiopi-n">Ind. 32</span><span>Amélioration continue : identification des notions fragiles et plan d'amélioration ci-dessous.</span></div>
+  </div>
+  <h2>Plan d'amélioration retenu</h2>
+  <div class="note">À compléter et à signer. C'est ce document qui matérialise le traitement des résultats et l'amélioration continue.</div>
+  <div class="plan">
+    <div class="plan-l"></div><div class="plan-l"></div><div class="plan-l"></div>
+    <div class="plan-l"></div><div class="plan-l"></div>
+  </div>
+  <div style="display:flex;gap:40px;margin-top:20px;font-size:11px;color:#5b6172">
+    <div>Date : ............................</div>
+    <div>Signature du responsable pédagogique :</div>
+  </div>
+  <div class="pied">
+    Document édité le {{ d.edite }} depuis DFM · {{ organisme }} · périmètre : {{ d.contexte }}<br>
+    Pièce justificative relative au positionnement à l'entrée, à l'évaluation de l'atteinte des objectifs,
+    au recueil des appréciations des bénéficiaires et à l'amélioration continue.
+  </div>
+</div>
+</body>
+</html>

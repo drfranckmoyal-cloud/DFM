@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% block titre %}Paramètres{% endblock %}
+{% block entete %}Paramètres{% endblock %}
+{% block sous_entete %}Comportements par défaut de l'application · {{ modifies }} réglage{{ 's' if modifies > 1 }} personnalisé{{ 's' if modifies > 1 }} sur {{ total }}{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" title="Telecharger toute la configuration" href="/parametres/export.json"><i class="ti ti-download"></i>Exporter la configuration</a>
+<button class="btn btn-primary" title="Enregistrer les modifications" onclick="paEnregistrer(this)"><i class="ti ti-check"></i>Enregistrer</button>
+{% endblock %}
+{% block corps %}
+<style>
+.pa-info{background:#f0f4ff;border:1px solid #c5d4fb;border-radius:11px;padding:13px 17px;margin-bottom:16px;font-size:12.5px;color:#185fa5;line-height:1.6;display:flex;gap:11px;align-items:flex-start}
+.pa-info i{font-size:17px;flex:none;margin-top:1px}
+.pa-sect{background:var(--carte);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.pa-tete{display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;user-select:none}
+.pa-tete:hover{background:var(--bg)}
+.pa-ic{width:28px;height:28px;border-radius:9px;background:#eef3fe;color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+.pa-sect.technique .pa-ic{background:#f1f2f6;color:var(--muted)}
+.pa-x{flex:1;min-width:0}
+/* Titre et sous-titre de section sur une meme ligne : gain de 20 px par
+   section, sans rien masquer. */
+.pa-x .pa-t{display:inline;font-size:14px}
+.pa-x .pa-a{display:inline;margin-left:8px;font-size:12px}
+/* Contröles : rembourrage resserre, jamais la zone cliquable. */
+.pa-r-c select,.pa-r-c input[type=text],.pa-r-c input[type=number],
+.pa-r-c input[type=time]{padding:7px 11px}
+.pa-t{font-size:14.5px;font-weight:600}
+.pa-a{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.45}
+.pa-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:#eef3fe;color:var(--accent);flex:none}
+.pa-fleche{color:var(--border2);font-size:17px;flex:none;transition:transform .2s}
+.pa-sect.ouvert .pa-fleche{transform:rotate(90deg)}
+.pa-corps{display:none;border-top:1px solid var(--border);padding:6px 20px 18px}
+.pa-sect.ouvert .pa-corps{display:block}
+.pa-r{display:flex;align-items:center;gap:18px;padding:8px 0;border-bottom:1px solid var(--border)}
+.pa-r:last-child{border-bottom:none}
+.pa-r-x{flex:1;min-width:0}
+.pa-r-t{font-size:13px;font-weight:500;display:inline;margin-right:7px}
+.pa-r-a{font-size:11.5px;color:var(--muted);display:inline;line-height:1.5}
+.pa-r-a::before{content:"\00b7 ";color:var(--border2)}
+.pa-r-c{flex:none;display:flex;align-items:center;gap:9px;min-width:210px;justify-content:flex-end}
+.pa-r-c input[type=text],.pa-r-c input[type=number],.pa-r-c input[type=time],.pa-r-c select{
+padding:9px 11px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;background:var(--carte);color:var(--text)}
+.pa-r-c input[type=number]{width:82px;text-align:right}
+.pa-r-c input[type=time]{width:104px}
+.pa-r-c select{min-width:180px;cursor:pointer}
+.pa-r-c .large{width:100%;min-width:280px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+.pa-r-c input:focus,.pa-r-c select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,126,248,.1)}
+.pa-unite{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.pa-sw{position:relative;display:inline-block;width:42px;height:23px;flex:none}
+.pa-sw input{opacity:0;width:0;height:0}
+.pa-cur{position:absolute;inset:0;background:var(--border2);border-radius:23px;cursor:pointer;transition:background .18s}
+.pa-cur:before{content:"";position:absolute;height:17px;width:17px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .18s}
+.pa-sw input:checked + .pa-cur{background:var(--success)}
+.pa-sw input:checked + .pa-cur:before{transform:translateX(19px)}
+.pa-pt{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:none}
+.pa-remise{background:none;border:none;color:var(--border2);cursor:pointer;font-size:14px;padding:2px 4px;font-family:inherit;flex:none}
+.pa-remise:hover{color:var(--accent)}
+.pa-alerte{background:#fdf3e3;border:1px solid #f0cf94;border-radius:9px;padding:12px 14px;font-size:12px;color:#8a5a06;margin:4px 0 12px;line-height:1.55}
+.pa-pied{display:flex;justify-content:space-between;align-items:center;gap:14px;background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-top:16px;flex-wrap:wrap}
+.pa-pied-t{font-size:12.5px;color:var(--muted);line-height:1.5}
+.pa-etat{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(70px);background:#1e2235;color:#fff;padding:11px 20px;border-radius:10px;font-size:13px;font-weight:500;z-index:200;opacity:0;transition:all .25s;pointer-events:none}
+.pa-etat.on{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+<div class="pa-info"><i class="ti ti-info-circle"></i>
+  <div>Ces réglages s'appliquent aux <b>nouvelles sessions et formations</b>. Les sessions déjà créées gardent les valeurs en vigueur au moment de leur création — vos bilans passés ne sont donc jamais réécrits.
+  Un point bleu signale un réglage que vous avez personnalisé ; la flèche à côté le remet à sa valeur d'origine.</div>
+</div>
+{% for s in sections %}
+<div class="pa-sect {{ s.cle }} {{ 'ouvert' if s.cle != 'technique' }}" id="sect_{{ s.cle }}">
+  <div class="pa-tete" onclick="paBasculer('{{ s.cle }}')">
+    <div class="pa-ic"><i class="ti {{ s.icone }}"></i></div>
+    <div class="pa-x"><div class="pa-t">{{ s.nom }}</div><div class="pa-a">{{ s.aide }}</div></div>
+    {% if s.modifies %}<span class="pa-badge">{{ s.modifies }} personnalisé{{ 's' if s.modifies > 1 }}</span>{% endif %}
+    <i class="ti ti-chevron-right pa-fleche"></i>
+  </div>
+  <div class="pa-corps">
+    {% if s.cle == 'conservation' %}
+    <div class="pa-alerte" style="background:#f7f8fb;border-color:#d1d5e0;color:#5b6172">
+      Ces durées sont des <b>engagements</b>, et DFM ne supprime jamais rien de lui-même.
+      Pour qu'elles servent à quelque chose, il faut pouvoir les produire et voir ce qui
+      les dépasse&nbsp;:
+      <a href="/conservation" target="_blank" rel="noopener">ouvrir la politique de conservation</a>
+      — un document imprimable, à jour des données réellement détenues.
+    </div>
+    {% endif %}
+    {% if s.cle == 'technique' %}
+    <div class="pa-alerte"><b>Modifier ces identifiants peut interrompre le fonctionnement de DFM.</b>
+    Une erreur ici empêche la génération des documents ou l'envoi des mails, souvent sans message explicite. Exportez votre configuration avant toute modification.</div>
+    {% endif %}
+    {% for r in s.reglages %}
+    <div class="pa-r">
+      <div class="pa-r-x">
+        <div class="pa-r-t">{% if r.modifie %}<span class="pa-pt" title="Vous avez personnalise ce reglage"></span>{% endif %}{{ r.libelle }}</div>
+        <div class="pa-r-a">{{ r.aide }}</div>
+      </div>
+      <div class="pa-r-c">
+        {% if r.type == 'booleen' %}
+        <label class="pa-sw"><input type="checkbox" data-cle="{{ r.cle }}" data-type="booleen" {{ 'checked' if r.valeur }} onchange="paModifie()"><span class="pa-cur"></span></label>
+        {% elif r.type == 'nombre' %}
+        <input type="number" data-cle="{{ r.cle }}" data-type="nombre" value="{{ r.valeur }}" oninput="paModifie()">
+        {% if r.unite %}<span class="pa-unite">{{ r.unite }}</span>{% endif %}
+        {% elif r.type == 'heure' %}
+        <input type="time" data-cle="{{ r.cle }}" data-type="heure" value="{{ r.valeur }}" onchange="paModifie()">
+        {% elif r.type == 'choix' %}
+        <select data-cle="{{ r.cle }}" data-type="choix" onchange="paModifie()">
+          {% for v, libelle in r.options %}<option value="{{ v }}" {{ 'selected' if r.valeur == v }}>{{ libelle }}</option>{% endfor %}
+        </select>
+        {% elif r.type == 'drive' %}
+        <div style="flex:1;min-width:0">
+          <input type="text" class="large" data-cle="{{ r.cle }}" data-type="drive" value="{{ r.valeur }}" oninput="paModifie();paDriveApercu(this)" onblur="paDriveApercu(this)" spellcheck="false" placeholder="Lien complet ou identifiant" style="width:100%">
+          <div class="pa-drive" id="pa_drive_{{ r.cle }}" style="font-size:11px;margin-top:4px"></div>
+        </div>
+        {% else %}
+        <input type="text" class="large" data-cle="{{ r.cle }}" data-type="texte" value="{{ r.valeur }}" oninput="paModifie()" spellcheck="false">
+        {% endif %}
+        {% if r.modifie %}<button class="pa-remise" title="Revenir a la valeur d origine : {{ r.defaut }}" onclick="paRemettre('{{ r.cle }}','{{ r.libelle }}')"><i class="ti ti-rotate"></i></button>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+<div class="pa-pied">
+  <div class="pa-pied-t"><b>Tout remettre à zéro.</b><br>
+  Efface vos {{ modifies }} personnalisation{{ 's' if modifies > 1 }} et rétablit les valeurs d'origine. Vos formations, sessions et documents ne sont pas touchés.</div>
+  <button class="btn btn-ghost" style="color:var(--danger);border-color:#f0b8b8" onclick="paToutRemettre()"><i class="ti ti-rotate-2"></i>Réinitialiser tous les réglages</button>
+</div>
+<div class="pa-etat" id="pa_etat"></div>
+<script>
+var PA_MODIFIE = false;
+function paBasculer(cle){
+  document.getElementById("sect_" + cle).classList.toggle("ouvert");
+}
+function paModifie(){
+  PA_MODIFIE = true;
+  paSignal("Modifications non enregistrées");
+}
+function paSignal(texte, duree){
+  var z = document.getElementById("pa_etat");
+  z.textContent = texte;
+  z.classList.add("on");
+  clearTimeout(window.__pa);
+  window.__pa = setTimeout(function(){ z.classList.remove("on"); }, duree || 2600);
+}
+function paCollecte(){
+  var d = {};
+  document.querySelectorAll("[data-cle]").forEach(function(e){
+    var cle = e.dataset.cle;
+    if(e.dataset.type === "booleen"){ d[cle] = e.checked; }
+    else { d[cle] = e.value; }
+  });
+  return d;
+}
+function paExtraire(v){
+  v = (v || "").trim();
+  if(!v) return "";
+  var m = v.match(/\/d\/([a-zA-Z0-9_-]{20,})/) || v.match(/[?&]id=([a-zA-Z0-9_-]{20,})/) || v.match(/\/folders\/([a-zA-Z0-9_-]{20,})/);
+  if(m) return m[1];
+  return /^[a-zA-Z0-9_-]{20,}$/.test(v) ? v : "";
+}
+function paOuvrirLien(id){
+  return ' · <a href="https://drive.google.com/open?id=' + id + '" target="_blank" '
+       + 'style="color:var(--accent);text-decoration:none">Ouvrir <i class="ti ti-external-link" style="font-size:11px"></i></a>';
+}
+function paDriveApercu(el){
+  // Apercu AVANT enregistrement : ce que DFM retiendra de la valeur collee.
+  var z = document.getElementById("pa_drive_" + el.dataset.cle);
+  if(!z) return;
+  var v = el.value.trim();
+  if(!v){ z.innerHTML = ""; return; }
+  var id = paExtraire(v);
+  if(!id){ z.innerHTML = '<span style="color:var(--danger)">Ni un lien Drive reconnaissable, ni un identifiant — sera refusé à l\'enregistrement.</span>'; return; }
+  if(id === v){ z.innerHTML = '<span style="color:var(--muted)">Identifiant.</span>' + paOuvrirLien(id); return; }
+  z.innerHTML = 'Identifiant retenu : <b>' + id + '</b> <span style="color:var(--muted)">(extrait du lien collé)</span>' + paOuvrirLien(id);
+}
+// Au chargement : afficher l'apercu (et le lien Ouvrir) des champs deja remplis.
+document.querySelectorAll('input[data-type="drive"]').forEach(function(el){ paDriveApercu(el); });
+setTimeout(function(){
+  dfmBrouillon.installer({
+    cle: "parametres",
+    serialiser: paCollecte,
+    restaurer: function(d){
+      Object.keys(d).forEach(function(cle){
+        var e = document.querySelector('[data-cle="' + cle + '"]');
+        if(!e) return;
+        if(e.type === "checkbox"){ e.checked = !!d[cle]; } else { e.value = d[cle]; }
+        if(e.dataset.type === "drive" && typeof paDriveApercu === "function") paDriveApercu(e);
+      });
+    }
+  });
+  dfmBrouillon.armer();
+}, 500);
+function paEnregistrer(bouton){
+  bouton.disabled = true;
+  bouton.innerHTML = "Enregistrement…";
+  fetch("/parametres/enregistrer", {method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(paCollecte())})
+  .then(function(r){return r.json()}).then(function(j){
+    bouton.disabled = false;
+    bouton.innerHTML = '<i class="ti ti-check"></i>Enregistrer';
+    PA_MODIFIE = false;
+    dfmBrouillon.enregistre();
+    if(!j.ok){ dfmInfo("Enregistrement impossible", "<p>" + (j.message || "Erreur") + "</p>", "danger"); return; }
+    if(j.refuses && j.refuses.length){
+      var h = '<div class="dfm-bloc dfm-b-att"><b>' + j.refuses.length + ' valeur(s) refusée(s)</b> — corrigez puis enregistrez à nouveau :</div>'
+            + '<ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.7">';
+      j.refuses.forEach(function(x){ h += "<li><b>" + x.libelle + "</b> : " + x.message + "</li>"; });
+      h += '</ul>';
+      if((j.modifies || []).length){ h += '<div class="dfm-bloc dfm-b-neutre">Les autres réglages ont bien été enregistrés.</div>'; }
+      dfmInfo("Enregistrement partiel", h, "attention");
+      return;
+    }
+    var n = (j.modifies || []).length;
+    if(!n){ paSignal("Aucun changement à enregistrer"); return; }
+    window.location.href = window.location.pathname;
+  }).catch(function(e){
+    bouton.disabled = false;
+    bouton.innerHTML = '<i class="ti ti-check"></i>Enregistrer';
+    dfmInfo("Erreur", "<p>" + e + "</p>", "danger");
+  });
+}
+function paRemettre(cle, libelle){
+  dfmConfirmer({ton: "info", titre: "Revenir à la valeur d'origine", sous: libelle,
+    corps: "<p>Ce réglage reprendra la valeur fournie avec DFM.</p>",
+    valider: "Rétablir", styleValider: "primaire",
+    action: function(){
+      var fd = new FormData();
+      fd.append("cle", cle);
+      fetch("/parametres/reinitialiser", {method: "POST", body: fd})
+      .then(function(r){return r.json()}).then(function(){ window.location.href = window.location.pathname; });
+    }});
+}
+function paToutRemettre(){
+  dfmRisque({titre: "Réinitialiser tous les réglages",
+    sous: "Cette action efface toutes vos personnalisations",
+    motCle: "REINITIALISER",
+    corps: '<div class="dfm-bloc dfm-b-att">Tous les réglages reprendront leur valeur d\'origine, y compris les connexions techniques. Vos formations, sessions, questionnaires et documents ne sont pas concernés.</div>'
+         + '<div class="dfm-bloc dfm-b-neutre">Exportez votre configuration avant, si vous voulez pouvoir revenir en arrière.</div>',
+    valider: "Tout réinitialiser", iconeValider: "ti-rotate-2",
+    action: function(){
+      fetch("/parametres/reinitialiser", {method: "POST", body: new FormData()})
+      .then(function(r){return r.json()}).then(function(){ window.location.href = window.location.pathname; });
+    }});
+}
+window.addEventListener("beforeunload", function(e){
+  if(!PA_MODIFIE) return;
+  e.preventDefault();
+  e.returnValue = "";
+});
+</script>
+{% endblock %}

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signature de votre convention</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: #eceff6; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(30,34,53,.1); padding: 28px; max-width: 480px; width: 100%; }
+  .brand { text-align: center; font-size: 20px; font-weight: 600; color: #1e2235; margin-bottom: 4px; }
+  .brand em { color: #4f7ef8; font-style: normal; }
+  .tag { text-align: center; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 22px; }
+  h1 { font-size: 17px; color: #1a1d2e; margin-bottom: 6px; }
+  .sub { font-size: 13px; color: #6b7280; margin-bottom: 18px; }
+  .convention { background: #f5f8ff; border: 1px solid #e0e8fb; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+  .conv-titre { font-size: 13px; font-weight: 700; color: #234e9e; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  /* gap : sans lui, un nom long venait toucher son intitule. */
+  .conv-ligne { display: flex; justify-content: space-between; gap: 18px; padding: 6px 0; border-bottom: 1px solid #eaeef8; font-size: 13px; }
+  .conv-ligne:last-child { border-bottom: none; }
+  .conv-ligne span { color: #6b7280; flex: none; }
+  .conv-ligne b { text-align: right; }
+  .conv-ligne b { color: #1a1d2e; }
+  .lire-conv { display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin: 14px 0 4px; padding: 12px 16px; border: 1px solid #cfd9f2; border-radius: 10px;
+    background: #f5f8ff; color: #2f56b5; text-decoration: none; font-size: 14px;
+    font-weight: 500; transition: background .15s, border-color .15s; }
+  .lire-conv:hover { background: #eef3fe; border-color: #9fb6ea; }
+  .zone-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #6b7280; font-weight: 600; margin-bottom: 8px; }
+  #canvas { border: 2px dashed #c5d4fb; border-radius: 10px; background: #fbfcff; width: 100%; height: 180px; touch-action: none; cursor: crosshair; display: block; }
+  .buttons { display: flex; gap: 10px; margin-top: 16px; }
+  button { flex: 1; padding: 13px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn-clear { background: #fff; color: #6b7280; border: 1px solid #d1d5e0; }
+  .btn-sign { background: #0f9e6a; color: #fff; }
+  .btn-sign:disabled { opacity: .6; cursor: default; }
+  #confirmation { display: none; text-align: center; padding: 20px 10px; }
+  #confirmation .check { width: 68px; height: 68px; border-radius: 50%; background: #e7f7f0; color: #0f9e6a; font-size: 34px; line-height: 68px; margin: 0 auto 18px; }
+  #confirmation h2 { font-size: 19px; color: #1a1d2e; margin-bottom: 12px; }
+  #confirmation p { font-size: 14px; color: #5b6172; line-height: 1.6; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div id="formulaire">
+      <div class="brand" id="of_marque">&nbsp;</div>
+      <div class="tag" id="of_accroche"></div>
+      <h1>Signature de votre convention</h1>
+      <p class="sub">V&eacute;rifiez les informations ci-dessous, puis signez dans le cadre.</p>
+      <div class="convention">
+        <div class="conv-titre">Convention de formation</div>
+        <div class="conv-ligne"><span id="c-libelle">Praticien</span><b id="c-praticien">-</b></div>
+        <div class="conv-ligne"><span>Formation</span><b id="c-formation">-</b></div>
+        <div class="conv-ligne"><span>Dates</span><b id="c-dates">-</b></div>
+        <div class="conv-ligne"><span>Lieu</span><b id="c-lieu">-</b></div>
+        <div class="conv-ligne"><span>Montant</span><b id="c-montant">-</b></div>
+      </div>
+      <a id="c-lire" class="lire-conv" href="#" target="_blank" rel="noopener" style="display:none">
+        <span>&#128196;</span> Lire ma convention avant de signer
+      </a>
+      <div class="zone-label">Votre signature</div>
+      <canvas id="canvas"></canvas>
+      <div class="buttons">
+        <button class="btn-clear" onclick="effacer()">Effacer</button>
+        <button class="btn-sign" id="btn-sign" onclick="signer()">Je signe ma convention</button>
+      </div>
+    </div>
+
+    <div id="confirmation">
+      <div class="check">&#10003;</div>
+      <h2>Merci, votre convention est sign&eacute;e !</h2>
+      <p>Votre signature a bien &eacute;t&eacute; enregistr&eacute;e.</p>
+      <p>Votre inscription sera confirm&eacute;e sous peu, et vous recevrez un email avec votre convention sign&eacute;e et les modalit&eacute;s de r&egrave;glement.</p>
+      <p style="margin-top:16px; color:#8a90a2;">Vous pouvez fermer cette page. &#129463;</p>
+    </div>
+  </div>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const praticien = params.get("praticien") || "Inconnu";
+  const formation = params.get("formation") || "Inconnue";
+  // Le code de session accompagne la signature : c'est lui qui permettra
+  // de la rattacher a la BONNE session, et non a la premiere formation du
+  // meme nom. Absent des anciens liens, il vaut alors "".
+  const session = params.get("session") || "";
+  document.getElementById("c-praticien").textContent = praticien;
+  document.getElementById("c-formation").textContent = formation;
+  // Dates, lieu et montant etaient ECRITS EN DUR sur ceux d'Usures : tout
+  // inscrit d'une autre session lisait les informations d'une formation qui
+  // n'etait pas la sienne, sur la page ou il engage sa signature.
+  function poser(id, valeur){
+    var e = document.getElementById(id);
+    if(!e) return;
+    if(valeur){ e.textContent = valeur; }
+    else { e.textContent = "voir votre convention"; e.style.color = "#8a90a2"; }
+  }
+  poser("c-dates", params.get("dates"));
+  poser("c-lieu", params.get("lieu"));
+  var _m = params.get("montant");
+  poser("c-montant", _m ? (_m + " \u20AC TTC") : "");
+  // Le document a lire. Le bouton n'apparait QUE si le lien existe : un bouton
+  // mort serait pire que pas de bouton. Ouverture dans un nouvel onglet, pour
+  // ne pas faire perdre la signature en cours.
+  var _conv = params.get("convention");
+  if(_conv && /^https:\/\/drive\.google\.com\//.test(_conv)){
+    var _a = document.getElementById("c-lire");
+    _a.href = _conv;
+    _a.style.display = "flex";
+  }
+
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  let dessine = false;
+  function ajusterTaille() {
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    ctx.strokeStyle = "#1a3a8f";
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+  }
+  window.addEventListener("load", ajusterTaille);
+  window.addEventListener("resize", ajusterTaille);
+  function position(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+    return { x, y };
+  }
+  function demarrer(e) { dessine = true; const p = position(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); }
+  function tracer(e) { if (!dessine) return; const p = position(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); }
+  function arreter() { dessine = false; }
+  canvas.addEventListener("mousedown", demarrer);
+  canvas.addEventListener("mousemove", tracer);
+  canvas.addEventListener("mouseup", arreter);
+  canvas.addEventListener("mouseleave", arreter);
+  canvas.addEventListener("touchstart", demarrer);
+  canvas.addEventListener("touchmove", tracer);
+  canvas.addEventListener("touchend", arreter);
+  function effacer() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+
+  function estVide() {
+    const blank = document.createElement("canvas");
+    blank.width = canvas.width; blank.height = canvas.height;
+    return canvas.toDataURL() === blank.toDataURL();
+  }
+
+  async function signer() {
+    if (estVide()) { alert("Merci de signer dans le cadre avant de valider."); return; }
+    const bouton = document.getElementById("btn-sign");
+    bouton.disabled = true;
+    bouton.textContent = "Envoi en cours...";
+    const image = canvas.toDataURL("image/png");
+    try {
+      const reponse = await fetch("/.netlify/functions/signer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signature: image, praticien: praticien,
+                               formation: formation, session: session }),
+      });
+      const resultat = await reponse.json();
+      if (reponse.ok) {
+        document.getElementById("formulaire").style.display = "none";
+        document.getElementById("confirmation").style.display = "block";
+      } else {
+        alert("Erreur : " + resultat.message);
+        bouton.disabled = false;
+        bouton.textContent = "Je signe ma convention";
+      }
+    } catch (erreur) {
+      alert("Erreur d'envoi : " + erreur.message);
+      bouton.disabled = false;
+      bouton.textContent = "Je signe ma convention";
+    }
+  }
+</script>
+
+<script>
+(function(){
+  var p = new URLSearchParams(window.location.search);
+  var m = p.get("marque"), a = p.get("accroche"), c = p.get("contact");
+  if(m){
+    var mots = m.trim().split(/\s+/);
+    var el = document.getElementById("of_marque");
+    if(el){
+      el.textContent = "";
+      el.appendChild(document.createTextNode(mots[0]));
+      if(mots.length > 1){
+        var em = document.createElement("em");
+        em.textContent = " " + mots.slice(1).join(" ");
+        el.appendChild(em);
+      }
+    }
+  }
+  if(a){ var t = document.getElementById("of_accroche"); if(t){ t.textContent = a; } }
+  if(c){ var e = document.getElementById("of_contact"); if(e){ e.textContent = c; } }
+  var lib = p.get("libelle");
+  if(lib){ var y = document.getElementById("c-libelle"); if(y){ y.textContent = lib; } }
+})();
+</script>
+</body>
+</html>

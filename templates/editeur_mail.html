@@ -1,0 +1,977 @@
+{% extends "base.html" %}
+{% block titre %}Éditeur de mail{% endblock %}
+{% block entete %}{{ infos.nom }}{% endblock %}
+{% block sous_entete %}{{ infos.quand }}{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" title="Revenir sans enregistrer" href="{{ retour if retour else '/templates' }}"><i class="ti ti-x"></i>Annuler</a>
+<button class="btn btn-ghost" title="Recevoir ce mail pour verifier son rendu reel" onclick="emTester()"><i class="ti ti-send"></i>M'envoyer un test</button>
+<button class="btn btn-primary" title="Enregistrer ce modele" onclick="emEnregistrer(this)"><i class="ti ti-check"></i>Enregistrer</button>
+{% endblock %}
+{% block corps %}
+<style>
+.em-aide-h{background:#f0f4ff;border:1px solid #c5d4fb;border-radius:11px;padding:14px 17px;margin-bottom:14px;font-size:12.5px;color:#185fa5;line-height:1.6;display:flex;gap:11px;align-items:flex-start}
+.em-aide-h i{font-size:18px;flex:none;margin-top:1px}
+.em-aide-h b{display:block;margin-bottom:3px;font-size:13px}
+.em-copie{background:#eafaf3;border:1px solid #9fe1cb;border-radius:11px;padding:13px 17px;margin-bottom:14px;font-size:12.5px;color:#0f6e56;line-height:1.6;display:flex;gap:11px;align-items:flex-start}
+.em-copie i{font-size:18px;flex:none;margin-top:1px}
+.em-copie b{display:block;margin-bottom:3px;font-size:13px}
+.em-grille{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.em-carte{background:var(--carte);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden}
+.em-tete{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 17px;border-bottom:1px solid var(--border)}
+.em-t{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.em-t i{color:var(--accent);font-size:16px}
+.em-d{font-size:11px;color:var(--muted)}
+.em-corps{padding:16px 17px}
+.em-f{margin-bottom:13px}
+.em-f:last-child{margin-bottom:0}
+.em-f label{display:block;font-size:10.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.em-f input,.em-f select{width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:9px;font-size:13px;font-family:inherit;background:var(--carte);color:var(--text)}
+.em-f input:focus,.em-f select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,126,248,.1)}
+.em-note{font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.5}
+.em-bloc{border:1px solid var(--border);border-radius:10px;margin-bottom:9px;background:var(--carte)}
+.em-bloc.actif{border-color:var(--accent);box-shadow:0 2px 10px rgba(79,126,248,.1)}
+.em-bloc.neuf{background:#f5f8ff;border-color:#b9cffc}
+.em-bloc.neuf .em-bloc-ic{background:var(--accent);color:#fff}
+.em-bloc.glisse{opacity:.4}
+.em-bloc.voisin{border-color:#b9cffc;background:#fbfcff}
+.em-bloc-h{display:flex;align-items:center;gap:8px;padding:10px 13px;cursor:grab}
+.em-bloc-h:active{cursor:grabbing}
+.em-grip{color:var(--border2);font-size:15px;flex:none;cursor:grab}
+.em-bloc:hover .em-grip{color:var(--muted)}
+.em-bloc-ic{width:28px;height:28px;border-radius:8px;background:#eef3fe;color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+.em-bloc-x{flex:1;min-width:0}
+.em-bloc-t{font-size:12px;font-weight:600;display:flex;align-items:center}
+.em-bloc-r{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.em-neuf-etiq{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--accent);background:#e4ecfe;padding:2px 7px;border-radius:20px;margin-left:7px;flex:none}
+.em-bloc-o{display:flex;gap:3px;flex:none}
+.em-mini{background:none;border:none;color:var(--border2);cursor:pointer;font-size:14px;padding:3px 5px;font-family:inherit;line-height:1}
+.em-mini:hover{color:var(--accent)}
+.em-mini.sup:hover{color:var(--danger)}
+.em-bloc-c{padding:0 13px 13px;border-top:1px solid var(--border);margin-top:2px;padding-top:13px;display:none}
+.em-bloc.actif .em-bloc-c{display:block}
+.em-fente{height:3px;background:var(--accent);border-radius:2px;margin:-5px 0 2px;box-shadow:0 0 8px rgba(79,126,248,.5);display:none}
+.em-fente.on{display:block}
+.em-ajout{display:block;padding:14px 0 0}
+.em-ajout button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:1px dashed var(--accent);border-radius:11px;padding:14px;font-size:13.5px;font-weight:600;background:#f5f8ff;color:var(--accent);cursor:pointer;font-family:inherit;transition:all .15s}
+.em-ajout button:hover{background:#eef3fe;border-style:solid;box-shadow:0 2px 10px rgba(79,126,248,.14)}
+.em-ajout button i{font-size:17px}
+.em-choix{display:flex;align-items:flex-start;gap:14px;border:1px solid var(--border);border-radius:11px;padding:14px 16px;margin-bottom:9px;cursor:pointer;transition:all .14s;background:var(--carte);text-align:left;width:100%;font-family:inherit}
+.em-choix:hover{border-color:var(--accent);background:#f8faff;transform:translateX(2px)}
+.em-choix-ic{width:38px;height:38px;border-radius:10px;background:#eef3fe;color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:19px;flex:none}
+.em-choix-x{flex:1;min-width:0}
+.em-choix-t{display:block;font-size:13.5px;font-weight:600;margin-bottom:3px;color:var(--text)}
+.em-choix-d{display:block;font-size:11.5px;color:var(--muted);line-height:1.5}
+.em-barre{display:flex;gap:2px;align-items:center;padding:3px 6px;background:var(--bg);border:1px solid var(--border2);border-bottom:none;border-radius:8px 8px 0 0;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+.em-barre::-webkit-scrollbar{display:none}
+.em-o{width:22px;height:22px;border:1px solid transparent;background:transparent;border-radius:5px;cursor:pointer;font-family:inherit;font-size:11.5px;color:var(--muted);display:flex;align-items:center;justify-content:center;padding:0;flex:none}
+.em-o:hover{background:var(--carte);border-color:var(--border2);color:var(--text)}
+.em-o.on{background:var(--accent);color:#fff;border-color:transparent}
+.em-o b{font-weight:800}
+.em-o i-em{font-style:italic;font-weight:600}
+.em-o u-em{text-decoration:underline}
+.em-sep{width:1px;height:14px;background:var(--border2);margin:0 3px;flex:none}
+.em-sel{border:1px solid var(--border2);background:var(--carte);border-radius:5px;font-size:10px;padding:2px 4px;font-family:inherit;color:var(--text);cursor:pointer;flex:none;max-width:82px}
+.em-coul{display:flex;gap:2px;align-items:center;flex:none}
+.em-pastille{width:13px;height:13px;border-radius:3px;cursor:pointer;border:1px solid rgba(0,0,0,.12);flex:none}
+.em-pastille:hover{transform:scale(1.2)}
+.em-espace{display:flex;align-items:center;gap:3px;flex:none;margin-left:4px}
+.em-cadre{border:1px solid var(--border2);border-top:none;border-radius:0 0 9px 9px;padding:12px 13px;background:var(--carte)}
+.em-cadre:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,126,248,.09)}
+.em-zone{width:100%;border:none;padding:0;background:transparent;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;font-size:13px;line-height:1.65;color:var(--text);min-height:80px;outline:none;display:block;white-space:pre-wrap;word-break:break-word}
+.em-zone.court{min-height:auto}
+.em-zone:empty:before{content:attr(data-vide);color:var(--border2)}
+.em-zone b,.em-zone strong{font-weight:700}
+.em-zone i,.em-zone em{font-style:italic}
+.em-zone u{text-decoration:underline}
+.em-marq{font-size:9.5px;color:var(--border2);margin-top:7px;padding-top:6px;border-top:1px solid var(--border);line-height:1.4}
+.em-aide-l{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.em-aide-l .em-note{margin:0;flex:1}
+.em-assist{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--accent);
+border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;background:#f5f8ff;color:var(--accent);
+cursor:pointer;font-family:inherit;flex:none;white-space:nowrap}
+.em-assist:hover{background:#eef3fe}
+.em-panneau{position:fixed;width:272px;max-height:64vh;background:var(--carte);border:1px solid var(--border2);
+border-radius:12px;box-shadow:0 12px 40px rgba(16,18,30,.22);z-index:150;display:none;overflow:hidden;
+flex-direction:column}
+.em-panneau.on{display:flex}
+.em-p-tete{padding:13px 15px;border-bottom:1px solid var(--border);flex:none}
+.em-p-t{font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.em-p-t button{background:none;border:none;color:var(--border2);font-size:18px;cursor:pointer;padding:0;line-height:1;font-family:inherit}
+.em-p-t button:hover{color:var(--danger)}
+.em-p-d{font-size:10.5px;color:var(--muted);line-height:1.5;margin-top:5px}
+.em-p-rech{padding:9px 15px;border-bottom:1px solid var(--border);flex:none}
+.em-p-rech input{width:100%;padding:7px 10px;border:1px solid var(--border2);border-radius:7px;
+font-size:12px;font-family:inherit;background:var(--carte);color:var(--text)}
+.em-p-rech input:focus{outline:none;border-color:var(--accent)}
+.em-p-liste{overflow-y:auto;padding:8px 10px 12px;flex:1}
+.em-p-g{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);
+margin:10px 5px 5px}
+.em-p-g:first-child{margin-top:2px}
+.em-p-b{display:block;width:100%;text-align:left;border:1px solid transparent;border-radius:7px;
+padding:7px 9px;background:none;cursor:pointer;font-family:inherit;margin-bottom:2px}
+.em-p-b:hover{background:#f5f8ff;border-color:var(--accent)}
+.em-p-c{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:var(--accent);display:block}
+.em-p-x{font-size:10px;color:var(--muted);display:block;margin-top:2px;line-height:1.35}
+.em-p-v{font-size:9.5px;color:var(--border2);display:block;margin-top:2px;font-style:italic}
+.em-lignes{display:flex;flex-direction:column;gap:6px}
+.em-ligne{display:flex;gap:6px;align-items:center}
+.em-bal{display:flex;flex-wrap:wrap;gap:5px;padding:11px 17px;background:var(--bg);border-bottom:1px solid var(--border);max-height:190px;overflow:auto}
+.em-bal-g{width:100%;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:5px 0 1px}
+.em-b{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;background:var(--carte);border:1px solid var(--border2);border-radius:6px;padding:4px 8px;cursor:pointer;color:var(--accent)}
+.em-b:hover{border-color:var(--accent);background:#eef3fe}
+.em-apercu{background:#e9ebf0;padding:18px;min-height:340px}
+.em-mail{background:#fff;border-radius:9px;padding:16px 18px;box-shadow:0 2px 12px rgba(16,18,30,.1);max-width:580px;margin:0 auto}
+.em-objet{background:var(--carte);border:1px solid var(--border);border-radius:9px;padding:10px 13px;margin-bottom:13px;font-size:12.5px}
+.em-objet b{display:block;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;font-weight:700}
+.em-code{background:#1c2029;color:#a8b3cf;font-family:ui-monospace,Menlo,monospace;font-size:10px;line-height:1.55;padding:13px 15px;max-height:210px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+.em-orph{background:#fdf3e3;border:1px solid #f0cf94;border-radius:9px;padding:10px 13px;font-size:11.5px;color:#8a5a06;margin-bottom:11px;display:none}
+.em-bascule{display:inline-flex;border:1px solid var(--border2);border-radius:8px;overflow:hidden}
+.em-bascule button{border:none;background:var(--carte);color:var(--muted);font-size:11px;padding:5px 11px;cursor:pointer;font-family:inherit}
+.em-bascule button.on{background:var(--accent);color:#fff}
+@media (max-width:1150px){.em-grille{grid-template-columns:1fr}}
+</style>
+{% if not fiche.id %}
+<div class="em-copie"><i class="ti ti-git-branch"></i>
+  <div><b>Vous partez d'une copie</b>
+  Le texte fourni avec DFM n'est jamais modifié. En enregistrant, vous créez votre propre modèle dans la bibliothèque, sous le nom que vous lui donnez ci-dessous.</div>
+</div>
+{% endif %}
+<div class="em-aide-h"><i class="ti ti-bulb"></i>
+  <div><b>Comment ça marche</b>
+  Un mail se compose de blocs empilés. Cliquez sur un bloc pour le modifier, glissez-le par sa poignée pour le déplacer. Sélectionnez du texte puis cliquez sur un bouton de la barre pour le mettre en forme. Les mentions entre doubles accolades sont des balises, remplacées par les vraies informations à l'envoi.</div>
+</div>
+<input type="hidden" id="em_id" value="{{ fiche.id or '' }}">
+<input type="hidden" id="em_usage" value="{{ usage }}">
+<input type="hidden" id="em_retour" value="{{ retour }}">
+<div class="em-grille">
+  <div>
+    <div class="em-carte">
+      <div class="em-tete"><span class="em-t"><i class="ti ti-tag"></i>Identification</span></div>
+      <div class="em-corps">
+        <div class="em-f"><label>Nom de ce modèle <span style="color:var(--danger)">*</span></label>
+          <input type="text" id="em_titre" value="{{ fiche.titre or '' }}" placeholder="Ex : Convention à signer — version courte">
+          <div class="em-note">Ce nom n'apparaît que dans DFM, jamais dans le mail.</div></div>
+        <div class="em-f"><label>Objet du mail <span style="color:var(--danger)">*</span></label>
+          <input type="text" id="em_objet" value="{{ fiche.objet or '' }}" oninput="emAper()">
+          <div class="em-jauge" id="em_jauge"><div style="width:0%"></div></div>
+          <div class="em-compteur" id="em_compteur"></div></div>
+        {% if usage == 'signature' %}
+        <div class="em-f"><label>Objet quand une place se libère</label>
+          <input type="text" id="em_objet_promu" value="{{ fiche.objet_promu or '' }}" oninput="emAper()"></div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="em-carte">
+      <div class="em-tete"><span class="em-t"><i class="ti ti-code"></i>Balises</span>
+        <span class="em-d">Cliquez pour insérer à l'endroit du curseur</span></div>
+      <div class="em-bal">
+        {% for groupe, items in balises %}
+        <div class="em-bal-g">{{ groupe }}</div>
+        {% for cle, description, valeur in items %}
+        <span class="em-b" title="{{ description }} — deviendra : {{ valeur }}" onclick="emInserer('{{ cle }}')">{% raw %}{{{% endraw %}{{ cle }}{% raw %}}}{% endraw %}</span>
+        {% endfor %}
+        {% endfor %}
+      </div>
+    </div>
+    <div class="em-carte">
+      <div class="em-tete"><span class="em-t"><i class="ti ti-layout-list"></i>Contenu du mail</span>
+        <span class="em-d" id="em_compte"></span></div>
+      <div class="em-corps">
+        <div class="em-verif" id="em_verif"></div>
+        <div class="em-orph" id="em_orph"></div>
+        <div id="em_blocs"></div>
+        <div class="em-ajout" id="em_ajout"></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="em-carte" style="position:sticky;top:14px">
+      <div class="em-tete"><span class="em-t"><i class="ti ti-eye"></i>Aperçu</span>
+        {% if usage == 'signature' %}
+        <span class="em-bascule">
+          <button class="on" id="em_v1" onclick="emVariante(false)">Standard</button>
+          <button id="em_v2" onclick="emVariante(true)">Place libérée</button>
+        </span>
+        {% endif %}
+      </div>
+      <div style="padding:9px 17px;background:var(--bg);border-bottom:1px solid var(--border);font-size:10.5px;color:var(--muted);line-height:1.5">
+        <i class="ti ti-info-circle" style="font-size:12px;vertical-align:-1px"></i>
+        Les informations affichées sont fictives. Elles seront remplacées par les vraies données à l'envoi.
+      </div>
+      <div class="em-apercu">
+        <div class="em-objet"><b>Objet</b><span id="em_ap_objet"></span></div>
+        <div class="em-mail" id="em_ap_corps"></div>
+      </div>
+    </div>
+    <div class="em-carte">
+      <div class="em-tete"><span class="em-t"><i class="ti ti-brackets"></i>Code généré</span>
+        <span class="em-d">Lecture seule</span></div>
+      <div class="em-code" id="em_ap_code"></div>
+    </div>
+  </div>
+</div>
+<div class="em-panneau" id="em_panneau">
+  <div class="em-p-tete">
+    <div class="em-p-t"><span>Assistant balises</span><button onclick="emFermerAssistant()" title="Fermer">&times;</button></div>
+    <div class="em-p-d">Placez le curseur dans votre texte à l'endroit voulu, puis cliquez sur une balise. Elle sera remplacée par la vraie information au moment de l'envoi.</div>
+  </div>
+  <div class="em-p-rech"><input type="text" id="em_p_q" placeholder="Rechercher une balise…" oninput="emFiltrerBalises()"></div>
+  <div class="em-p-liste" id="em_p_liste"></div>
+</div>
+<script>
+var EM_BLOCS = {{ (fiche.blocs or [])|tojson }};
+var EM_TYPES = {
+  texte: {nom: "Paragraphe", icone: "ti-align-left", aide: "Un ou plusieurs paragraphes. Laissez une ligne vide entre deux paragraphes."},
+  encadre: {nom: "Encadré", icone: "ti-square-rounded", aide: "Un bloc sur fond coloré, pour une information qu'on ne doit pas manquer."},
+  bouton: {nom: "Bouton", icone: "ti-hand-click", aide: "Un gros bouton cliquable et centré, pour l'action principale du mail."},
+  tableau: {nom: "Tableau", icone: "ti-table", aide: "Deux colonnes, pour des coordonnées bancaires ou des détails pratiques."},
+  signature: {nom: "Signature", icone: "ti-signature", aide: "La formule de politesse et votre nom, en fin de mail."},
+  lien: {nom: "Lien discret", icone: "ti-link", aide: "Un petit lien gris et centré, pour l'annulation par exemple."},
+  espace: {nom: "Espace", icone: "ti-arrows-vertical", aide: "Une respiration entre deux blocs."},
+  brut: {nom: "Texte automatique", icone: "ti-wand", aide: "Un contenu que DFM compose seul selon la situation."}
+};
+var EM_MODELES = {
+  texte: {contenu: "Votre texte ici."},
+  encadre: {contenu: "Une information importante.", ton: "orange"},
+  bouton: {libelle: "Cliquer ici", lien: "{{lien_signature}}", couleur: "vert", sous: ""},
+  tableau: {titre: "", lignes: [{cle: "Intitulé", valeur: "Valeur"}]},
+  signature: {contenu: "Bonne journée,\n**{{signature}}, {{marque}}**"},
+  lien: {libelle: "Je souhaite annuler mon inscription", lien: "{{lien_annulation}}"},
+  espace: {hauteur: "normal"},
+  brut: {contenu: "{{intro}}"}
+};
+var EM_TONS = {orange: "Orange", bleu: "Bleu", vert: "Vert", gris: "Gris"};
+var EM_COULEURS = {vert: "Vert", bleu: "Bleu", violet: "Violet", orange: "Orange", noir: "Noir"};
+var EM_PALETTE = ["#2b2f3a", "#4f7ef8", "#0f9e6a", "#d4890a", "#d03b3b", "#7c5bf7", "#8a90a2"];
+var EM_ACTIF = -1, EM_NEUF = -1, EM_GLISSE = -1, EM_PROMU = false;
+var EM_CHAMP = null, EM_ATTENTE = null;
+function emEch(t){ return (t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
+function emVersHtml(t){
+  var h = (t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  h = h.replace(/\[\[(#[0-9a-fA-F]{3,6})\|([\s\S]*?)\]\]/g, '<span style="color:$1">$2</span>');
+  h = h.replace(/\*\*([\s\S]+?)\*\*/g, "<b>$1</b>");
+  h = h.replace(/__([\s\S]+?)__/g, "<u>$1</u>");
+  h = h.replace(/(^|[^*])\*(?!\*)([\s\S]+?)\*(?!\*)/g, "$1<i>$2</i>");
+  return h.replace(/\n/g, "<br>");
+}
+function emHex(c){
+  if(!c) return "";
+  if(c.charAt(0) === "#") return c;
+  var m = c.match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/);
+  if(!m) return "";
+  var v = "#";
+  for(var i = 1; i <= 3; i++){
+    var x = parseInt(m[i], 10).toString(16);
+    v += (x.length === 1 ? "0" : "") + x;
+  }
+  return v;
+}
+function emVersMarque(noeud){
+  var out = "";
+  var enfants = noeud.childNodes || [];
+  for(var i = 0; i < enfants.length; i++){
+    var n = enfants[i];
+    if(n.nodeType === 3){ out += n.nodeValue; continue; }
+    if(n.nodeType !== 1){ continue; }
+    var nom = n.nodeName.toUpperCase();
+    if(nom === "BR"){ out += "\n"; continue; }
+    var dedans = emVersMarque(n);
+    var style = (n.getAttribute && n.getAttribute("style")) || "";
+    var gras = (nom === "B" || nom === "STRONG" || /font-weight:\s*(bold|[6-9]00)/.test(style));
+    var ital = (nom === "I" || nom === "EM" || /font-style:\s*italic/.test(style));
+    var soul = (nom === "U" || /text-decoration[^;]*underline/.test(style));
+    var coul = "";
+    var mc = style.match(/(?:^|[^-])color:\s*([^;]+)/);
+    if(mc){ coul = emHex(mc[1].trim()); }
+    if(dedans.trim()){
+      if(coul && coul !== "#000000" && coul !== "#2b2f3a"){ dedans = "[[" + coul + "|" + dedans + "]]"; }
+      if(soul){ dedans = "__" + dedans + "__"; }
+      if(ital){ dedans = "*" + dedans + "*"; }
+      if(gras){ dedans = "**" + dedans + "**"; }
+    }
+    if(nom === "DIV" || nom === "P"){
+      out += (out && out.charAt(out.length - 1) !== "\n" ? "\n" : "") + dedans;
+    } else { out += dedans; }
+  }
+  return out;
+}
+function emZone(i, cle, valeur, court, vide){
+  return '<div class="em-zone' + (court ? " court" : "") + '" contenteditable="true" spellcheck="true"'
+       + ' data-i="' + i + '" data-cle="' + cle + '" data-court="' + (court ? "1" : "") + '"'
+       + ' data-vide="' + (vide || "") + '">' + emVersHtml(valeur) + '</div>';
+}
+function emResume(b){
+  if(b.type === "texte" || b.type === "encadre" || b.type === "signature" || b.type === "brut"){
+    return (b.contenu || "").replace(/\*\*/g, "").replace(/__/g, "").slice(0, 60);
+  }
+  if(b.type === "bouton" || b.type === "lien") return b.libelle || "";
+  if(b.type === "tableau") return (b.lignes || []).length + " ligne(s)";
+  if(b.type === "espace") return "hauteur " + (b.hauteur || "normal");
+  return "";
+}
+function emBarre(i, b){
+  var complet = (b.type === "texte");
+  var h = '<div class="em-barre">';
+  h += '<button class="em-o" data-cmd="bold" title="Gras — recliquez pour annuler" onmousedown="event.preventDefault();emCommande(\'bold\')"><b>G</b></button>';
+  h += '<button class="em-o" data-cmd="italic" title="Italique — recliquez pour annuler" onmousedown="event.preventDefault();emCommande(\'italic\')"><i-em>I</i-em></button>';
+  h += '<button class="em-o" data-cmd="underline" title="Souligné — recliquez pour annuler" onmousedown="event.preventDefault();emCommande(\'underline\')"><u-em>S</u-em></button>';
+  h += '<span class="em-sep"></span><span class="em-coul" title="Couleur du texte sélectionné">';
+  EM_PALETTE.forEach(function(c){
+    h += '<span class="em-pastille" style="background:' + c + '" onmousedown="event.preventDefault();emCouleur(\'' + c + '\')"></span>';
+  });
+  h += '</span>';
+  if(complet){
+    h += '<span class="em-sep"></span>';
+    h += '<select class="em-sel" title="Taille du texte" onchange="emChamp(' + i + ',\'taille\',this.value)">';
+    [["petit", "Petit"], ["normal", "Normal"], ["grand", "Grand"]].forEach(function(t){
+      h += '<option value="' + t[0] + '"' + ((b.taille || "normal") === t[0] ? " selected" : "") + '>' + t[1] + '</option>';
+    });
+    h += '</select><select class="em-sel" title="Alignement du paragraphe" onchange="emChamp(' + i + ',\'align\',this.value)">';
+    [["gauche", "Gauche"], ["centre", "Centre"], ["droite", "Droite"]].forEach(function(t){
+      h += '<option value="' + t[0] + '"' + ((b.align || "gauche") === t[0] ? " selected" : "") + '>' + t[1] + '</option>';
+    });
+    h += '</select><span class="em-espace"><select class="em-sel" title="Espacement" onchange="emChamp(' + i + ',\'espace\',this.value)">';
+    [["serre", "Serré"], ["normal", "Normal"], ["large", "Large"]].forEach(function(t){
+      h += '<option value="' + t[0] + '"' + ((b.espace || "normal") === t[0] ? " selected" : "") + '>' + t[1] + '</option>';
+    });
+    h += '</select></span>';
+  }
+  return h + '</div>';
+}
+function emChamps(b, i){
+  var t = EM_TYPES[b.type] || {aide: ""};
+  var h = '<div class="em-aide-l"><div class="em-note">' + (t.aide || "") + '</div>';
+  if(b.type !== "espace" && b.type !== "brut"){
+    h += '<button class="em-assist" onclick="event.stopPropagation();emAssistant(this)"><i class="ti ti-code"></i>Assistant balises</button>';
+  }
+  h += '</div>';
+  if(b.type === "brut"){
+    return h + '<div class="em-f"><label>Contenu automatique</label><input type="text" value="'
+         + emEch(b.contenu) + '" readonly style="opacity:.6"><div class="em-note">DFM compose ce passage seul.</div></div>';
+  }
+  if(b.type === "espace"){
+    h += '<div class="em-f"><label>Hauteur de l\'espace</label><select onchange="emChamp(' + i + ',\'hauteur\',this.value)">';
+    [["petit", "Petit"], ["normal", "Normal"], ["grand", "Grand"]].forEach(function(x){
+      h += '<option value="' + x[0] + '"' + ((b.hauteur || "normal") === x[0] ? " selected" : "") + '>' + x[1] + '</option>';
+    });
+    return h + '</select></div>';
+  }
+  h += emBarre(i, b) + '<div class="em-cadre">';
+  if(b.type === "texte" || b.type === "encadre" || b.type === "signature"){
+    h += emZone(i, "contenu", b.contenu, false, "Votre texte…");
+    h += '<div class="em-marq">Sélectionnez du texte puis cliquez sur un bouton. Recliquez pour annuler.</div>';
+    if(b.type === "encadre"){
+      h += '<div class="em-f" style="margin:11px 0 0"><label>Couleur du fond</label><select onchange="emChamp(' + i + ',\'ton\',this.value)">';
+      Object.keys(EM_TONS).forEach(function(k){
+        h += '<option value="' + k + '"' + (b.ton === k ? " selected" : "") + '>' + EM_TONS[k] + '</option>';
+      });
+      h += '</select></div>';
+    }
+  }
+  if(b.type === "bouton"){
+    h += '<div class="em-f"><label>Texte du bouton</label>' + emZone(i, "libelle", b.libelle, true, "Cliquer ici") + '</div>';
+    h += '<div class="em-f"><label>Où mène le bouton</label><input type="text" value="' + emEch(b.lien) + '" oninput="emChamp(' + i + ',\'lien\',this.value)"><div class="em-note">Une balise de lien, par exemple {{lien_paiement}}.</div></div>';
+    h += '<div class="em-f"><label>Mention sous le bouton</label>' + emZone(i, "sous", b.sous, true, "facultatif") + '</div>';
+    h += '<div class="em-f" style="margin-bottom:0"><label>Couleur du bouton</label><select onchange="emChamp(' + i + ',\'couleur\',this.value)">';
+    Object.keys(EM_COULEURS).forEach(function(k){
+      h += '<option value="' + k + '"' + (b.couleur === k ? " selected" : "") + '>' + EM_COULEURS[k] + '</option>';
+    });
+    h += '</select></div>';
+  }
+  if(b.type === "lien"){
+    h += '<div class="em-f"><label>Texte du lien</label>' + emZone(i, "libelle", b.libelle, true, "Texte du lien") + '</div>';
+    h += '<div class="em-f" style="margin-bottom:0"><label>Où mène le lien</label><input type="text" value="' + emEch(b.lien) + '" oninput="emChamp(' + i + ',\'lien\',this.value)"></div>';
+  }
+  if(b.type === "tableau"){
+    h += '<div class="em-f"><label>Phrase au-dessus</label>' + emZone(i, "titre", b.titre, true, "facultatif") + '</div>';
+    h += '<div class="em-f" style="margin-bottom:0"><label>Lignes</label><div class="em-lignes">';
+    (b.lignes || []).forEach(function(l, j){
+      h += '<div class="em-ligne"><span style="flex:0 0 130px">' + emZone(i, "ligne:" + j + ":cle", l.cle, true, "Intitulé") + '</span>';
+      h += '<span style="flex:1">' + emZone(i, "ligne:" + j + ":valeur", l.valeur, true, "Valeur") + '</span>';
+      h += '<button class="em-mini sup" title="Retirer cette ligne" onclick="emLigneSup(' + i + ',' + j + ')">&times;</button></div>';
+    });
+    h += '</div><button class="em-mini" style="color:var(--accent);font-size:11.5px;margin-top:7px" onclick="emLigneAjout(' + i + ')">+ Ajouter une ligne</button></div>';
+  }
+  return h + '</div>';
+}
+function emDessiner(){
+  var h = "";
+  EM_BLOCS.forEach(function(b, i){
+    var t = EM_TYPES[b.type] || {nom: b.type, icone: "ti-point", aide: ""};
+    h += '<div class="em-fente"></div>';
+    h += '<div class="em-bloc' + (i === EM_ACTIF ? " actif" : "") + (i === EM_NEUF ? " neuf" : "") + '">';
+    h += '<div class="em-bloc-h" onclick="emOuvrir(' + i + ')">';
+    h += '<i class="ti ti-grip-vertical em-grip" title="Glissez pour déplacer"></i>';
+    h += '<div class="em-bloc-ic"><i class="ti ' + t.icone + '"></i></div>';
+    h += '<div class="em-bloc-x"><div class="em-bloc-t">' + t.nom
+       + (i === EM_NEUF ? '<span class="em-neuf-etiq">Nouveau</span>' : "") + '</div>';
+    h += '<div class="em-bloc-r">' + emEch(emResume(b)) + '</div></div>';
+    h += '<div class="em-bloc-o">';
+    if(i > 0){ h += '<button class="em-mini" title="Monter" onclick="event.stopPropagation();emDeplacer(' + i + ',-1)">&#9650;</button>'; }
+    if(i < EM_BLOCS.length - 1){ h += '<button class="em-mini" title="Descendre" onclick="event.stopPropagation();emDeplacer(' + i + ',1)">&#9660;</button>'; }
+    h += '<button class="em-mini" title="Dupliquer" onclick="event.stopPropagation();emDupliquer(' + i + ')"><i class="ti ti-copy" style="font-size:13px"></i></button>';
+    h += '<button class="em-mini sup" title="Supprimer" onclick="event.stopPropagation();emSupprimer(' + i + ')">&times;</button>';
+    h += '</div></div><div class="em-bloc-c">' + emChamps(b, i) + '</div></div>';
+  });
+  h += '<div class="em-fente"></div>';
+  if(!EM_BLOCS.length){
+    h = '<div style="padding:26px;text-align:center;color:var(--muted);font-size:12.5px;border:1px dashed var(--border2);border-radius:10px">Aucun bloc. Ajoutez-en un ci-dessous.</div>';
+  }
+  document.getElementById("em_blocs").innerHTML = h;
+  document.getElementById("em_compte").textContent = EM_BLOCS.length + " bloc(s)";
+  emBrancherGlisse();
+  emAper();
+}
+function emOuvrir(i){ EM_ACTIF = (EM_ACTIF === i) ? -1 : i; emDessiner(); }
+function emChamp(i, cle, valeur){ EM_BLOCS[i][cle] = valeur; emAper(); emMajResume(i); }
+function emMajResume(i){
+  var r = document.querySelectorAll(".em-bloc-r");
+  if(r[i]){ r[i].textContent = emResume(EM_BLOCS[i]); }
+}
+function emLigneAjout(i){ EM_BLOCS[i].lignes.push({cle: "", valeur: ""}); emDessiner(); }
+function emLigneSup(i, j){ EM_BLOCS[i].lignes.splice(j, 1); emDessiner(); }
+function emDeplacer(i, sens){
+  var b = EM_BLOCS.splice(i, 1)[0];
+  EM_BLOCS.splice(i + sens, 0, b);
+  EM_ACTIF = i + sens;
+  emDessiner();
+}
+function emDupliquer(i){
+  EM_BLOCS.splice(i + 1, 0, JSON.parse(JSON.stringify(EM_BLOCS[i])));
+  EM_ACTIF = i + 1;
+  EM_NEUF = i + 1;
+  emDessiner();
+}
+function emSupprimer(i){
+  dfmConfirmer({ton: "attention", titre: "Supprimer ce bloc",
+    corps: "<p>Ce bloc sera retiré du mail.</p>", valider: "Supprimer", styleValider: "danger",
+    action: function(){ EM_BLOCS.splice(i, 1); EM_ACTIF = -1; EM_NEUF = -1; emDessiner(); }});
+}
+function emAjouter(type){
+  var n = JSON.parse(JSON.stringify(EM_MODELES[type] || {}));
+  n.type = type;
+  EM_BLOCS.push(n);
+  EM_ACTIF = EM_BLOCS.length - 1;
+  EM_NEUF = EM_ACTIF;
+  emDessiner();
+  setTimeout(function(){
+    var z = document.querySelectorAll(".em-bloc")[EM_NEUF];
+    if(z){ z.scrollIntoView({block: "center", behavior: "smooth"}); }
+  }, 80);
+}
+function emChoisirBloc(){
+  var h = '<p style="font-size:12.5px;color:var(--muted);margin:0 0 16px">Chaque bloc est un morceau du mail. Choisissez celui qui correspond à ce que vous voulez ajouter.</p>';
+  Object.keys(EM_TYPES).forEach(function(k){
+    if(k === "brut") return;
+    var t = EM_TYPES[k];
+    h += '<button class="em-choix" onclick="dfmFermer();emAjouter(\'' + k + '\')">';
+    h += '<span class="em-choix-ic"><i class="ti ' + t.icone + '"></i></span>';
+    h += '<span class="em-choix-x"><span class="em-choix-t">' + t.nom + '</span>';
+    h += '<span class="em-choix-d">' + (t.aide || "") + '</span></span></button>';
+  });
+  dfmFenetre({ton: "info", titre: "Ajouter un bloc",
+    sous: "Il sera placé à la fin, vous pourrez le déplacer ensuite",
+    corps: h, boutons: [{libelle: "Annuler", style: "neutre"}]});
+}
+function emBrancherGlisse(){
+  var blocs = document.querySelectorAll("#em_blocs .em-bloc");
+  blocs.forEach(function(el, i){
+    var tete = el.querySelector(".em-bloc-h");
+    if(!tete) return;
+    tete.setAttribute("draggable", "true");
+    tete.ondragstart = function(e){
+      EM_GLISSE = i;
+      el.classList.add("glisse");
+      e.dataTransfer.effectAllowed = "move";
+      try{ e.dataTransfer.setData("text/plain", String(i)); }catch(x){}
+    };
+    tete.ondragend = function(){ EM_GLISSE = -1; emNettoyer(); };
+    el.ondragover = function(e){
+      if(EM_GLISSE === -1) return;
+      e.preventDefault();
+      var r = el.getBoundingClientRect();
+      var place = ((e.clientY - r.top) < r.height / 2) ? i : i + 1;
+      if(place === EM_GLISSE || place === EM_GLISSE + 1){ emNettoyer(); return; }
+      emFente(place);
+    };
+    el.ondrop = function(e){
+      e.preventDefault();
+      if(EM_GLISSE === -1) return;
+      var r = el.getBoundingClientRect();
+      var place = ((e.clientY - r.top) < r.height / 2) ? i : i + 1;
+      if(place === EM_GLISSE || place === EM_GLISSE + 1){ emNettoyer(); return; }
+      var b = EM_BLOCS.splice(EM_GLISSE, 1)[0];
+      if(place > EM_GLISSE){ place--; }
+      EM_BLOCS.splice(place, 0, b);
+      EM_ACTIF = -1; EM_NEUF = -1; EM_GLISSE = -1;
+      emDessiner();
+    };
+  });
+}
+function emNettoyer(){
+  document.querySelectorAll(".em-bloc").forEach(function(x){
+    x.classList.remove("glisse"); x.classList.remove("voisin");
+  });
+  document.querySelectorAll(".em-fente").forEach(function(f){ f.classList.remove("on"); });
+}
+function emFente(place){
+  emNettoyer();
+  var blocs = document.querySelectorAll("#em_blocs .em-bloc");
+  var fentes = document.querySelectorAll("#em_blocs .em-fente");
+  if(place > 0 && blocs[place - 1]){ blocs[place - 1].classList.add("voisin"); }
+  if(blocs[place]){ blocs[place].classList.add("voisin"); }
+  if(fentes[place]){ fentes[place].classList.add("on"); }
+}
+function emCommande(cmd){
+  if(!EM_CHAMP){ dfmInfo("Placez d'abord le curseur", "<p>Cliquez dans un champ de texte, sélectionnez les mots, puis cliquez sur le bouton.</p>", "attention"); return; }
+  EM_CHAMP.focus();
+  document.execCommand(cmd, false, null);
+  EM_CHAMP.dispatchEvent(new Event("input", {bubbles: true}));
+  emMajBoutons();
+}
+function emCouleur(c){
+  var sel = window.getSelection();
+  if(!EM_CHAMP || !sel || sel.rangeCount === 0 || sel.isCollapsed){
+    dfmInfo("Sélectionnez d'abord du texte",
+            "<p>Surlignez les mots à colorer, puis cliquez sur une pastille.</p>", "attention");
+    return;
+  }
+  var plage = sel.getRangeAt(0);
+  if(!EM_CHAMP.contains(plage.commonAncestorContainer)){
+    dfmInfo("Sélectionnez d'abord du texte",
+            "<p>La sélection doit se trouver dans un champ de ce bloc.</p>", "attention");
+    return;
+  }
+  document.execCommand("styleWithCSS", false, true);
+  var morceau = plage.extractContents();
+  var nettoye = document.createElement("span");
+  nettoye.appendChild(morceau);
+  nettoye.querySelectorAll("span[style]").forEach(function(vieux){
+    if(!/color\s*:/.test(vieux.getAttribute("style") || "")) return;
+    var pere = vieux.parentNode;
+    while(vieux.firstChild){ pere.insertBefore(vieux.firstChild, vieux); }
+    pere.removeChild(vieux);
+  });
+  var env = document.createElement("span");
+  env.style.color = c;
+  while(nettoye.firstChild){ env.appendChild(nettoye.firstChild); }
+  plage.insertNode(env);
+  sel.removeAllRanges();
+  var neuve = document.createRange();
+  neuve.selectNodeContents(env);
+  sel.addRange(neuve);
+  EM_CHAMP.focus();
+  EM_CHAMP.dispatchEvent(new Event("input", {bubbles: true}));
+}
+function emMajBoutons(){
+  var a = document.activeElement;
+  if(!a || !a.classList || !a.classList.contains("em-zone")) return;
+  var etats = {};
+  try{
+    etats.bold = document.queryCommandState("bold");
+    etats.italic = document.queryCommandState("italic");
+    etats.underline = document.queryCommandState("underline");
+  }catch(x){ return; }
+  document.querySelectorAll(".em-o[data-cmd]").forEach(function(b){
+    b.classList.toggle("on", !!etats[b.dataset.cmd]);
+  });
+}
+function emInserer(cle){
+  if(!EM_CHAMP){ dfmInfo("Placez d'abord le curseur", "<p>Cliquez dans un champ de texte à l'endroit voulu, puis cliquez sur la balise.</p>", "attention"); return; }
+  EM_CHAMP.focus();
+  document.execCommand("insertText", false, "{" + "{" + cle + "}" + "}");
+  EM_CHAMP.dispatchEvent(new Event("input", {bubbles: true}));
+}
+function emVariante(promu){
+  EM_PROMU = promu;
+  var a = document.getElementById("em_v1"), b = document.getElementById("em_v2");
+  if(a && b){ a.classList.toggle("on", !promu); b.classList.toggle("on", promu); }
+  emAper();
+}
+function emVal(id){ var e = document.getElementById(id); return e ? e.value : ""; }
+function emAper(){
+  clearTimeout(EM_ATTENTE);
+  EM_ATTENTE = setTimeout(function(){
+    fetch("/templates/mail/apercu", {method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({objet: emVal("em_objet"), objet_promu: emVal("em_objet_promu"),
+                            blocs: EM_BLOCS, promu: EM_PROMU})})
+    .then(function(r){return r.json()}).then(function(j){
+      if(!j.ok) return;
+      document.getElementById("em_ap_objet").textContent = j.objet || "(objet vide)";
+      // Le logo n'est plus remplace par un cadre gris : ce cadre faisait
+      // 150x52 alors que le vrai logo part en 60x60. L'apercu annoncait donc
+      // autre chose que ce que recevait le praticien. Le serveur renvoie
+      // desormais la balise reelle, aux dimensions du fichier. Le cadre ne
+      // reste que si l'image ne se charge pas.
+      var zone = document.getElementById("em_ap_corps");
+      zone.innerHTML = j.html || "";
+      var img = zone.querySelector('img[src="/logo-organisme"]');
+      if(img){ img.onerror = function(){
+        this.outerHTML = '<div style="width:150px;height:52px;background:#f1f2f6;border:1px dashed #c8ccd8;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#9aa0ad;letter-spacing:1px">LOGO INDISPONIBLE</div>';
+      }; }
+      var code = document.getElementById("em_ap_code");
+      if(code){ code.textContent = j.code || ""; }
+      var z = document.getElementById("em_orph");
+      if(j.orphelines && j.orphelines.length){
+        z.innerHTML = '<b>Balise inconnue :</b> ' + j.orphelines.map(function(x){ return "{" + "{" + x + "}" + "}"; }).join(", ") + ' — elle laissera un vide dans le mail.';
+        z.style.display = "block";
+      } else { z.style.display = "none"; }
+    }).catch(function(){});
+  }, 260);
+}
+function emEnregistrer(bouton){
+  bouton.disabled = true;
+  bouton.innerHTML = "Enregistrement…";
+  fetch("/templates/mail/" + emVal("em_usage"), {method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({id: emVal("em_id"), titre: emVal("em_titre"), objet: emVal("em_objet"),
+                          objet_promu: emVal("em_objet_promu"), blocs: EM_BLOCS})})
+  .then(function(r){return r.json()}).then(function(j){
+    bouton.disabled = false;
+    bouton.innerHTML = '<i class="ti ti-check"></i>Enregistrer';
+    if(!j.ok){ alert(j.message || "Enregistrement impossible"); return; }
+    document.getElementById("em_id").value = j.id;
+    var retour = emVal("em_retour");
+    if(retour){ window.location.href = retour + (retour.indexOf("?") > -1 ? "&" : "?") + "mail=" + encodeURIComponent(j.id) + "&usage=" + emVal("em_usage"); }
+    else { window.location.href = "/templates"; }
+  }).catch(function(e){
+    bouton.disabled = false;
+    bouton.innerHTML = '<i class="ti ti-check"></i>Enregistrer';
+    alert("Erreur : " + e);
+  });
+}
+document.addEventListener("input", function(e){
+  var z = e.target;
+  if(!z || !z.classList || !z.classList.contains("em-zone")) return;
+  var i = parseInt(z.dataset.i, 10);
+  var cle = z.dataset.cle;
+  var valeur = emVersMarque(z);
+  if(cle.indexOf("ligne:") === 0){
+    var p = cle.split(":");
+    EM_BLOCS[i].lignes[parseInt(p[1], 10)][p[2]] = valeur;
+  } else { EM_BLOCS[i][cle] = valeur; }
+  emAper();
+  emMajResume(i);
+});
+document.addEventListener("keydown", function(e){
+  var z = e.target;
+  if(z && z.classList && z.classList.contains("em-zone") && e.key === "Enter" && z.dataset.court){ e.preventDefault(); }
+});
+document.addEventListener("paste", function(e){
+  var z = e.target;
+  if(!z || !z.classList || !z.classList.contains("em-zone")) return;
+  e.preventDefault();
+  var t = (e.clipboardData || window.clipboardData).getData("text/plain") || "";
+  if(z.dataset.court){ t = t.replace(/[\r\n]+/g, " "); }
+  document.execCommand("insertText", false, t);
+});
+document.addEventListener("focusin", function(e){
+  if(e.target && e.target.classList && e.target.classList.contains("em-zone")){
+    EM_CHAMP = e.target;
+    setTimeout(emMajBoutons, 10);
+  }
+});
+document.addEventListener("selectionchange", emMajBoutons);
+document.getElementById("em_ajout").innerHTML =
+  '<button onclick="emChoisirBloc()"><i class="ti ti-plus"></i>Ajouter un bloc</button>';
+
+{% raw %}
+var EM_BALISES = [
+  ["Les plus utilisées", [
+    ["prenom", "Prénom du praticien", "Camille"],
+    ["titre_formation", "Titre complet de la formation", "Intitulé complet de la formation"],
+    ["dates", "Dates en toutes lettres", "jeudi 12 et vendredi 13 mars 2027"],
+    ["tarif", "Tarif en euros", "000"],
+    ["lien_signature", "Lien de signature", "https://exemple.test/signature"],
+    ["lien_paiement", "Lien de paiement", "https://exemple.test/paiement"]
+  ]],
+  ["Praticien", [
+    ["nom", "Nom de famille", "DURAND"],
+    ["nom_prenom", "Prénom et nom", "Camille DURAND"],
+    ["mail", "Son adresse mail", "camille.durand@exemple.fr"],
+    ["ville", "Sa ville d'exercice", "Bordeaux"]
+  ]],
+  ["Formation", [
+    ["formation", "Intitulé court", "Ma formation"],
+    ["horaires", "Horaires", "9h00 – 17h30"],
+    ["lieu", "Adresse du lieu", "12 avenue des Exemples"],
+    ["duree", "Durée", "14 heures"],
+    ["formateur", "Nom du formateur", "NOM Prénom"]
+  ]],
+  ["Liens", [
+    ["lien_annulation", "Lien d'annulation", "https://exemple.test/annulation"]
+  ]],
+  ["Votre organisme", [
+    ["organisme", "Raison sociale", "VOTRE SOCIÉTÉ"],
+    ["marque", "Nom commercial", "Votre marque"],
+    ["signature", "Signature du mail", "Prénom Nom"],
+    ["mail_contact", "Adresse de contact", "contact@exemple.test"],
+    ["telephone", "Téléphone", "00 00 00 00 00"],
+    ["iban", "IBAN", "FR76 0000 0000 0000"],
+    ["bic", "BIC", "XXXXFRPPXXX"]
+  ]]
+];
+function emAssistant(bouton){
+  var p = document.getElementById("em_panneau");
+  if(p.classList.contains("on") && p.dataset.source === bouton.dataset.id){
+    emFermerAssistant();
+    return;
+  }
+  emDessinerBalises();
+  p.classList.add("on");
+  var r = bouton.getBoundingClientRect();
+  var largeur = 272;
+  var gauche = r.right + 12;
+  if(gauche + largeur > window.innerWidth - 12){ gauche = r.left - largeur - 12; }
+  if(gauche < 12){ gauche = 12; }
+  var haut = r.top;
+  if(haut + 400 > window.innerHeight){ haut = Math.max(12, window.innerHeight - 420); }
+  p.style.left = gauche + "px";
+  p.style.top = haut + "px";
+  p.dataset.source = bouton.dataset.id || "";
+}
+function emFermerAssistant(){
+  document.getElementById("em_panneau").classList.remove("on");
+}
+function emDessinerBalises(){
+  var q = (document.getElementById("em_p_q").value || "").toLowerCase().trim();
+  var h = "";
+  EM_BALISES.forEach(function(groupe){
+    var items = groupe[1].filter(function(b){
+      return !q || b[0].indexOf(q) > -1 || b[1].toLowerCase().indexOf(q) > -1;
+    });
+    if(!items.length) return;
+    h += '<div class="em-p-g">' + groupe[0] + '</div>';
+    items.forEach(function(b){
+      h += '<button class="em-p-b" onmousedown="event.preventDefault();emInserer(\'' + b[0] + '\')">';
+      h += '<span class="em-p-c">{{' + b[0] + '}}</span>';
+      h += '<span class="em-p-x">' + b[1] + '</span>';
+      h += '<span class="em-p-v">deviendra : ' + b[2] + '</span></button>';
+    });
+  });
+  if(!h){ h = '<div style="padding:18px;text-align:center;color:var(--muted);font-size:11.5px">Aucune balise ne correspond</div>'; }
+  document.getElementById("em_p_liste").innerHTML = h;
+}
+function emFiltrerBalises(){ emDessinerBalises(); }
+document.addEventListener("click", function(e){
+  var p = document.getElementById("em_panneau");
+  if(!p || !p.classList.contains("on")) return;
+  if(p.contains(e.target)) return;
+  if(e.target.closest && e.target.closest(".em-assist")) return;
+  emFermerAssistant();
+});
+document.addEventListener("keydown", function(e){
+  if(e.key === "Escape"){ emFermerAssistant(); }
+});
+document.addEventListener("keydown", function(e){
+  if(e.key !== "Backspace" && e.key !== "Delete") return;
+  var z = e.target;
+  if(!z || !z.classList || !z.classList.contains("em-zone")) return;
+  var sel = window.getSelection();
+  if(!sel || sel.rangeCount === 0 || !sel.isCollapsed) return;
+  var plage = sel.getRangeAt(0);
+  var noeud = plage.startContainer;
+  if(noeud.nodeType !== 3) return;
+  var texte = noeud.nodeValue || "";
+  var pos = plage.startOffset;
+  if(e.key === "Backspace"){
+    var avant = texte.slice(0, pos);
+    if(!avant.endsWith("}}")) return;
+    var debut = avant.lastIndexOf("{{");
+    if(debut === -1) return;
+    var contenu = avant.slice(debut + 2, avant.length - 2);
+    if(!/^\w+$/.test(contenu)) return;
+    e.preventDefault();
+    var r = document.createRange();
+    r.setStart(noeud, debut);
+    r.setEnd(noeud, pos);
+    sel.removeAllRanges();
+    sel.addRange(r);
+    document.execCommand("delete", false, null);
+  } else {
+    var apres = texte.slice(pos);
+    if(!apres.startsWith("{{")) return;
+    var fin = apres.indexOf("}}");
+    if(fin === -1) return;
+    var dedans = apres.slice(2, fin);
+    if(!/^\w+$/.test(dedans)) return;
+    e.preventDefault();
+    var r2 = document.createRange();
+    r2.setStart(noeud, pos);
+    r2.setEnd(noeud, pos + fin + 2);
+    sel.removeAllRanges();
+    sel.addRange(r2);
+    document.execCommand("delete", false, null);
+  }
+  z.dispatchEvent(new Event("input", {bubbles: true}));
+});
+
+{% endraw %}
+emDessiner();
+</script>
+<style>
+.em-compteur{font-size:10px;color:var(--muted);margin-top:5px;display:flex;justify-content:space-between;gap:8px}
+.em-compteur.long{color:var(--warn);font-weight:600}
+.em-compteur.tres{color:var(--danger);font-weight:600}
+.em-jauge{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:4px}
+.em-jauge div{height:100%;background:var(--success);border-radius:2px;transition:width .2s,background .2s}
+.em-jauge.long div{background:var(--warn)}
+.em-jauge.tres div{background:var(--danger)}
+.em-verif{border-radius:9px;padding:11px 13px;font-size:11.5px;line-height:1.55;margin-bottom:12px;display:none}
+.em-verif.grave{background:#fdeaea;border:1px solid #f0b8b8;color:#8a2020;display:block}
+.em-verif.note{background:#fdf3e3;border:1px solid #f0cf94;color:#8a5a06;display:block}
+.em-verif.bon{background:#eafaf3;border:1px solid #9fe1cb;color:#0f6e56;display:block}
+.em-verif b{display:block;margin-bottom:4px}
+.em-verif ul{margin:4px 0 0;padding-left:16px}
+.em-verif li{margin-bottom:2px}
+.em-sauve{position:fixed;bottom:18px;right:18px;background:#1e2235;color:#fff;padding:9px 16px;
+border-radius:9px;font-size:12px;z-index:200;opacity:0;transform:translateY(12px);
+transition:all .25s;pointer-events:none}
+.em-sauve.on{opacity:1;transform:translateY(0)}
+</style>
+{% raw %}
+<script>
+var EM_MODIFIE = false;
+var EM_INITIAL = null;   // arme apres l'initialisation, voir plus bas
+function emMarquerModifie(){
+  // Le second terme comparait le titre a la chaine vide : sur un modele
+  // existant il etait toujours vrai, ce qui aurait signale une modification
+  // des l'ouverture. On compare desormais a l'etat de depart, comme les blocs.
+  EM_MODIFIE = (JSON.stringify(emCorps()) !== EM_INITIAL);
+}
+function emCorps(){
+  return {titre: (document.getElementById("em_titre") || {}).value || "",
+          objet: (document.getElementById("em_objet") || {}).value || "",
+          blocs: EM_BLOCS};
+}
+setTimeout(function(){
+  EM_INITIAL = JSON.stringify(emCorps());
+  dfmBrouillon.installer({
+    cle: "mail:" + location.pathname.replace(/\//g, "_"),
+    serialiser: emCorps,
+    restaurer: function(d){
+      if(document.getElementById("em_titre")) document.getElementById("em_titre").value = d.titre || "";
+      if(document.getElementById("em_objet")) document.getElementById("em_objet").value = d.objet || "";
+      if(d.blocs){ EM_BLOCS = d.blocs; if(typeof emDessiner === "function") emDessiner(); }
+      if(typeof emAper === "function") emAper();
+    }
+  });
+  dfmBrouillon.armer();
+}, 700);
+window.addEventListener("beforeunload", function(e){
+  if(!EM_MODIFIE) return;
+  e.preventDefault();
+  e.returnValue = "";
+  return "";
+});
+function emCompteur(){
+  var z = document.getElementById("em_objet");
+  var c = document.getElementById("em_compteur");
+  if(!z || !c) return;
+  var n = (z.value || "").length;
+  var pct = Math.min(100, Math.round(100 * n / 60));
+  var etat = n > 70 ? "tres" : (n > 60 ? "long" : "");
+  c.className = "em-compteur " + etat;
+  var jauge = document.getElementById("em_jauge");
+  if(jauge){
+    jauge.className = "em-jauge " + etat;
+    jauge.firstChild.style.width = pct + "%";
+  }
+  var msg = n + " caractère" + (n > 1 ? "s" : "");
+  var droite = n > 70 ? "Trop long, sera coupé"
+             : (n > 60 ? "Risque de coupure" : "Bonne longueur");
+  c.innerHTML = "<span>" + msg + "</span><span>" + droite + "</span>";
+}
+function emVerifier(silencieux){
+  var z = document.getElementById("em_verif");
+  if(!z) return Promise.resolve(true);
+  return fetch("/templates/mail/verifier", {method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({objet: emVal("em_objet"), objet_promu: emVal("em_objet_promu"),
+                          blocs: EM_BLOCS, usage: emVal("em_usage")})})
+  .then(function(r){return r.json()}).then(function(j){
+    var soucis = j.soucis || [];
+    var graves = soucis.filter(function(x){ return x.grave; });
+    if(!soucis.length){
+      if(silencieux){ z.style.display = "none"; return true; }
+      z.className = "em-verif bon";
+      z.innerHTML = "<b>Tout est en ordre</b>Aucun problème détecté dans ce modèle.";
+      return true;
+    }
+    z.className = "em-verif " + (graves.length ? "grave" : "note");
+    var h = "<b>" + (graves.length ? graves.length + " point" + (graves.length > 1 ? "s" : "") + " à corriger"
+                                   : soucis.length + " remarque" + (soucis.length > 1 ? "s" : "")) + "</b><ul>";
+    soucis.forEach(function(x){ h += "<li>" + x.texte + "</li>"; });
+    z.innerHTML = h + "</ul>";
+    return graves.length === 0;
+  }).catch(function(){ return true; });
+}
+function emTester(){
+  var champ = '<div class="em-f"><label>Adresse de destination</label>'
+    + '<input type="text" id="em_test_dest" value="" placeholder="vous@exemple.fr" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:9px;font-size:13px;font-family:inherit"></div>';
+  dfmFenetre({ton: "info", titre: "M'envoyer ce mail pour test",
+    sous: "Le mail part avec des informations fictives",
+    corps: '<div class="dfm-bloc dfm-b-info">Un bandeau orange sera ajouté en tête pour signaler qu\'il s\'agit d\'un test. '
+         + 'Ouvrez-le ensuite sur mobile et sur ordinateur : Outlook et Gmail n\'affichent pas toujours la même chose.</div>' + champ,
+    boutons: [{libelle: "Annuler", style: "neutre"},
+              {libelle: "Envoyer le test", style: "primaire", icone: "ti-send", garder: true,
+               action: function(bouton){
+                 var dest = (document.getElementById("em_test_dest").value || "").trim();
+                 if(dest.indexOf("@") === -1){ return; }
+                 bouton.disabled = true;
+                 bouton.innerHTML = "Envoi…";
+                 fetch("/templates/mail/test", {method: "POST",
+                   headers: {"Content-Type": "application/json"},
+                   body: JSON.stringify({destinataire: dest, objet: emVal("em_objet"),
+                     objet_promu: emVal("em_objet_promu"), blocs: EM_BLOCS,
+                     usage: emVal("em_usage"), promu: EM_PROMU})})
+                 .then(function(r){return r.json()}).then(function(j){
+                   dfmFermer();
+                   if(!j.ok){ dfmInfo("Envoi impossible", '<div class="dfm-bloc dfm-b-dan">' + (j.message || "") + '</div>', "danger"); return; }
+                   dfmInfo("Test envoyé", '<div class="dfm-bloc dfm-b-ok">Le mail est parti à <b>' + j.destinataire + '</b>. Vérifiez aussi le dossier des indésirables.</div>', "succes");
+                 }).catch(function(e){
+                   bouton.disabled = false;
+                   bouton.innerHTML = "Envoyer le test";
+                 });
+               }}],
+    apres: function(){
+      var c = document.getElementById("em_test_dest");
+      if(c){ c.focus(); }
+    }});
+}
+var emEnregistrerOrigine = emEnregistrer;
+emEnregistrer = function(bouton){
+  emVerifier(false).then(function(ok){
+    if(ok){
+      EM_MODIFIE = false;
+      dfmBrouillon.enregistre();
+      emEnregistrerOrigine(bouton);
+      return;
+    }
+    dfmConfirmer({ton: "attention", titre: "Des points restent à corriger",
+      corps: "<p>Le contrôle a relevé des problèmes qui empêcheront ce mail de fonctionner correctement. Vous pouvez enregistrer quand même et corriger plus tard.</p>",
+      valider: "Enregistrer quand même", styleValider: "attention",
+      action: function(){ EM_MODIFIE = false; emEnregistrerOrigine(bouton); }});
+  });
+};
+var emAperOrigine = emAper;
+emAper = function(){
+  emAperOrigine();
+  emCompteur();
+  EM_MODIFIE = true;
+  clearTimeout(window.__emv);
+  window.__emv = setTimeout(function(){ emVerifier(true); }, 1400);
+};
+document.addEventListener("DOMContentLoaded", emCompteur);
+setTimeout(function(){
+  emCompteur();
+  emVerifier(true);
+  var o = document.getElementById("em_objet");
+  if(o){ o.addEventListener("input", emCompteur); }
+  var t = document.getElementById("em_titre");
+  if(t){ t.addEventListener("input", function(){ EM_MODIFIE = true; }); }
+}, 300);
+</script>
+{% endraw %}
+{% endblock %}

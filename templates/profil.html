@@ -1,0 +1,1086 @@
+{% extends "base.html" %}
+{% block titre %}Organisme{% endblock %}
+{% block entete %}{% if lecture_seule %}{{ vu_nom }}{% else %}Organisme de formation{% endif %}{% endblock %}
+{% block sous_entete %}Identité, mentions légales et coordonnées reprises dans tous vos documents{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" title="Revenir a la liste de vos organismes" href="/profils"><i class="ti ti-arrow-left"></i>Retour à mes organismes de formation</a>
+{# EN CONSULTATION, PAS DE BOUTON D'ENREGISTREMENT. « /profil/enregistrer »
+   ecrit sur l'organisme ACTIF sans savoir lequel la page affichait : le bouton
+   aurait ecrit les valeurs de l'un dans l'autre. On offre a la place le seul
+   geste qui a du sens — basculer, puis modifier. #}
+{% if lecture_seule %}
+<button class="btn btn-primary" title="Rendre cet organisme actif pour pouvoir le modifier"
+        onclick="prBasculerVers(this, '{{ vu }}')"><i class="ti ti-switch-horizontal"></i>Basculer sur {{ vu_nom }}</button>
+{% else %}
+<button class="btn btn-primary" title="Enregistrer les informations" onclick="prEnregistrer(this)"><i class="ti ti-check"></i>Enregistrer</button>
+{% endif %}
+{% endblock %}
+{% block corps %}
+<style>
+.pr-bandeau{display:flex;align-items:center;gap:14px;background:var(--carte);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:12px;padding:15px 20px;margin-bottom:16px}
+.pr-b-ic{width:44px;height:44px;border-radius:12px;background:#eef3fe;color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:22px;flex:none}
+.pr-b-x{flex:1;min-width:0}
+.pr-b-t{font-size:16px;font-weight:600}
+.pr-b-d{font-size:12px;color:var(--muted);margin-top:2px}
+.pr-b-n{font-size:11px;color:var(--muted);flex:none;text-align:right;line-height:1.5}
+.pr-alerte{border-radius:11px;padding:14px 17px;font-size:12.5px;line-height:1.6;margin-bottom:14px;display:none}
+.pr-alerte.grave{background:#fdeaea;border:1px solid #f0b8b8;color:#8a2020;display:block}
+.pr-alerte.note{background:#fdf3e3;border:1px solid #f0cf94;color:#8a5a06;display:block}
+.pr-alerte.bon{background:#eafaf3;border:1px solid #9fe1cb;color:#0f6e56;display:block}
+.pr-alerte b{display:block;margin-bottom:5px;font-size:13px}
+.pr-alerte ul{margin:5px 0 0;padding-left:17px}
+.pr-alerte li{margin-bottom:3px}
+.pr-simple{max-width:820px}
+.pr-sect{background:var(--carte);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden}
+.pr-tete{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border)}
+.pr-ic{width:28px;height:28px;border-radius:9px;background:#eef3fe;color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+.pr-t{font-size:14px;font-weight:600}
+.pr-a{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.45}
+.pr-compte{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--bg);color:var(--muted);flex:none}
+.pr-compte.plein{background:#eafaf3;color:var(--success)}
+.pr-corps{padding:14px 16px}
+@media (min-width:900px){
+  .pr-corps{display:grid;grid-template-columns:1fr 1fr;column-gap:24px;align-items:start}
+  .pr-corps > .pr-logo,.pr-corps > .pr-large{grid-column:1 / -1}
+}
+.pr-c{margin-bottom:10px}
+.pr-c:last-child{margin-bottom:0}
+.pr-c.duo{display:grid;grid-template-columns:130px 1fr;gap:12px}
+.pr-c label{display:block;font-size:10.5px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.pr-c label .oblig{color:var(--danger);margin-left:2px}
+.pr-c input[type=text],.pr-c input[type=number]{width:100%;padding:11px 13px;border:1px solid var(--border2);border-radius:9px;font-size:13.5px;font-family:inherit;background:var(--carte);color:var(--text)}
+.pr-c input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,126,248,.1)}
+.pr-c input.souci{border-color:var(--danger);background:#fdf8f8}
+.pr-c input.mono{font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
+.pr-h{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.4}
+.pr-h .ex{font-family:ui-monospace,Menlo,monospace;color:var(--border2)}
+.pr-bascule{display:flex;align-items:flex-start;gap:12px;padding:13px 15px;background:var(--bg);border-radius:10px;margin-bottom:14px}
+.pr-sw{position:relative;display:inline-block;width:42px;height:23px;flex:none;margin-top:2px}
+.pr-sw input{opacity:0;width:0;height:0}
+.pr-cur{position:absolute;inset:0;background:var(--border2);border-radius:23px;cursor:pointer;transition:background .18s}
+.pr-cur:before{content:"";position:absolute;height:17px;width:17px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .18s}
+.pr-sw input:checked + .pr-cur{background:var(--success)}
+.pr-sw input:checked + .pr-cur:before{transform:translateX(19px)}
+.pr-sw-x{flex:1}
+.pr-sw-t{font-size:13px;font-weight:500}
+.pr-sw-d{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5}
+.pr-cache{display:none}
+.pr-cache.on{display:block}
+.pr-apercu{position:sticky;top:14px}
+.pr-ap{background:var(--carte);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden}
+.pr-ap-t{padding:12px 16px;border-bottom:1px solid var(--border);font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:7px}
+.pr-ap-t i{color:var(--accent);font-size:15px}
+.pr-ap-c{padding:14px 16px;font-size:11.5px;line-height:1.65;color:var(--text)}
+.pr-ap-c.doc{background:var(--bg);color:var(--text);font-family:Georgia,serif;font-size:11px;line-height:1.75;white-space:pre-wrap}
+html[data-sombre] .pr-ap-c.doc{background:#191d26}
+.pr-ap-c{color:var(--text)}
+.pr-ap-vide{color:var(--border2);font-style:italic}
+.pr-couleurs{display:flex;gap:8px;flex-wrap:wrap}
+.pr-coul{width:34px;height:34px;border-radius:9px;cursor:pointer;border:2px solid transparent;
+position:relative;transition:transform .13s}
+.pr-coul:hover{transform:scale(1.09)}
+.pr-coul.on{border-color:var(--text)}
+.pr-coul.on:after{content:"";position:absolute;inset:0;display:flex;align-items:center;
+justify-content:center;color:#fff;font-size:16px;font-weight:700}
+.pr-depot{display:flex;align-items:center;justify-content:center;gap:8px;border:1px dashed var(--accent);
+border-radius:9px;padding:13px;font-size:12.5px;background:#f5f8ff;color:var(--accent);cursor:pointer;transition:all .15s}
+.pr-depot:hover,.pr-depot.survol{background:#eef3fe;border-style:solid}
+.pr-depot i{font-size:16px}
+html[data-sombre] .pr-depot{background:#1b2947}
+.pr-logo-c img{max-width:100%;max-height:100%;object-fit:contain}
+/* SIGNATURE ET TAMPON SONT DE L'ENCRE SOMBRE SUR FOND TRANSPARENT : sur un
+   cartouche sombre, ils devenaient invisibles — on croyait n'avoir rien depose.
+   L'apercu garde donc un fond clair en mode sombre, ce qui montre en plus la
+   verite : ces images seront imprimees sur du papier blanc. */
+html[data-sombre] .pr-logo-c{background:#f2f4f8;border-color:#39435a}
+.pr-logo{display:flex;align-items:center;gap:14px}
+.pr-logo-c{width:120px;height:64px;border:1px dashed var(--border2);border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--bg);flex:none;overflow:hidden}
+.pr-logo-c img{max-width:100%;max-height:100%}
+.pr-logo-v{font-size:10px;color:var(--border2);letter-spacing:1px}
+
+.sg-fond{position:fixed;inset:0;background:rgba(10,14,24,.55);display:none;
+  align-items:center;justify-content:center;z-index:900;padding:20px}
+.sg-fond.on{display:flex}
+.sg-b{background:var(--carte);border-radius:14px;width:100%;max-width:620px;overflow:hidden;
+  box-shadow:0 18px 60px rgba(0,0,0,.3)}
+.sg-t{padding:15px 20px;border-bottom:1px solid var(--border);font-size:15px;font-weight:600}
+.sg-t small{display:block;font-size:11.5px;font-weight:400;color:var(--muted);margin-top:3px}
+.sg-c{padding:18px 20px}
+/* Le trace se fait sur fond BLANC quel que soit le theme : une signature
+   tracee en blanc sur fond sombre serait invisible sur une convention. */
+#sg_toile{width:100%;height:220px;border:2px dashed var(--border2);border-radius:11px;
+  background:#fff;touch-action:none;cursor:crosshair;display:block}
+.sg-l{display:flex;gap:9px;padding:0 20px 18px}
+.sg-l button{flex:1;padding:11px;border-radius:9px;font-size:13.5px;font-weight:600;
+  cursor:pointer;border:1px solid var(--border2);background:var(--carte);color:var(--text)}
+.sg-l button.ok{background:var(--accent);border-color:var(--accent);color:#fff}
+.sg-l button:disabled{opacity:.5;cursor:default}
+
+.env-etat{display:flex;gap:12px;align-items:flex-start;border-radius:11px;padding:14px 16px;margin-bottom:14px}
+.env-etat i{font-size:20px;flex:none;margin-top:1px}
+.env-etat b{font-size:13.5px;font-weight:600}
+.env-d{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.55}
+.env-ok{background:rgba(15,158,106,.09);border:1px solid rgba(15,158,106,.28)}
+.env-ok i{color:var(--success)}
+.env-attention{background:rgba(212,137,10,.09);border:1px solid rgba(212,137,10,.3)}
+.env-attention i{color:var(--warn)}
+.env-guide{background:var(--card2);border-radius:11px;padding:15px 18px;margin-bottom:16px}
+.env-g-t{font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+.env-guide ol{margin:0;padding-left:19px}
+.env-guide li{font-size:13px;margin-bottom:9px;line-height:1.6}
+.env-guide li:last-child{margin-bottom:0}
+.env-guide a{color:var(--accent)}
+.env-n{display:block;font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5}
+.env-sous{background:var(--card);border:1px solid var(--border);border-radius:9px;
+  padding:11px 13px;margin-top:8px;font-size:12.5px;color:var(--muted);line-height:1.6}
+.env-sous b{color:var(--text)}
+.env-sous ul{margin:7px 0 7px 0;padding-left:17px}
+.env-sous li{margin-bottom:5px}
+.env-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:4px}
+.env-duo{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+@media (max-width:640px){.env-duo{grid-template-columns:1fr}}
+.env-msg{border-radius:9px;padding:11px 14px;font-size:13px;margin-top:13px;line-height:1.55}
+.env-msg-ok{background:rgba(15,158,106,.1);color:var(--success);border:1px solid rgba(15,158,106,.3)}
+.env-msg-ko{background:rgba(208,59,59,.09);color:var(--danger);border:1px solid rgba(208,59,59,.3)}
+</style>
+<div class="pr-bandeau">
+  <div class="pr-b-ic"><i class="ti ti-building"></i></div>
+  <div class="pr-b-x">
+    <div class="pr-b-t">{{ fiche.marque or fiche.organisme or "Organisme sans nom" }}</div>
+    <div class="pr-b-d">{{ fiche.organisme or "Complétez la raison sociale" }}{% if fiche.siret %} · SIRET {{ fiche.siret }}{% endif %}</div>
+  </div>
+  <div class="pr-b-n">{{ profils|length }} organisme{{ 's' if profils|length > 1 }} enregistré{{ 's' if profils|length > 1 }}<br>
+    <span style="color:var(--accent);font-weight:600">actif : {{ actif }}</span></div>
+</div>
+<div class="pr-alerte" id="pr_alerte"></div>
+<div class="pr-simple">
+  <div>
+    {# « logo » et « signature » ont leur propre section, avec une zone de
+       depot : les laisser dans la boucle generique les afficherait une seconde
+       fois sous forme de champs de texte. #}
+    {% for s in sections %}
+    {% if s.cle not in ('logo', 'signature', 'envoi') %}
+    <div class="pr-sect">
+      <div class="pr-tete">
+        <div class="pr-ic"><i class="ti {{ s.icone }}"></i></div>
+        <div style="flex:1;min-width:0"><div class="pr-t">{{ s.nom }}</div><div class="pr-a">{{ s.aide }}</div></div>
+        <span class="pr-compte {{ 'plein' if s.remplis == s.total }}">{{ s.remplis }}/{{ s.total }}</span>
+      </div>
+      <div class="pr-corps">
+        {% for c in s.champs %}
+        {% if c.cle == 'tva_franchise' %}
+        <div class="pr-bascule">
+          <label class="pr-sw"><input type="checkbox" data-cle="tva_franchise" data-type="booleen" {{ 'checked' if c.valeur }} onchange="prTva()"><span class="pr-cur"></span></label>
+          <div class="pr-sw-x"><div class="pr-sw-t">{{ c.libelle }}</div><div class="pr-sw-d">{{ c.aide }}</div></div>
+        </div>
+        {% elif c.cle in ('tva_numero', 'tva_taux') %}
+        <div class="pr-c pr-cache" id="bloc_{{ c.cle }}">
+          <label>{{ c.libelle }}{% if c.obligatoire %}<span class="oblig">*</span>{% endif %}</label>
+          <input type="{{ 'number' if c.type == 'nombre' else 'text' }}" data-cle="{{ c.cle }}" data-type="{{ c.type }}" value="{{ c.valeur }}" placeholder="{{ c.exemple or '' }}" oninput="prModifie()">
+          {% if c.aide %}<div class="pr-h">{{ c.aide }}</div>{% endif %}
+        </div>
+        {% elif c.type == 'couleur' %}
+        <div class="pr-c">
+          <label>{{ c.libelle }}</label>
+          <div class="pr-couleurs" id="pr_couleurs" data-valeur="{{ c.valeur }}"></div>
+          <input type="hidden" data-cle="couleur" data-type="couleur" value="{{ c.valeur }}">
+          {% if c.aide %}<div class="pr-h">{{ c.aide }}</div>{% endif %}
+        </div>
+        {% else %}
+        <div class="pr-c{{ ' duo' if c.cle == 'code_postal' }}">
+          <label>{{ c.libelle }}{% if c.obligatoire %}<span class="oblig">*</span>{% endif %}</label>
+          <input type="{{ 'number' if c.type == 'nombre' else 'text' }}"
+                 class="{{ 'mono' if c.cle in ('iban','bic','siret','numero_declaration','format_facture','stripe_lien') }}"
+                 data-cle="{{ c.cle }}" data-type="{{ c.type }}" value="{{ c.valeur }}"
+                 placeholder="{{ c.exemple or '' }}" oninput="prModifie()" spellcheck="false">
+          {% if c.aide or c.exemple %}<div class="pr-h">{{ c.aide }}{% if c.exemple and c.aide %} <span class="ex">Exemple : {{ c.exemple }}</span>{% elif c.exemple %}<span class="ex">Exemple : {{ c.exemple }}</span>{% endif %}</div>{% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    <!-- ENVOI DES MAILS ----------------------------------------------------
+         Personne ne devine seul qu'il lui faut un « mot de passe d'application »
+         Google. Cet ecran dit donc TROIS choses : ou on en est, pourquoi c'est
+         necessaire, et exactement quoi faire — sans supposer que le lecteur
+         sache ce qu'est un serveur d'envoi. -->
+    <div class="pr-sect">
+      <div class="pr-tete">
+        <div class="pr-ic"><i class="ti ti-mail-forward"></i></div>
+        <div style="flex:1;min-width:0">
+          <div class="pr-t">Envoi des mails</div>
+          <div class="pr-a">Par où partent vos conventions, factures et attestations.</div>
+        </div>
+        <span class="pr-compte {{ 'plein' if envoi.installe }}">{{ '1/1' if envoi.installe else '0/1' }}</span>
+      </div>
+      <div class="pr-corps">
+      {% if envoi.installe %}
+        <div class="env-etat env-ok">
+          <i class="ti ti-circle-check"></i>
+          <div><b>Vos mails partent directement de {{ envoi.adresse }}.</b>
+            <div class="env-d">Connexion directe à {{ envoi.serveur }}. Rien n'expire,
+              aucune fenêtre de connexion ne s'ouvrira.</div></div>
+        </div>
+        <div class="env-actions">
+          <button class="btn btn-ghost" type="button" onclick="envEssai()"><i class="ti ti-send"></i>Envoyer un mail d'essai</button>
+          <button class="btn btn-ghost" type="button" onclick="envRetirer()" style="color:var(--danger)"><i class="ti ti-trash"></i>Retirer</button>
+        </div>
+      {% else %}
+        <div class="env-etat env-attention">
+          <i class="ti ti-alert-triangle"></i>
+          <div><b>Vos mails partent par un chemin de secours.</b>
+            <div class="env-d">Il fonctionne, mais il repose sur une autorisation Google
+              qui expire régulièrement. Quand elle expire, l'envoi s'arrête — et des
+              fenêtres de connexion peuvent s'ouvrir en série.</div></div>
+        </div>
+        <div class="env-guide">
+          {% if not envoi.adresse %}
+          {# SANS ADRESSE, RIEN N'A DE SENS. C'est le premier ecran que voit un
+             organisme nouvellement cree : lui proposer de chercher un serveur
+             pour un domaine qui n'existe pas le mettrait en echec des sa
+             premiere minute. On demande d'abord ce qui manque. #}
+          <div class="env-g-t">Une adresse d'abord</div>
+          <p style="font-size:13px;line-height:1.65;margin:0">
+            DFM ne sait pas encore d'où partiront vos mails. Renseignez
+            <b>l'adresse de contact</b> de cet organisme dans la section
+            <b>Coordonnées</b>, plus haut sur cette page, puis <b>enregistrez</b>.
+          </p>
+          <div class="env-sous">
+            C'est l'adresse que vos participants verront comme expéditeur, et celle avec
+            laquelle DFM se connectera pour envoyer. Prenez celle de l'organisme, pas une
+            adresse personnelle : elle figurera sur chaque convention et chaque facture.
+            <br><br>Une fois enregistrée, revenez ici : DFM saura vous dire quoi faire
+            selon votre fournisseur.
+          </div>
+
+          {% elif envoi.f.special == 'google' %}
+          <div class="env-g-t">Votre adresse est chez Google — cinq minutes</div>
+          <ol>
+            <li><b>Ouvrez la page des mots de passe.</b>
+              <a href="https://myaccount.google.com/apppasswords?authuser={{ envoi.adresse }}" target="_blank" rel="noopener">Cliquez ici</a> —
+              elle s'ouvre dans un nouvel onglet, celui-ci reste ouvert.</li>
+
+            <li><b>Vérifiez que vous êtes sur le bon compte.</b>
+              <div class="env-sous">
+                Tout en haut à droite de la page Google, il y a une <b>pastille ronde</b> :
+                une photo, une lettre ou un logo. C'est le compte sur lequel vous êtes.
+                <ul>
+                  <li>Elle correspond à <b>{{ envoi.adresse }}</b> → continuez.</li>
+                  <li>Ce n'est pas le bon → <b>cliquez sur la pastille</b>, puis
+                    « Ajouter un compte » ou choisissez {{ envoi.adresse }} dans la liste.
+                    Reconnectez-vous, puis recliquez sur le lien de l'étape 1.</li>
+                </ul>
+                <b>C'est le piège le plus fréquent.</b> Google bascule souvent tout seul
+                vers le dernier compte utilisé, et le mot de passe créé sur le mauvais
+                compte ne fonctionnera jamais ici.
+              </div></li>
+
+            <li><b>Si un robot cassé s'affiche</b> avec « Ce paramètre n'est pas disponible » :
+              il manque la validation en deux étapes sur ce compte. Google masque
+              entièrement la page tant qu'elle n'est pas activée.
+              <div class="env-sous">
+                <a href="https://myaccount.google.com/signinoptions/twosv?authuser={{ envoi.adresse }}" target="_blank" rel="noopener">Ouvrez la validation en deux étapes</a>
+                et descendez tout en bas de la page. Un <b>bouton bleu</b> s'y trouve :
+                <ul>
+                  <li>Il dit <b>« Activer la validation en deux étapes »</b> → cliquez.
+                    Google demandera votre mot de passe habituel, puis un numéro de
+                    téléphone, et vous enverra un code par SMS à recopier.</li>
+                  <li>Il dit <b>« Désactiver »</b> → c'est déjà en service. Revenez à
+                    l'étape 1.</li>
+                </ul>
+                Ne vous fiez pas au reste de la page : un téléphone déjà vérifié ou une
+                clé d'accès présente ne veulent pas dire que la validation est enclenchée.
+                <b>Seul le bouton du bas dit la vérité.</b>
+              </div></li>
+
+            <li><b>Créez le mot de passe.</b>
+              Sur la page des mots de passe, un champ vide porte la mention grise
+              <b>« Nom de l'appli »</b>. Tapez-y <b>DFM</b>, puis cliquez sur
+              <b>Créer</b>.
+              <span class="env-n">Ce nom ne sert qu'à vous : c'est ainsi que vous
+                reconnaîtrez ce mot de passe si vous voulez le supprimer plus tard.</span></li>
+
+            <li><b>Copiez les 16 lettres.</b>
+              Google les affiche en gros, dans un cadre, groupées par quatre.
+              Sélectionnez-les et copiez-les, puis collez-les dans le champ ci-dessous.
+              <div class="env-sous">
+                Les espaces n'ont pas d'importance, ils sont retirés automatiquement.
+                <b>Ne fermez pas la fenêtre avant d'avoir collé</b> : Google ne les
+                affiche qu'une seule fois. Si elle se ferme trop tôt, supprimez le mot
+                de passe « DFM » et recommencez l'étape 4 — ce n'est pas grave.
+              </div></li>
+          </ol>
+
+          {% elif envoi.f.special == 'microsoft' %}
+          <div class="env-g-t">Votre adresse est chez Microsoft</div>
+          <ol>
+            <li>Microsoft exige lui aussi un <b>mot de passe d'application</b>, et la
+              validation en deux étapes activée sur le compte.</li>
+            <li>Rendez-vous sur <a href="https://account.microsoft.com/security" target="_blank" rel="noopener">la sécurité de votre compte Microsoft</a>,
+              activez la validation en deux étapes si ce n'est pas fait, puis créez un
+              mot de passe d'application.</li>
+            <li>Collez-le ci-dessous.</li>
+          </ol>
+          <div class="env-sous">Microsoft ferme progressivement l'envoi par mot de passe
+            sur les comptes personnels. Si l'essai échoue malgré un mot de passe correct,
+            c'est probablement cette raison — et il faudra une adresse ailleurs.</div>
+
+          {% elif envoi.f.special == 'yahoo' %}
+          <div class="env-g-t">Votre adresse est chez Yahoo</div>
+          <ol>
+            <li>Yahoo exige un <b>mot de passe d'application</b>, créé depuis les paramètres
+              de sécurité de votre compte.</li>
+            <li>Collez-le ci-dessous.</li>
+          </ol>
+
+          {% elif envoi.f.connu %}
+          <div class="env-g-t">Votre adresse est chez {{ envoi.f.nom }} — une minute</div>
+          <ol>
+            <li>Saisissez ci-dessous <b>le mot de passe de la boîte</b>
+              <b>{{ envoi.adresse }}</b>, celui avec lequel vous relevez votre courrier.
+              <span class="env-n">Pas de manipulation particulière chez {{ envoi.f.nom }} :
+                aucun « mot de passe d'application » à créer.</span></li>
+            <li>Le serveur d'envoi est déjà connu : <b>{{ envoi.f.serveur }}</b>.</li>
+          </ol>
+
+          {% else %}
+          <div class="env-g-t">Votre adresse est sur votre propre domaine</div>
+          <ol>
+            <li><b>Laissez DFM chercher le serveur.</b>
+              Cliquez sur <b>Trouver automatiquement</b> ci-dessous : DFM interroge
+              <b>{{ envoi.f.domaine or "votre domaine" }}</b> pour savoir qui héberge
+              son courrier, puis vérifie que le serveur répond.
+              <span class="env-n">Cette information est publique et inscrite dans votre
+                domaine. Vous n'avez rien à demander à personne.</span></li>
+            <li><b>Saisissez le mot de passe de la boîte</b>
+              <b>{{ envoi.adresse }}</b> — celui avec lequel vous relevez votre courrier.</li>
+            <li><b>Enregistrez.</b> DFM envoie aussitôt un mail d'essai et vous dit
+              si tout fonctionne.</li>
+          </ol>
+          <div class="env-sous">Chez la plupart des hébergeurs, le mot de passe de la boîte
+            suffit — aucun « mot de passe d'application » à créer. Cette notion est propre
+            à Google, Microsoft et Yahoo.
+            <br><br>Si la recherche ne trouve rien, votre hébergeur nomme son serveur d'une
+            façon inhabituelle. Cherchez alors dans son aide en ligne
+            <b>« configurer un logiciel de messagerie »</b> — le serveur d'envoi y figure,
+            sous le nom <b>SMTP</b>.</div>
+          {% endif %}
+        </div>
+
+        {% if envoi.adresse and not envoi.f.connu %}
+        <div class="env-actions" style="margin-bottom:12px">
+          <button class="btn btn-ghost" type="button" onclick="envChercher()">
+            <i class="ti ti-search"></i>Trouver automatiquement</button>
+        </div>
+        <div id="env_trouve"></div>
+        <div class="env-duo">
+          <div class="pr-c">
+            <label>Serveur d'envoi</label>
+            <input type="text" id="env_serveur" autocomplete="off" spellcheck="false"
+                   placeholder="Exemple : ssl0.ovh.net">
+          </div>
+          <div class="pr-c">
+            <label>Port</label>
+            <input type="number" id="env_port" value="587" placeholder="587">
+            <div class="pr-h">587 dans la quasi-totalité des cas.</div>
+          </div>
+        </div>
+        {% endif %}
+
+
+        {% if envoi.adresse %}
+        <div class="pr-c">
+          <label>{% if envoi.f.special %}Mot de passe d'application{% else %}Mot de passe de la boîte{% endif %}</label>
+          <input type="password" id="env_mdp" autocomplete="off" spellcheck="false"
+                 placeholder="{% if envoi.f.special == 'google' %}Les 16 lettres données par Google{% elif envoi.f.special %}Le mot de passe d'application{% else %}Le mot de passe de {{ envoi.adresse }}{% endif %}">
+          <div class="pr-h">Enregistré à part de votre profil, lisible par vous seul, exclu des
+            sauvegardes. Il ne permet que d'envoyer du courrier — ni de lire vos mails, ni
+            d'accéder à vos fichiers.{% if envoi.f.special %} Révocable chez {{ envoi.f.nom }}
+            à tout moment.{% endif %}</div>
+        </div>
+        <div class="env-actions">
+          <button class="btn btn-primary" type="button" onclick="envEnregistrer()"><i class="ti ti-plug-connected"></i>Enregistrer et faire un essai</button>
+        </div>
+        {% endif %}
+      {% endif %}
+        <div id="env_msg"></div>
+      </div>
+    </div>
+    <div class="pr-sect">
+      <div class="pr-tete">
+        <div class="pr-ic"><i class="ti ti-photo"></i></div>
+        <div style="flex:1;min-width:0"><div class="pr-t">Logo</div><div class="pr-a">Affiché en tête de chaque mail et de chaque document.</div></div>
+      </div>
+      <div class="pr-corps">
+        <div class="pr-logo">
+          <div class="pr-logo-c" id="pr_logo_c">
+            {% if fiche.logo_apercu %}<img src="{{ fiche.logo_apercu }}" alt="Logo">{% else %}<span class="pr-logo-v">AUCUN LOGO</span>{% endif %}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div class="pr-depot" id="pr_depot" onclick="document.getElementById('pr_fichier').click()">
+              <i class="ti ti-upload"></i>
+              <span><b>Choisir un fichier</b> ou le glisser ici</span>
+            </div>
+            <input type="file" id="pr_fichier" accept="image/png,image/jpeg" style="display:none" onchange="prLogoChoisi(this.files[0])">
+            <div class="pr-h" style="margin-top:9px"><b>PNG ou JPG</b>, hauteur 120 à 240 pixels, moins de 500 Ko. Un fond transparent rend mieux dans les mails.</div>
+            {% if fiche.logo_id %}<div class="pr-h" style="margin-top:6px"><a href="https://drive.google.com/open?id={{ fiche.logo_id }}" target="_blank" style="color:var(--accent);text-decoration:none"><i class="ti ti-external-link" style="font-size:12px"></i> Ouvrir le fichier du logo dans le Drive</a></div>{% endif %}
+            <div class="pr-h" id="pr_logo_etat"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {#
+      SIGNATURE ET TAMPON. Ils etaient colles dans le modele Google Docs de la
+      convention : invisibles ici, et perdus sans bruit le jour ou l'on sort de
+      Docs. Ils deviennent des reglages, un jeu par organisme.
+
+      LE DEPOT EST IMMEDIAT, contrairement au logo qui attend « Enregistrer » :
+      ces images ne partent pas dans le Drive, elles sont ecrites a cote du
+      profil. Rien a differer, donc rien a oublier d'enregistrer.
+    #}
+    <div class="pr-sect">
+      <div class="pr-tete">
+        <div class="pr-ic"><i class="ti ti-writing-sign"></i></div>
+        <div style="flex:1;min-width:0"><div class="pr-t">Signature et tampon</div>
+          <div class="pr-a">Apposés au bas de vos conventions. Chaque organisme a les siens.</div></div>
+      </div>
+      <div class="pr-corps">
+        {% for cle, titre, aide in [
+             ('signature_fichier', 'Signature du signataire',
+              'Apposée sous le nom du signataire. Un fond transparent rend mieux.'),
+             ('tampon_fichier', 'Tampon de l\'organisme',
+              'Apposé à côté de la signature.')] %}
+        <div class="pr-logo" style="{{ 'margin-top:18px;padding-top:18px;border-top:1px solid var(--border)' if not loop.first }}">
+          <div class="pr-logo-c" id="im_c_{{ cle }}" style="height:80px">
+            {% if fiche[cle] %}<img src="/profil/image/{{ cle }}?id={{ vu }}&v={{ fiche[cle] }}" alt="{{ titre }}">
+            {% else %}<span class="pr-logo-v">AUCUNE</span>{% endif %}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:500;margin-bottom:6px">{{ titre }}</div>
+            <div class="pr-depot" data-image="{{ cle }}" onclick="document.getElementById('im_f_{{ cle }}').click()">
+              <i class="ti ti-upload"></i><span><b>Choisir un fichier</b> ou le glisser ici</span>
+            </div>
+            <input type="file" id="im_f_{{ cle }}" accept="image/png,image/jpeg,image/webp"
+                   style="display:none" onchange="prImage('{{ cle }}', this.files[0])">
+            {% if cle == 'signature_fichier' %}
+            <div style="margin-top:7px;font-size:11.5px;color:var(--muted)">ou
+              <button type="button" onclick="sgOuvrir()"
+                 style="background:none;border:none;padding:0;font:inherit;color:var(--accent);
+                        font-weight:600;cursor:pointer;text-decoration:underline">tracer votre signature</button>
+              directement, à la souris ou au doigt.</div>
+            {% endif %}
+            <div class="pr-h" style="margin-top:9px">{{ aide }} <b>PNG, JPG ou WebP</b>, jusqu'à 15 Mo — une image trop large est réduite automatiquement.</div>
+            <div class="pr-h" id="im_e_{{ cle }}"></div>
+            {% if fiche[cle] %}
+            <div class="pr-h" style="margin-top:6px">
+              <button type="button" onclick="prImageRetirer('{{ cle }}')"
+                 style="background:none;border:none;padding:0;font:inherit;color:var(--danger);
+                        cursor:pointer;text-decoration:underline">Retirer cette image</button></div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="pr-sect">
+      <div class="pr-tete">
+        <div class="pr-ic"><i class="ti ti-certificate-2"></i></div>
+        <div style="flex:1;min-width:0">
+          <div class="pr-t">Dossier formateur</div>
+          <div class="pr-a">Qui intervient pour cet organisme, et ce qui prouve sa compétence.</div>
+        </div>
+        <span class="pr-compte" id="fo_compte">0</span>
+      </div>
+      <div class="pr-corps">
+        <div class="pr-h" style="margin-bottom:11px">
+          L'indicateur 21 demande de prouver la compétence des intervenants&nbsp;: un nom dans une
+          convention n'y suffit pas. <b>Chaque organisme a son propre registre</b> — un formateur
+          intervenant pour les deux doit figurer dans les deux, avec ses pièces.
+        </div>
+        <div id="fo_alertes"></div>
+        <div id="fo_liste"></div>
+        <div class="fo-barre">
+          <button type="button" class="fo-add" onclick="foAjouter()">
+            <i class="ti ti-plus"></i>Ajouter un formateur</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<style>
+.fo-barre{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.fo-add{display:flex;align-items:center;gap:6px;padding:9px 14px;border:1px solid var(--border);
+  border-radius:8px;background:var(--carte);color:var(--text);font-size:13px;font-family:inherit;cursor:pointer}
+.fo-add:hover{border-color:var(--accent);color:var(--accent)}
+.fo-f{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--border);
+  border-radius:10px;margin-bottom:8px;background:var(--bg);text-decoration:none;color:inherit}
+.fo-f:hover{border-color:var(--accent)}
+.fo-av{width:34px;height:34px;border-radius:50%;flex:none;object-fit:cover;display:block;
+  border:1px solid var(--border);background:var(--carte)}
+.fo-init{display:grid;place-items:center;font-size:12.5px;font-weight:600;color:var(--muted)}
+.fo-fx{flex:1;min-width:0}
+.fo-fn{font-size:13.5px;font-weight:600}
+.fo-fd{font-size:11.5px;color:var(--muted);margin-top:1px}
+.fo-tag{font-size:11px;padding:2px 9px;border-radius:20px;white-space:nowrap}
+.fo-ok{background:rgba(15,158,106,.14);color:var(--success)}
+.fo-ko{background:rgba(212,137,10,.16);color:#a06a14}
+.fo-al{border:1px solid var(--border);border-left:3px solid #d4890a;border-radius:10px;
+  padding:11px 14px;margin-bottom:11px;font-size:12.5px;line-height:1.6;background:var(--carte)}
+.fo-al ul{margin:6px 0 0;padding-left:18px}
+.fo-vide{color:var(--muted);font-size:12.5px;padding:4px 0}
+.sg-fond{position:fixed;inset:0;background:rgba(10,14,24,.55);display:none;
+  align-items:center;justify-content:center;z-index:900;padding:20px}
+.sg-fond.on{display:flex}
+.sg-b{background:var(--carte);border-radius:14px;width:100%;max-width:620px;overflow:hidden;
+  box-shadow:0 18px 60px rgba(0,0,0,.3)}
+.sg-t{padding:15px 20px;border-bottom:1px solid var(--border);font-size:15px;font-weight:600}
+.sg-t small{display:block;font-size:11.5px;font-weight:400;color:var(--muted);margin-top:3px}
+.sg-c{padding:18px 20px}
+/* Le trace se fait sur fond BLANC quel que soit le theme : une signature
+   tracee en blanc sur fond sombre serait invisible sur une convention. */
+#sg_toile{width:100%;height:220px;border:2px dashed var(--border2);border-radius:11px;
+  background:#fff;touch-action:none;cursor:crosshair;display:block}
+.sg-l{display:flex;gap:9px;padding:0 20px 18px}
+.sg-l button{flex:1;padding:11px;border-radius:9px;font-size:13.5px;font-weight:600;
+  cursor:pointer;border:1px solid var(--border2);background:var(--carte);color:var(--text)}
+.sg-l button.ok{background:var(--accent);border-color:var(--accent);color:#fff}
+.sg-l button:disabled{opacity:.5;cursor:default}
+</style>
+<script>
+function foEch(t){ var d=document.createElement("div"); d.textContent=t||""; return d.innerHTML; }
+function foRendre(d){
+  var gens = d.formateurs || [];
+  document.getElementById("fo_compte").textContent = gens.length;
+  var z = document.getElementById("fo_liste");
+  z.innerHTML = gens.length ? gens.map(function(f){
+    var etat = f.manques.length
+      ? '<span class="fo-tag fo-ko">'+f.manques.join(" et ")+' manquant'+(f.manques.length>1?'s':'')+'</span>'
+      : '<span class="fo-tag fo-ok">Dossier complet</span>';
+    var nb = (f.formations||[]).length;
+    var av = f.a_photo
+      ? '<img class="fo-av" src="/formateur/'+f.id+'/photo" alt="">'
+      : '<span class="fo-av fo-init">'+foEch(f.initiales||"?")+'</span>';
+    return '<a class="fo-f" href="/formateur/'+f.id+'?de=profil">'+av
+      + '<span class="fo-fx"><span class="fo-fn">'+foEch(f.nom_complet)+'</span>'
+      + '<span class="fo-fd">'+(foEch(f.fonction)||"Fonction non renseignée")+' · '
+      + (nb? nb+' formation'+(nb>1?'s':'') : 'aucune formation')+'</span></span>'
+      + etat + '<i class="ti ti-chevron-right" style="color:var(--muted)"></i></a>';
+  }).join("") : '<div class="fo-vide">Aucun formateur enregistré pour cet organisme.</div>';
+
+  var a = document.getElementById("fo_alertes");
+  a.innerHTML = (d.alertes && d.alertes.length)
+    ? '<div class="fo-al"><b>À compléter avant un contrôle :</b><ul>'
+      + d.alertes.map(function(x){ return '<li>'+foEch(x)+'</li>'; }).join("") + '</ul></div>'
+    : "";
+}
+function foCharger(){
+  fetch("/formateurs/liste").then(r=>r.json()).then(function(d){ if(d.ok) foRendre(d); });
+}
+function foAjouter(){
+  var nom = prompt("NOM de famille du formateur :");
+  if(nom === null) return;
+  var prenom = prompt("Prénom :") || "";
+  if(!nom.trim() && !prenom.trim()) return;
+  var fd = new FormData();
+  fd.append("nom", nom); fd.append("prenom", prenom);
+  fetch("/formateur/ajouter", {method:"POST", body:fd}).then(r=>r.json()).then(function(d){
+    if(!d.ok){ alert(d.message||"Ajout impossible."); return; }
+    // On entre directement dans la fiche : civilite, fonction et formations
+    // s'y renseignent, et le dossier ne vaut rien sans elles.
+    window.location.href = "/formateur/"+d.formateur.id+"?de=profil";
+  });
+}
+foCharger();
+</script>
+<script>
+var PR_PROFILS = {{ profils|tojson }};
+var PR_ACTIF = {{ actif|tojson }};
+var PR_SOUCIS = {{ soucis|tojson }};
+</script>
+<script>
+var PR_MODIFIE = false;
+var PR_ATTENTE = null;
+/* LE PAVE DE SIGNATURE, repris de la page publique site-signature/index.html
+   — celui que vos clients utilisent deja pour signer leur convention. Memes
+   gestes, souris et tactile, meme trait. Deux differences voulues :
+     - la toile est dessinee en HAUTE DEFINITION (3x), sinon une signature
+       tracee dans un cadre de 600 px sort floue sur un PDF ;
+     - le trace est ROGNE avant l'envoi, pour qu'il n'y ait pas dix centimetres
+       de vide autour de la signature sur la convention. */
+var SG = {toile: null, ctx: null, dessine: false, vierge: true, ECH: 3};
+function sgOuvrir(){
+  document.getElementById("sg_fond").classList.add("on");
+  var c = document.getElementById("sg_toile");
+  var r = c.getBoundingClientRect();
+  c.width = Math.round(r.width * SG.ECH);
+  c.height = Math.round(r.height * SG.ECH);
+  var x = c.getContext("2d");
+  x.scale(SG.ECH, SG.ECH);
+  x.strokeStyle = "#101828"; x.lineWidth = 2.4;
+  x.lineCap = "round"; x.lineJoin = "round";
+  SG.toile = c; SG.ctx = x; SG.vierge = true;
+  sgEcouter(c);
+  document.getElementById("sg_etat").textContent = "Signez dans le cadre.";
+}
+function sgFermer(){ document.getElementById("sg_fond").classList.remove("on"); }
+function sgPos(e){
+  var r = SG.toile.getBoundingClientRect();
+  var t = e.touches ? e.touches[0] : e;
+  return {x: t.clientX - r.left, y: t.clientY - r.top};
+}
+function sgDemarrer(e){ SG.dessine = true; var p = sgPos(e);
+  SG.ctx.beginPath(); SG.ctx.moveTo(p.x, p.y); e.preventDefault(); }
+function sgTracer(e){ if(!SG.dessine) return; var p = sgPos(e);
+  SG.ctx.lineTo(p.x, p.y); SG.ctx.stroke(); SG.vierge = false; e.preventDefault(); }
+function sgArreter(){ SG.dessine = false; }
+function sgEffacer(){
+  if(!SG.ctx) return;
+  SG.ctx.clearRect(0, 0, SG.toile.width, SG.toile.height);
+  SG.vierge = true;
+  document.getElementById("sg_etat").textContent = "Signez dans le cadre.";
+}
+/* LES ECOUTEURS SE POSENT A L'OUVERTURE, pas au chargement de la page : ce
+   script s'execute AVANT que la fenetre de trace n'existe dans le document,
+   et un addEventListener sur un element absent ne fait rien — silencieusement.
+   Le cadre s'ouvrait, et aucun trait ne sortait. */
+function sgEcouter(c){
+  if(c.dataset.cable) return;
+  ["mousedown", "touchstart"].forEach(function(e){ c.addEventListener(e, sgDemarrer); });
+  ["mousemove", "touchmove"].forEach(function(e){ c.addEventListener(e, sgTracer); });
+  ["mouseup", "mouseleave", "touchend"].forEach(function(e){ c.addEventListener(e, sgArreter); });
+  // On arrete aussi le trace quand le doigt ou la souris quitte la fenetre,
+  // sinon le trait reprend tout seul au retour.
+  window.addEventListener("mouseup", sgArreter);
+  c.dataset.cable = "1";
+}
+function sgRogner(){
+  /* On cherche la boite du trace, puis on recopie ce seul morceau. Sans cela,
+     la convention porterait une image aux trois quarts vide et la signature
+     paraitrait minuscule. */
+  var c = SG.toile, x = c.getContext("2d");
+  var d = x.getImageData(0, 0, c.width, c.height).data;
+  var x0 = c.width, y0 = c.height, x1 = 0, y1 = 0, vu = false;
+  for(var j = 0; j < c.height; j++){
+    for(var i = 0; i < c.width; i++){
+      if(d[(j * c.width + i) * 4 + 3] > 12){
+        vu = true;
+        if(i < x0) x0 = i; if(i > x1) x1 = i;
+        if(j < y0) y0 = j; if(j > y1) y1 = j;
+      }
+    }
+  }
+  if(!vu) return null;
+  var m = Math.round(6 * SG.ECH);
+  x0 = Math.max(0, x0 - m); y0 = Math.max(0, y0 - m);
+  x1 = Math.min(c.width - 1, x1 + m); y1 = Math.min(c.height - 1, y1 + m);
+  var s = document.createElement("canvas");
+  s.width = x1 - x0 + 1; s.height = y1 - y0 + 1;
+  s.getContext("2d").drawImage(c, x0, y0, s.width, s.height, 0, 0, s.width, s.height);
+  return s;
+}
+function sgEnregistrer(bouton){
+  var etat = document.getElementById("sg_etat");
+  if(SG.vierge){ etat.textContent = "Rien n'a encore été tracé."; return; }
+  var serre = sgRogner();
+  if(!serre){ etat.textContent = "Rien n'a encore été tracé."; return; }
+  bouton.disabled = true; etat.textContent = "Enregistrement…";
+  serre.toBlob(function(blob){
+    var fd = new FormData();
+    fd.append("cle", "signature_fichier");
+    fd.append("fichier", blob, "signature.png");
+    fetch("/profil/image", {method: "POST", body: fd})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        bouton.disabled = false;
+        if(!d.ok){ etat.textContent = d.message || "Échec."; return; }
+        location.reload();
+      })
+      .catch(function(){ bouton.disabled = false; etat.textContent = "Échec réseau."; });
+  }, "image/png");
+}
+function prImage(cle, f){
+  var etat = document.getElementById("im_e_" + cle);
+  if(!f) return;
+  if(f.size > 15 * 1024 * 1024){
+    etat.innerHTML = '<span style="color:var(--danger)">Image trop lourde : '
+      + Math.round(f.size / 1048576) + ' Mo, la limite est de 15 Mo.</span>';
+    return;
+  }
+  etat.textContent = "Dépôt de « " + f.name + " »…";
+  var fd = new FormData();
+  fd.append("cle", cle); fd.append("fichier", f);
+  fetch("/profil/image", {method: "POST", body: fd})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d.ok){ etat.innerHTML = '<span style="color:var(--danger)">'
+        + (d.message || "Dépôt refusé.") + '</span>'; return; }
+      location.reload();
+    })
+    .catch(function(){ etat.innerHTML = '<span style="color:var(--danger)">Échec réseau.</span>'; });
+}
+(function(){
+  // Le glisser-deposer etait cable sur la seule zone du logo. Ces zones-ci
+  // l'annoncent — « ou le glisser ici » — et ne le faisaient pas.
+  document.querySelectorAll(".pr-depot[data-image]").forEach(function(z){
+    ["dragenter", "dragover"].forEach(function(e){
+      z.addEventListener(e, function(ev){ ev.preventDefault(); z.classList.add("survol"); });
+    });
+    ["dragleave", "drop"].forEach(function(e){
+      z.addEventListener(e, function(ev){ ev.preventDefault(); z.classList.remove("survol"); });
+    });
+    z.addEventListener("drop", function(ev){
+      var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+      if(f){ prImage(z.getAttribute("data-image"), f); }
+    });
+  });
+})();
+function prImageRetirer(cle){
+  if(!confirm("Retirer cette image ? Les documents déjà produits ne changent pas.")) return;
+  fetch("/profil/image/" + cle + "/retirer", {method: "POST"})
+    .then(function(r){ return r.json(); })
+    .then(function(){ location.reload(); });
+}
+function prLogoChoisi(f){
+  var etat = document.getElementById("pr_logo_etat");
+  if(!f){ return; }
+  if(f.size > 500 * 1024){
+    etat.innerHTML = '<span style="color:var(--danger)">Ce fichier fait ' + Math.round(f.size / 1024) + ' Ko, la limite est de 500 Ko.</span>';
+    return;
+  }
+  if(["image/png", "image/jpeg"].indexOf(f.type) === -1){
+    etat.innerHTML = '<span style="color:var(--danger)">Format non accepté : seuls PNG et JPG conviennent.</span>';
+    return;
+  }
+  var lecteur = new FileReader();
+  lecteur.onload = function(e){
+    var img = new Image();
+    img.onload = function(){
+      var avert = "";
+      if(img.height < 100 || img.height > 400){
+        avert = '<br><span style="color:var(--warn)">Hauteur de ' + img.height + ' pixels : entre 120 et 240 donne un meilleur rendu.</span>';
+      }
+      document.getElementById("pr_logo_c").innerHTML = '<img src="' + e.target.result + '" alt="Logo">';
+      etat.innerHTML = '<span style="color:var(--success)">' + f.name + ' · ' + img.width + '×' + img.height
+                     + ' · ' + Math.round(f.size / 1024) + ' Ko</span>' + avert
+                     + '<br><span style="color:var(--muted)">Cliquez sur Enregistrer pour envoyer ce logo dans votre Drive.</span>';
+      PR_LOGO = e.target.result;
+      PR_MODIFIE = true;
+    };
+    img.src = e.target.result;
+  };
+  lecteur.readAsDataURL(f);
+}
+var PR_LOGO = null;
+(function(){
+  var z = document.getElementById("pr_depot");
+  if(!z) return;
+  ["dragenter", "dragover"].forEach(function(e){
+    z.addEventListener(e, function(ev){ ev.preventDefault(); z.classList.add("survol"); });
+  });
+  ["dragleave", "drop"].forEach(function(e){
+    z.addEventListener(e, function(ev){ ev.preventDefault(); z.classList.remove("survol"); });
+  });
+  z.addEventListener("drop", function(ev){
+    var f = ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if(f){ prLogoChoisi(f); }
+  });
+})();
+var PR_PALETTE = ["#4f7ef8", "#0f9e6a", "#7c5bf7", "#d4890a", "#d03b3b",
+                  "#0891b2", "#c2410c", "#6b7280"];
+function prCouleurs(){
+  var z = document.getElementById("pr_couleurs");
+  if(!z) return;
+  var choisie = z.dataset.valeur || "#4f7ef8";
+  var h = "";
+  PR_PALETTE.forEach(function(c){
+    h += '<span class="pr-coul' + (c.toLowerCase() === choisie.toLowerCase() ? " on" : "")
+       + '" style="background:' + c + '" data-c="' + c + '" onclick="prChoisirCouleur(\'' + c + '\')" title="' + c + '"></span>';
+  });
+  z.innerHTML = h;
+}
+function prChoisirCouleur(c){
+  var z = document.getElementById("pr_couleurs");
+  z.dataset.valeur = c;
+  var champ = document.querySelector('[data-cle="couleur"]');
+  if(champ){ champ.value = c; }
+  prCouleurs();
+  document.documentElement.style.setProperty("--accent", c);
+  prModifie();
+}
+function prCollecte(){
+  var d = {};
+  document.querySelectorAll("[data-cle]").forEach(function(e){
+    var cle = e.dataset.cle;
+    d[cle] = (e.dataset.type === "booleen") ? e.checked : e.value;
+  });
+  if(PR_LOGO){ d.logo_donnees = PR_LOGO; }
+  return d;
+}
+function prTva(){
+  var e = document.querySelector('[data-cle="tva_franchise"]');
+  var franchise = e ? e.checked : true;
+  ["tva_numero", "tva_taux"].forEach(function(c){
+    var b = document.getElementById("bloc_" + c);
+    if(b){ b.classList.toggle("on", !franchise); }
+  });
+  prModifie();
+}
+function prModifie(){
+  PR_MODIFIE = true;
+  clearTimeout(PR_ATTENTE);
+  PR_ATTENTE = setTimeout(prApercu, 500);
+}
+function prApercu(){
+  // PAS D'APERCU SUR UNE FICHE CONSULTEE. Rien ne peut y changer — et cet
+  // appel etait la seconde source des alertes fausses : il renvoyait les
+  // valeurs affichees au serveur, qui les fusionnait sur l'organisme ACTIF.
+  // On comparait donc Smileclub a Smileclub : « ce SIRET est deja celui de
+  // Smileclub Formations ». Constate le 21/08/2026.
+  if (window.PR_LECTURE_SEULE) { return; }
+  var _d = prCollecte();
+  // DE QUI PARLE-T-ON. Le serveur ne peut pas le deviner : sans cette ligne il
+  // repond pour l'organisme actif, quelle que soit la fiche ouverte.
+  _d._organisme = window.PR_VU || "";
+  fetch("/profil/apercu", {method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(_d)})
+  .then(function(r){return r.json()}).then(function(j){
+    if(!j.ok) return;
+    
+    
+    
+    prAfficherSoucis(j.soucis || [], true);
+  }).catch(function(){});
+}
+function prAfficherSoucis(soucis, silencieux){
+  var z = document.getElementById("pr_alerte");
+  document.querySelectorAll("[data-cle]").forEach(function(e){ e.classList.remove("souci"); });
+  var graves = soucis.filter(function(x){ return x.grave; });
+  soucis.forEach(function(x){
+    var e = document.querySelector('[data-cle="' + x.champ + '"]');
+    if(e && x.grave){ e.classList.add("souci"); }
+  });
+  if(!soucis.length){
+    if(silencieux){ z.className = "pr-alerte"; return; }
+    z.className = "pr-alerte bon";
+    z.innerHTML = "<b>Profil complet</b>Toutes les informations obligatoires sont renseignées et cohérentes.";
+    return;
+  }
+  z.className = "pr-alerte " + (graves.length ? "grave" : "note");
+  var h = "<b>" + (graves.length
+    ? graves.length + " point" + (graves.length > 1 ? "s" : "") + " à corriger"
+    : soucis.length + " remarque" + (soucis.length > 1 ? "s" : "")) + "</b><ul>";
+  soucis.forEach(function(x){ h += "<li>" + x.texte + "</li>"; });
+  z.innerHTML = h + "</ul>";
+}
+setTimeout(function(){
+  dfmBrouillon.installer({
+    cle: "profil",
+    serialiser: prCollecte,
+    restaurer: function(d){
+      Object.keys(d).forEach(function(cle){
+        var e = document.querySelector('[data-cle="' + cle + '"]');
+        if(!e) return;
+        if(e.type === "checkbox"){ e.checked = !!d[cle]; } else { e.value = d[cle]; }
+      });
+    }
+  });
+  dfmBrouillon.armer();
+}, 500);
+function prEnregistrer(bouton, forcer){
+  var d = prCollecte();
+  if(forcer){ d._forcer = true; }
+  bouton.disabled = true;
+  bouton.innerHTML = "Enregistrement…";
+  fetch("/profil/enregistrer", {method: "POST",
+    headers: {"Content-Type": "application/json"}, body: JSON.stringify(d)})
+  .then(function(r){return r.json()}).then(function(j){
+    bouton.disabled = false;
+    bouton.innerHTML = '<i class="ti ti-check"></i>Enregistrer';
+    if(!j.ok && j.bloquant){
+      prAfficherSoucis(j.soucis || [], false);
+      var graves = (j.soucis || []).filter(function(x){ return x.grave; });
+      var h = '<div class="dfm-bloc dfm-b-dan"><b>Ces informations apparaissent sur vos documents contractuels.</b> '
+            + 'Une erreur sur le SIRET, l\'IBAN ou le numéro de déclaration a des conséquences juridiques et comptables.</div><ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.7">';
+      graves.forEach(function(x){ h += "<li>" + x.texte + "</li>"; });
+      h += "</ul>";
+      dfmConfirmer({ton: "danger", titre: "Le profil est incomplet ou incohérent",
+        sous: graves.length + " point" + (graves.length > 1 ? "s" : "") + " bloquant" + (graves.length > 1 ? "s" : ""),
+        corps: h, valider: "Enregistrer malgré tout", styleValider: "danger",
+        annuler: "Corriger",
+        action: function(){ prEnregistrer(bouton, true); }});
+      return;
+    }
+    PR_MODIFIE = false;
+    dfmBrouillon.enregistre();
+    var n = (j.modifies || []).length;
+    var restants = (j.soucis || []).length;
+    var corps = '<div class="dfm-bloc dfm-b-ok"><b>' + (n ? n + ' information' + (n > 1 ? 's' : '') + ' enregistrée' + (n > 1 ? 's' : '') : 'Aucun changement') + '.</b>'
+              + ' Vos documents et vos mails utiliseront désormais ces valeurs.</div>';
+    if(j.refuses && j.refuses.length){
+      corps += '<div class="dfm-bloc dfm-b-att"><b>Valeur(s) refusée(s) :</b><br>'
+             + j.refuses.map(function(x){ return "· " + x.libelle + " — " + x.message; }).join("<br>") + '</div>';
+    }
+    if(restants){
+      corps += '<div class="dfm-bloc dfm-b-att">Il reste ' + restants + ' point' + (restants > 1 ? 's' : '')
+             + ' à compléter ou vérifier. Vous pouvez y revenir à tout moment.</div>';
+    }
+    dfmFenetre({ton: "succes", titre: "Profil enregistré", corps: corps,
+      boutons: [{libelle: "Continuer à modifier", style: "neutre"},
+                {libelle: "Voir mes organismes", style: "primaire", icone: "ti-building",
+                 action: function(){ window.location.href = "/profils"; }}]});
+    setTimeout(function(){ prApercu(); }, 100);
+  }).catch(function(e){
+    bouton.disabled = false;
+    bouton.innerHTML = '<i class="ti ti-check"></i>Enregistrer';
+    dfmInfo("Erreur", "<p>" + e + "</p>", "danger");
+  });
+}
+window.addEventListener("beforeunload", function(e){
+  if(!PR_MODIFIE) return;
+  e.preventDefault();
+  e.returnValue = "";
+});
+prTva();
+prCouleurs();
+window.PR_VU = "{{ vu }}";
+window.PR_LECTURE_SEULE = {{ 'true' if lecture_seule else 'false' }};
+setTimeout(function(){ prAfficherSoucis(PR_SOUCIS, true); }, 200);
+</script>
+<div class="sg-fond" id="sg_fond" onclick="if(event.target===this) sgFermer()">
+  <div class="sg-b">
+    <div class="sg-t">Tracer votre signature
+      <small>À la souris, au trackpad ou au doigt. Elle sera enregistrée pour
+        {{ fiche.marque or fiche.organisme or "cet organisme" }} et apposée au bas de ses conventions.</small></div>
+    <div class="sg-c"><canvas id="sg_toile"></canvas>
+      <div class="pr-h" style="margin-top:8px" id="sg_etat">Signez dans le cadre.</div></div>
+    <div class="sg-l">
+      <button type="button" onclick="sgEffacer()">Effacer</button>
+      <button type="button" onclick="sgFermer()">Annuler</button>
+      <button type="button" class="ok" id="sg_ok" onclick="sgEnregistrer(this)">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// L'ENVOI DES MAILS. Chaque action se termine par un ESSAI REEL : un reglage
+// enregistre mais non verifie donne la pire des impressions, celle que tout va
+// bien jusqu'a la premiere convention qui ne part pas.
+function envMsg(ok, texte){
+  document.getElementById("env_msg").innerHTML =
+    '<div class="env-msg ' + (ok ? "env-msg-ok" : "env-msg-ko") + '">' +
+    (ok ? '<i class="ti ti-circle-check"></i> ' : '<i class="ti ti-alert-circle"></i> ') +
+    texte.replace(/</g, "&lt;") + '</div>';
+}
+function envOccupe(b, texte){
+  b.disabled = true; b.dataset.avant = b.innerHTML; b.textContent = texte;
+}
+function envLibre(b){ b.disabled = false; b.innerHTML = b.dataset.avant || b.innerHTML; }
+
+function envEnregistrer(){
+  var champ = document.getElementById("env_mdp");
+  var mdp = (champ.value || "").trim();
+  if(!mdp){ envMsg(false, "Collez d'abord les 16 lettres données par Google."); champ.focus(); return; }
+  var b = event.target.closest("button");
+  envOccupe(b, "Essai en cours…");
+  var d = new FormData(); d.append("mot_de_passe", mdp);
+  var sv = document.getElementById("env_serveur");
+  var pt = document.getElementById("env_port");
+  if(sv && sv.value.trim()){ d.append("serveur", sv.value.trim()); }
+  if(pt && pt.value){ d.append("port", pt.value); }
+  fetch("/profil/envoi", {method:"POST", body:d}).then(r => r.json()).then(j => {
+    envMsg(j.ok, j.message || "");
+    envLibre(b);
+    // On ne recharge QUE si l'essai a reussi : sinon l'utilisateur perdrait le
+    // message d'erreur avant de l'avoir lu.
+    if(j.ok){ champ.value = ""; setTimeout(() => location.reload(), 2200); }
+  }).catch(e => { envMsg(false, "Erreur : " + e.message); envLibre(b); });
+}
+
+function envChercher(){
+  var b = event.target.closest("button");
+  envOccupe(b, "Recherche…");
+  document.getElementById("env_trouve").innerHTML = "";
+  fetch("/profil/envoi/chercher", {method:"POST", body:new FormData()})
+    .then(r => r.json()).then(j => {
+      envLibre(b);
+      if(j.ok && j.serveur){
+        document.getElementById("env_serveur").value = j.serveur;
+        document.getElementById("env_port").value = j.port || 587;
+        document.getElementById("env_trouve").innerHTML =
+          '<div class="env-msg env-msg-ok"><i class="ti ti-circle-check"></i> ' +
+          j.message.replace(/</g,"&lt;") + ' Serveur rempli ci-dessous.</div>';
+      } else {
+        // ON NE REMPLIT RIEN a l'aveugle : une valeur inventee ferait echouer
+        // l'envoi en laissant croire que le mot de passe est faux.
+        document.getElementById("env_trouve").innerHTML =
+          '<div class="env-msg env-msg-ko"><i class="ti ti-alert-circle"></i> ' +
+          (j.message || "Rien trouvé.").replace(/</g,"&lt;") +
+          ' Saisissez-le à la main, voir l\'encadré ci-dessus.</div>';
+      }
+    }).catch(e => { envLibre(b); });
+}
+
+function envEssai(){
+  var b = event.target.closest("button");
+  envOccupe(b, "Envoi…");
+  fetch("/profil/envoi/essai", {method:"POST", body:new FormData()})
+    .then(r => r.json()).then(j => { envMsg(j.ok, j.message || ""); envLibre(b); })
+    .catch(e => { envMsg(false, "Erreur : " + e.message); envLibre(b); });
+}
+
+function envRetirer(){
+  if(!confirm("Retirer le mot de passe d'envoi ?\n\nVos mails repartiront par le " +
+              "chemin de secours, celui qui peut cesser de fonctionner sans prévenir.")) return;
+  fetch("/profil/envoi/retirer", {method:"POST", body:new FormData()})
+    .then(r => r.json()).then(j => { envMsg(j.ok, j.message || ""); if(j.ok) setTimeout(() => location.reload(), 1400); });
+}
+</script>
+
+{% if lecture_seule %}
+<script>
+// CONSULTATION D'UN AUTRE ORGANISME.
+//
+// Le formulaire de cette page ecrit sur l'organisme ACTIF — « /profil/enregistrer »
+// ne recoit pas d'identifiant et n'en recevra pas : lui en donner un ferait de
+// chaque champ une occasion d'ecrire dans la mauvaise entite. On neutralise donc
+// la saisie plutot que de l'aiguiller.
+//
+// On desactive EN JAVASCRIPT plutot qu'en posant « disabled » sur chaque champ :
+// les champs sont rendus par une boucle commune aux deux modes, et une centaine
+// de « disabled » conditionnels dans le gabarit finirait par en oublier un.
+(function(){
+  var z = document.querySelectorAll(".pr-sect input, .pr-sect textarea, .pr-sect select, .pr-sect button");
+  for (var i = 0; i < z.length; i++) { z[i].disabled = true; }
+  var b = document.createElement("div");
+  b.style.cssText = "background:var(--carte);border:1px solid var(--border);border-left:3px solid var(--accent);"
+    + "border-radius:10px;padding:12px 15px;margin-bottom:14px;font-size:13px;line-height:1.55";
+  b.innerHTML = '<b>Vous consultez {{ vu_nom }}.</b> L\'organisme actif est '
+    + '<b>{{ profils | selectattr("id", "equalto", actif) | map(attribute="nom") | first }}</b>. '
+    + 'Cette fiche est en lecture seule&nbsp;: pour la modifier, basculez sur '
+    + '{{ vu_nom }} — le bouton est en haut à droite.';
+  var c = document.querySelector(".pr-sect");
+  if (c && c.parentNode) { c.parentNode.insertBefore(b, c); }
+})();
+function prBasculerVers(bouton, id){
+  bouton.disabled = true;
+  var fd = new FormData(); fd.append("id", id);
+  fetch("/profil/basculer", {method: "POST", body: fd})
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if(!j.ok){ bouton.disabled = false; dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+      // On revient sur « /profil » SANS identifiant : l'organisme demande est
+      // devenu l'actif, la fiche s'ouvre donc modifiable.
+      window.location.href = "/profil";
+    })
+    .catch(function(e){ bouton.disabled = false; dfmInfo("Erreur", "<p>" + e + "</p>", "danger"); });
+}
+</script>
+{% endif %}
+{% endblock %}

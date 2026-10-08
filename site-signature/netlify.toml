@@ -1,0 +1,25 @@
+# Configuration du site public de DFM.
+
+# LES SAUVEGARDES NE SONT PLUS ENVOYEES DU TOUT.
+#
+# Le dossier contient des copies datees des pages — « index.html.avant-marque »,
+# « signer.js.avant-session » — posees avant chaque modification. Elles etaient
+# PUBLIQUEMENT LISIBLES : verifie le 18/08/2026, index.html.avant-marque rendait
+# HTTP 200 en ligne.
+#
+# UNE REGLE DE REDIRECTION NE SUFFIT PAS : Netlify n'accepte l'etoile qu'en FIN
+# de motif, « /*.avant-* » ne filtre donc rien — essaye, et constate sans effet.
+# La publication se fait desormais depuis une copie du dossier d'ou ces fichiers
+# sont ecartes : ce qui n'est pas envoye ne peut pas etre servi.
+#
+# Voir publier_site.sh, a cote de ce fichier.
+
+# EN-TETES DE SECURITE. Ces pages recoivent des noms, des telephones et une
+# reponse touchant au handicap : elles ne doivent pas pouvoir etre encadrees
+# dans un site tiers, ni voir leur adresse complete transmise ailleurs.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "same-origin"

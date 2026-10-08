@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block titre %}{{ titre or "Élément introuvable" }}{% endblock %}
+{% block entete %}{{ titre or "Élément introuvable" }}{% endblock %}
+{% block sous_entete %}{{ sous_titre or "La page demandée s'appuie sur une fiche qui n'existe plus" }}{% endblock %}
+{% block corps %}
+<div style="border:1px solid var(--border);border-radius:12px;padding:22px;background:var(--card);max-width:640px">
+  <div style="display:flex;gap:12px;align-items:flex-start">
+    <i class="ti ti-alert-triangle" style="font-size:20px;color:var(--warn);flex:none"></i>
+    <div>
+      {# Le message porte la cause : il se lit, donc il prend la couleur du
+         texte. Il etait en heritage et passait en gris pale sur fond sombre. #}
+      <div style="font-weight:600;margin-bottom:7px;color:var(--text)">{{ message }}</div>
+      {# L'EXPLICATION ET LE SECOND BOUTON SONT CONDITIONNELS. Ils parlaient
+         tous deux d'une fiche supprimee et renvoyaient vers les formations :
+         affiches sous « Journal indisponible », ils contredisaient la cause
+         reelle et proposaient une porte de sortie sans rapport. #}
+      <div style="font-size:13px;color:var(--muted);line-height:1.65">
+        {{ explication or "Cela arrive quand une formation ou une session a été supprimée
+        alors qu'un écran ou un lien y renvoie encore. Le reste de l'application
+        fonctionne normalement." }}
+      </div>
+      <div style="margin-top:16px;display:flex;gap:9px;flex-wrap:wrap">
+        <a href="/" style="text-decoration:none;background:var(--accent);color:#fff;padding:8px 15px;border-radius:8px;font-size:13px">Retour au tableau de bord</a>
+        {% if second_lien is not defined or second_lien %}
+        <a href="{{ second_lien or '/formations' }}" style="text-decoration:none;border:1px solid var(--border2);color:var(--text);padding:8px 15px;border-radius:8px;font-size:13px">{{ second_libelle or "Voir les formations" }}</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

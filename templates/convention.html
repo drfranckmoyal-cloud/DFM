@@ -1,0 +1,284 @@
+{#
+  CONVENTION DE FORMATION PROFESSIONNELLE — articles L.6353-1 et suivants.
+
+  LE TEXTE EST REPRIS MOT POUR MOT du modele Google Docs « Convention de
+  formation — modele unique ». Aucune phrase n'a ete reformulee : c'est un acte
+  contractuel deja signe par des clients, et un changement d'outil n'est pas
+  une occasion de le reecrire.
+
+  CE QUI CHANGE, ET SEULEMENT CELA :
+    - les pages blanches du modele Docs disparaissent (il en comptait une
+      quarantaine de lignes vides avant la signature) ;
+    - les listes sont de vraies listes, plus des puces simulees ;
+    - les moyens et le prerequis viennent de la fiche quand elle les porte,
+      avec pour defaut le texte exact du modele.
+#}<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Convention — {{ c.client_denomination }}</title>
+<style>
+  /* UN BLEU, ET UN SEUL. Le modele Docs avait son titre en bleu ; on le
+     reprend et on s'y tient — titres d'articles, filets, ligne de total. Une
+     seconde couleur ferait plaquette commerciale, pas acte contractuel. */
+  :root { --bleu: #1f4fa8; --bleu-pale: #eef3fc; --trait: #d7dcea; --gris: #5b6172; }
+
+  @page { size: A4 portrait; margin: 17mm 19mm 15mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+         color: #16191f; font-size: 10.5pt; line-height: 1.55; }
+
+  .entete { display: flex; justify-content: space-between; align-items: flex-end;
+            border-bottom: 2.5px solid var(--bleu); padding-bottom: 9px; margin-bottom: 22px; }
+  .entete .g { font-size: 9.5pt; line-height: 1.5; color: var(--gris); }
+  .entete .g b { font-size: 13pt; color: var(--bleu); display: block; margin-bottom: 2px;
+                 letter-spacing: .2px; }
+  .entete .d { font-size: 8.5pt; color: var(--gris); text-align: right; white-space: nowrap; }
+
+  h1 { font-size: 16pt; text-align: center; margin: 0 0 5px; color: var(--bleu);
+       letter-spacing: .2px; }
+  .loi { text-align: center; font-size: 9pt; color: var(--gris); line-height: 1.45;
+         margin-bottom: 24px; }
+
+  h2 { font-size: 11pt; color: var(--bleu); margin: 19px 0 8px; padding: 0 0 4px 10px;
+       border-bottom: 1px solid var(--trait); border-left: 3px solid var(--bleu);
+       page-break-after: avoid; }
+  p { margin: 0 0 9px; }
+  ul { margin: 4px 0 9px; padding-left: 20px; }
+  li { margin-bottom: 3px; }
+  li::marker { color: var(--bleu); }
+  .sous { list-style: circle; margin: 4px 0 4px 6px; }
+  b, strong { color: #0f1420; }
+
+  /* Les parties sont ce qu'on lit en premier sur un contrat : elles sont
+     encadrees, et chaque denomination est en gras. */
+  .soussignes { list-style: none; padding: 0; margin: 4px 0 10px;
+                background: var(--bleu-pale); border-left: 3px solid var(--bleu);
+                border-radius: 0 7px 7px 0; padding: 12px 15px; }
+  .soussignes li { margin-bottom: 9px; }
+  .soussignes li:last-child { margin-bottom: 0; }
+
+  table.fin { width: 100%; border-collapse: collapse; margin: 6px 0 9px; font-size: 10.5pt; }
+  table.fin td { padding: 6px 0; border-bottom: 1px solid #eef0f5; }
+  table.fin td.m { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  table.fin tr.tot td { border-top: 2px solid var(--bleu); border-bottom: none;
+                        font-weight: 700; padding-top: 9px; color: var(--bleu); font-size: 11pt; }
+
+  .part { margin: 6px 0 0; padding-left: 20px; }
+  .part li { margin-bottom: 4px; }
+  .part .n { font-weight: 600; }
+  .part .f { color: var(--gris); }
+
+  .jours { margin: 4px 0 9px; padding-left: 20px; }
+  .dates { margin-top: 5px; background: #f7f9fd; border-radius: 7px; padding: 8px 12px;
+           font-size: 10pt; }
+
+  /* Les signatures ne se separent jamais du document : un acte dont la
+     signature part seule sur une derniere page ne se presente pas. */
+  .sign { margin-top: 30px; page-break-inside: avoid; }
+  .sign-l { display: flex; gap: 34px; margin-top: 12px; }
+   /* LA PLACE DE SIGNER. Un cartouche de 96 px ne laissait pas de quoi poser
+     une signature manuscrite : le Client signe a la main sur le papier, il lui
+     faut de la hauteur. Les deux cartouches gardent la meme taille — un acte
+     ou une partie a deux fois plus de place que l'autre se remarque. */
+  .sign-c { flex: 1; display: flex; flex-direction: column; min-height: 175px;
+            border: 1px solid var(--trait); border-top: 3px solid var(--bleu);
+            border-radius: 0 0 7px 7px; padding: 11px 14px 12px; font-size: 9.5pt;
+            color: var(--gris); }
+  .sign-c .q { font-size: 8pt; text-transform: uppercase; letter-spacing: .8px;
+               color: var(--bleu); margin-bottom: 4px; }
+  .sign-c b { display: block; font-size: 11pt; color: #0f1420; }
+  /* L'espace libre pousse la signature vers le bas du cartouche : elle se pose
+     sous le nom, comme sur un document signe a la main. */
+  .sign-e { flex: 1; min-height: 78px; }
+  .sign-c img { max-height: 74px; max-width: 78%; display: block; }
+  /* Le cartouche de l'organisme superpose les deux images. Position relative
+     et non flottante : sur un acte, la signature doit mordre sur le tampon,
+     pas se ranger a cote comme deux vignettes. */
+  .sign-fm { position: relative; }
+  /* LE TAMPON RENTRE VERS LE CENTRE, LA SIGNATURE AVANCE. Corrige le
+     21/08/2026 : l'intention etait ecrite depuis le debut — « la signature doit
+     mordre sur le tampon » — mais avec le tampon colle au bord droit et la
+     signature au bord gauche, les images ne se touchaient jamais. Elles se
+     rangeaient cote a cote, exactement ce que le commentaire disait d'eviter. */
+  /* CES POURCENTAGES SONT MESURES, PAS ESTIMES. Sur la page produite, le
+     cartouche fait 209 pt de large, la signature 83 pt et le tampon 84 pt : a
+     4 % et 7 % des bords, il restait 10,6 pt de vide entre les deux. A 6 % et
+     26 %, ils se recouvrent de 25 pt — la signature traverse vraiment le
+     tampon, comme sur un papier qu'on tamponne avant de signer. */
+  .sign-fm .sg-tampon { position: absolute; right: 26%; bottom: 0; max-height: 74px;
+                        max-width: 52%; opacity: .92; }
+  .sign-fm .sg-signe { position: absolute; left: 6%; bottom: 6px; max-height: 62px;
+                       max-width: 62%; z-index: 2; }
+  /* LA ZONE DE CACHET DU CLIENT, symetrique du tampon de l'organisme en face.
+     Une convention francaise porte « signature ET cachet » des deux parties, et
+     la plateforme OPCO en exige un : c'est ici qu'il se pose. Le cadre reste
+     visible apres la signature en ligne — signature et cachet n'arrivent pas au
+     meme moment, et le second se depose plus tard. */
+  .sign-fm .sg-cachet { position: absolute; right: 26%; bottom: 0; width: 92px; height: 66px;
+                        border: 1px dashed rgba(15, 20, 32, .22); border-radius: 3px;
+                        display: flex; align-items: flex-end; justify-content: center;
+                        padding-bottom: 4px; font-size: 6.5pt; letter-spacing: .6px;
+                        text-transform: uppercase; color: #b3b9c6; }
+  /* Le cadre vide dit ce qu'on attend de lui. Discret : c'est une indication,
+     pas une clause. */
+  .sign-fm .sg-attente { position: absolute; left: 0; bottom: 10px; font-size: 8pt;
+                         font-style: italic; color: #9aa2b4; max-width: 50%; }
+  .pied { margin-top: 22px; padding-top: 9px; border-top: 1px solid var(--trait);
+          font-size: 8.5pt; color: var(--gris); text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="entete">
+  <div class="g"><b>{{ c.marque }}</b>
+    {{ c.adresse_organisme }}<br>
+    {{ c.mail_contact }}</div>
+  <div class="d">Siret {{ c.siret }}<br>Établie le {{ c.date_du_jour }}</div>
+</div>
+
+<h1>Convention de formation professionnelle</h1>
+<div class="loi">Article L.6353-1 du code du travail<br>
+  Décret N° 2018-1341 du 28 décembre 2018</div>
+
+<p>Entre les soussignés&nbsp;:</p>
+<ul class="soussignes">
+  <li><b>{{ c.organisme }}</b>, {{ c.adresse_organisme }} (Siret&nbsp;: {{ c.siret }}) désigné
+    ci-après comme «&nbsp;L'organisme de formation&nbsp;».{% if c.mention_declaration_longue %}
+    {{ c.mention_declaration_longue }}{% endif %}</li>
+  {# La denomination de la seconde partie est mise en gras, qu'il s'agisse
+     d'une structure (« ASSOCIATION… ») ou d'un praticien (« Docteur X »). Le
+     nom est le debut de la clause dans les deux cas. #}
+  <li>{% set tete = c.client_denomination or c.client_representant %}
+    {%- if tete and c.seconde_partie.startswith(tete) -%}
+    <b>{{ tete }}</b>{{ c.seconde_partie[tete|length:] }}
+    {%- else -%}{{ c.seconde_partie }}{%- endif -%}</li>
+</ul>
+<p>est conclue la convention suivante, en application des articles L 6353-3 à L 6353-7
+  du code du travail.</p>
+
+<h2>Article 1 : Objet de la convention</h2>
+<p>L'organisme de formation s'engage à organiser l'action de formation intitulée
+  «&nbsp;<b>{{ c.titre_formation }}</b>&nbsp;»</p>
+
+<h2>Article 2 : Nature et caractéristiques de l'action de formation</h2>
+<ul>
+  {# La categorie vient de convention.categorie(), qui lit la MEME source que
+     l'attestation. Les deux actes ne peuvent plus annoncer deux categories
+     differentes pour la meme action. #}
+  <li><b>Catégorie d'action de formation</b> (article L.6313-1 du code du travail)&nbsp;:
+    l'action de formation entre dans la catégorie «&nbsp;<b>{{ c.categorie }}</b>&nbsp;»,
+    prévue à l'article L 6313-1 du Code du Travail</li>
+  <li><b>Objectifs</b>&nbsp;:
+    {% if c.objectifs %}<ul class="sous">{% for o in c.objectifs %}<li>{{ o }}</li>{% endfor %}</ul>
+    {% endif %}</li>
+  <li><b>Contenu de l'action de formation</b>&nbsp;: cf. Programme de formation en Annexe</li>
+  <li><b>Moyens prévus</b>&nbsp;: L'action de formation sera assurée par <b>{{ c.formateur }}</b>,
+    Chirurgien-dentiste. Le formateur présentera une formation théorique sous forme de
+    cours magistral et une formation pratique sous formes de sessions de travaux pratiques
+    sur modèles dédiés. Les ressources utilisées pour la partie théorique et pratique
+    seront&nbsp;:
+    <ul class="sous">{% for m in c.moyens %}<li>{{ m }}</li>{% endfor %}</ul></li>
+  <li><b>Durée de l'action de formation</b>&nbsp;: La durée est fixée à <b>{{ c.duree }}</b></li>
+  <li><b>Lieu</b>&nbsp;: <b>{{ c.lieu }}</b></li>
+  <li><b>Dates et horaires</b>&nbsp;: {{ c.date_formation }}
+    <div class="dates">Date de début de l'action&nbsp;: <b>{{ c.date_debut }}</b><br>
+      Date de fin de l'action&nbsp;: <b>{{ c.date_fin }}</b></div>
+    {% if c.jours_formation %}
+    <div style="margin-top:4px">Journées de formation ({{ c.nb_jours }} journée{{ 's' if c.nb_jours not in ('1', 1) }}, {{ c.duree }})&nbsp;:</div>
+    <ul class="jours">{% for j in c.jours_formation %}<li>{{ j }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if c.horaires %}<div>{{ c.horaires }}</div>{% endif %}</li>
+</ul>
+
+<h2>Article 3 : Effectif formé</h2>
+<ul>
+  <li><b>Public visé</b> au sens de l'article L 6313-3 du code du travail&nbsp;: Le stagiaire
+    devra posséder, avant l'entrée en formation, le niveau de connaissance suivant&nbsp;:
+    <b>{{ c.prerequis }}</b></li>
+  <li>L'organisme de formation accueillera les personnes suivantes&nbsp;:
+    <ul class="part">
+      {% for p in c.participants %}
+      <li><span class="n">{{ p.nom }}</span> <span class="f">— {{ p.fonction }}</span></li>
+      {% endfor %}
+    </ul></li>
+</ul>
+
+<h2>Article 4 : Dispositions financières</h2>
+<p>En contrepartie de cette action de formation, l'employeur s'acquittera des coûts
+  suivants&nbsp;:</p>
+<table class="fin">
+  <tr><td>Frais de formation&nbsp;: coût unitaire {{ c.tarif }} euros TTC ×
+      {{ c.nb_participants }} participant{{ 's' if c.nb_participants > 1 }}</td>
+    <td class="m">{{ c.total }} € TTC</td></tr>
+  <tr><td>Sommes versées par l'entreprise à titre d'acomptes (éventuellement)</td>
+    <td class="m">0 € TTC</td></tr>
+  <tr><td>Sommes restant dues</td><td class="m">{{ c.total }} € TTC</td></tr>
+  <tr><td>T.V.A. (si applicable)</td><td class="m">non applicable</td></tr>
+  <tr class="tot"><td>TOTAL GÉNÉRAL (ou Net de taxe si TVA non applicable)</td>
+    <td class="m">{{ c.total }} € TTC</td></tr>
+</table>
+
+<h2>Article 5 : Modalités de déroulement et de suivi</h2>
+<p>Le déroulement de la formation se fera de manière présentielle&nbsp;:</p>
+<ul>
+  <li>Une première partie théorique sous forme de cours magistral</li>
+  <li>Une deuxième partie pratique en situation de travail</li>
+</ul>
+
+<h2>Article 6 : Modalités de sanction</h2>
+<p>L'accomplissement de la formation complète sera sanctionnée par une
+  «&nbsp;Attestation de réalisation de la formation {{ c.titre_formation }}&nbsp;»</p>
+
+<h2>Article 7 : Modalités de règlement</h2>
+<p>Le Client s'engage à régler la totalité des frais de formation au plus tard 20 jours
+  après la fin de la formation.</p>
+
+<h2>Article 8 : Dédit ou abandon</h2>
+<p>En cas de dédit par le Client à moins de 20 jours francs avant le début de l'action
+  mentionnée à l'article 1, ou d'abandon en cours de formation par un ou plusieurs
+  stagiaires, l'organisme remboursera sur le coût total, les sommes qu'il n'aura pas
+  réellement dépensées ou engagées pour la réalisation de la formation.</p>
+
+<h2>Article 9 : Différends éventuels</h2>
+<p>Si une contestation ou un différend ne peuvent être réglés à l'amiable, le Tribunal
+  de Paris sera seul compétent pour régler le litige.</p>
+
+<div class="sign">
+  <p>Fait en double exemplaire, à {{ c.ville }} le {{ c.date_du_jour }}.</p>
+  <div class="sign-l">
+    <div class="sign-c">
+      <div class="q">Pour le Client</div>
+      <b>{{ c.client_representant }}</b>
+      {{ c.client_fonction }}{% if c.client_fonction and c.client_denomination %} —{% endif %}
+      {{ c.client_denomination }}
+      {# La signature relevee sur la page publique, s'il y en a une. Sinon le
+         cadre reste vide : c'est la place ou signer a la main. #}
+      <div class="sign-e sign-fm">
+        {% if c.signature_client %}<img class="sg-signe" src="{{ c.signature_client }}" alt="Signature">
+        {% else %}<span class="sg-attente">signature et cachet à apposer ici</span>{% endif %}
+        {# LE CACHET DU CLIENT. Le cadre indique ou le poser tant qu'il n'est pas
+           la ; « tampon_client » n'existe pas encore comme donnee — le jour ou
+           il existera, l'image prendra la place du cadre sans rien changer ici. #}
+        {% if c.tampon_client %}<img class="sg-tampon" src="{{ c.tampon_client }}" alt="Cachet">
+        {% else %}<span class="sg-cachet">cachet</span>{% endif %}
+      </div>
+    </div>
+    <div class="sign-c">
+      <div class="q">Pour l'organisme de formation</div>
+      <b>{{ c.formateur }}</b>
+      {{ c.marque }}
+      {# Le tampon derriere, la signature devant : c'est ainsi qu'on signe un
+         papier — on tamponne, puis on signe par-dessus. #}
+      <div class="sign-e sign-fm">
+        {% if c.tampon %}<img class="sg-tampon" src="{{ c.tampon }}" alt="Tampon">{% endif %}
+        {% if c.signature %}<img class="sg-signe" src="{{ c.signature }}" alt="Signature">{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="pied">{{ c.marque }} — {{ c.formateur }}</div>
+
+</body>
+</html>

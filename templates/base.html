@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block titre %}Dashboard{% endblock %} · DFM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.1.0/dist/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8f9fc; --card:#ffffff; --card2:#f2f4f8; --sidebar:#1e2235;
+  --accent:#4f7ef8; --accent2:#7c5bf7; --success:#0f9e6a;
+  --warn:#d4890a; --danger:#d03b3b;
+  --text:#1a1d2e; --muted:#6b7280; --border:#e5e8f0; --border2:#d1d5e0;
+}
+body{background:var(--bg);color:var(--text);font-size:14px;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh}
+a{text-decoration:none;color:inherit}
+/* Reserve en bas : .mode-bascule est en position:fixed au-dessus de la barre.
+   Sans cette marge, les dernieres entrees de navigation passent dessous
+   des que le menu depasse la hauteur de l'ecran. */
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:210px;background:var(--sidebar);padding:16px 0 62px;overflow-y:auto}
+.logo{padding:0 18px 28px;font-size:16px;font-weight:500;color:#fff;display:flex;align-items:center;gap:8px;
+  text-decoration:none;transition:opacity .15s}
+a.logo{cursor:pointer}
+a.logo:hover{opacity:.78}
+html[data-sombre] a.logo{color:#fff}
+.logo i{color:var(--accent);font-size:22px}
+.logo-text{font-size:18px;letter-spacing:.5px}
+.logo-text em{color:var(--accent);font-style:normal}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 18px;color:#9ba3b8;cursor:pointer;font-size:13px;transition:all .15s}
+.nav-item:hover{color:#fff;background:rgba(255,255,255,.06)}
+.nav-item.active{color:#fff;background:rgba(79,126,248,.2);border-left:3px solid var(--accent);padding-left:15px}
+.nav-item.inactif{color:#565d75;cursor:default}
+.nav-item.inactif:hover{background:transparent;color:#565d75}
+.nav-item i{font-size:16px}
+.nav-item .compte{margin-left:auto;font-size:11px;color:#6b7280}
+.nav-portail{margin:14px 10px 4px;padding-top:12px;
+  border-top:1px solid rgba(255,255,255,.09);opacity:.7;font-size:12.5px}
+.nav-portail:hover{opacity:1}
+.nav-section{padding:18px 18px 6px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#4a5068}
+/* Un second niveau, pour les quatre veilles sous « Veilles ». La barre de
+   gauche n'en avait aucun : sans elle, les quatre indicateurs seraient venus
+   s'aligner avec Audit, et rien n'aurait dit qu'ils en dependent. */
+.nav-sous{padding-left:44px;font-size:12.5px;color:#8a92a8;position:relative}
+.nav-sous:before{content:"";position:absolute;left:29px;top:0;bottom:0;width:1px;background:#333a52}
+.nav-sous.active{padding-left:41px}
+.nav-sous i{font-size:14px}
+.nav-sous .pastille{margin-left:auto;font-size:10px;font-weight:600;padding:1px 7px;border-radius:20px}
+.nav-sous .p-vide{background:rgba(214,69,69,.22);color:#ff9b9b}
+.nav-sous .p-ok{background:rgba(15,158,106,.22);color:#6ee7b7}
+.main{margin-left:210px;padding:28px 24px}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:16px}
+.topbar h1{font-size:20px;font-weight:500}
+.topbar-actions{display:flex;gap:10px;flex:none}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;transition:opacity .15s}
+.btn:hover{opacity:.88}
+.btn:disabled{opacity:.5;cursor:default}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:var(--carte);color:var(--text);border:1px solid var(--border2)}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px}
+.kpi{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
+.kpi-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:18px}
+.kpi-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.kpi-value{font-size:30px;font-weight:500;line-height:1}
+.kpi-sub{font-size:12px;color:var(--muted);margin-top:5px;display:flex;align-items:center;gap:4px}
+.kpi-sub.up{color:var(--success)}
+.kpi-sub.warn{color:var(--warn)}
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.section-title{font-size:15px;font-weight:500}
+.formations-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:26px}
+.fcard{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:18px 20px;cursor:pointer;transition:border-color .15s,box-shadow .15s;display:block}
+.fcard:hover{border-color:var(--accent);box-shadow:0 2px 12px rgba(79,126,248,.1)}
+.fcard-title{font-size:14px;font-weight:500;line-height:1.4;margin-bottom:8px}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-blue{background:#eef3fe;color:var(--accent)}
+.badge-purple{background:#f0eefe;color:var(--accent2)}
+.badge-green{background:#eafaf3;color:var(--success)}
+.badge-warn{background:#fef7ec;color:var(--warn)}
+.badge-grey{background:#f2f4f8;color:var(--muted)}
+.fcard-sessions{border-top:1px solid var(--border);margin-top:14px;padding-top:12px}
+.session-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.session-row:last-of-type{border-bottom:none}
+.session-date{font-weight:500}
+.session-stats{display:flex;gap:10px}
+.stat-pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot-green{background:var(--success)}
+.dot-warn{background:var(--warn)}
+.dot-red{background:var(--danger)}
+.dot-blue{background:var(--accent)}
+.progress-bar{height:5px;background:var(--border);border-radius:3px;margin-top:12px;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px}
+.panel{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:20px}
+.filter-row{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.filter-btn{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s;display:inline-block}
+.filter-btn:hover{border-color:var(--border2);color:var(--text)}
+.filter-btn.active{background:#eef3fe;color:var(--accent);border-color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:8px 12px;border-bottom:2px solid var(--border)}
+td{padding:11px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr:hover td{background:var(--bg)}
+.status-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap}
+.sc-sent{background:#eafaf3;color:var(--success)}
+.sc-wait{background:#fef7ec;color:var(--warn)}
+.sc-new{background:#eef3fe;color:var(--accent)}
+.sc-off{background:#f2f4f8;color:var(--muted)}
+.sc-red{background:#fdeceb;color:var(--danger)}
+.action-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:500;font-family:inherit;transition:all .15s}
+.action-btn:hover{color:var(--text);border-color:var(--accent);background:#eef3fe}
+.treat-btn{background:var(--accent);border:none;color:#fff;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:500;font-family:inherit}
+.vide{padding:30px 12px;text-align:center;color:var(--muted);font-size:12px}
+.vide i{font-size:24px;display:block;margin:0 auto 8px;color:var(--border2)}
+.alerte{border-radius:12px;padding:13px 18px;display:flex;align-items:center;gap:11px;font-size:13px;margin-bottom:20px}
+.a-calme{background:var(--carte);border:1px solid var(--border);color:var(--muted)}
+.a-warn{background:#fef7ec;border:1px solid #f5dda6;color:#8a5a06}
+#console{display:none;background:var(--sidebar);color:#c9cfe0;border-radius:12px;padding:16px 18px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;line-height:1.7;max-height:260px;overflow:auto;white-space:pre-wrap;margin-bottom:20px}
+
+.breadcrumb{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:16px}
+.breadcrumb a{color:var(--accent)}
+.session-hero{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:18px 22px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap}
+.session-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;background:#eafaf3;color:var(--success);margin-bottom:8px}
+.session-badge.grey{background:var(--card2);color:var(--muted)}
+.session-badge.warn{background:#fef7ec;color:var(--warn)}
+.session-title{font-size:17px;font-weight:500;margin-bottom:4px}
+.session-meta{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin-top:8px}
+.session-meta i{font-size:14px;vertical-align:-2px;margin-right:3px}
+.hero-actions{display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+.kpi-mini{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.kpi-val{font-size:22px;font-weight:500;line-height:1.1}
+.kpi-bar{height:3px;border-radius:2px;margin-top:6px;background:var(--border);overflow:hidden}
+.kpi-bar-fill{height:100%;border-radius:2px}
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px}
+.tab{padding:8px 16px;font-size:13px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.filter-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap}
+.filter-left{display:flex;gap:6px;flex-wrap:wrap}
+.search-box{display:flex;align-items:center;gap:6px;background:var(--carte);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;font-size:12px;color:var(--muted)}
+.search-box input{border:none;outline:none;font-family:inherit;font-size:12px;color:var(--text);width:140px;background:transparent}
+.table-wrap{background:var(--carte);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.table-scroll{overflow-x:auto}
+.chip{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;white-space:nowrap}
+.chip-g{background:#eafaf3;color:var(--success)}
+.chip-w{background:#fef7ec;color:var(--warn)}
+.chip-r{background:#fef0f0;color:var(--danger)}
+.chip-b{background:#eef3fe;color:var(--accent)}
+.chip-gray{background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+.dot-g{background:var(--success)}
+.dot-w{background:var(--warn)}
+.dot-r{background:var(--danger)}
+.col-header-group{text-align:center;background:#f0f4ff;color:var(--accent);font-size:9px;text-transform:uppercase;letter-spacing:.5px;padding:4px;border-bottom:1px solid var(--border)}
+.col-header-group.orange{background:#fef7ec;color:var(--warn)}
+.col-header-group.green{background:#eafaf3;color:var(--success)}
+.col-sep{border-left:1px solid var(--border)}
+.bulk-bar{background:#1e2235;color:#fff;border-radius:8px;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:12px;gap:10px}
+.bulk-actions{display:flex;gap:6px;flex-wrap:wrap}
+.bulk-btn{background:rgba(255,255,255,.12);border:none;color:#fff;padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-family:inherit}
+.bulk-btn:hover{background:rgba(255,255,255,.2)}
+.icon-btn{background:transparent;border:1px solid var(--border);color:var(--muted);width:26px;height:26px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:14px}
+.icon-btn:hover{color:var(--accent);border-color:var(--accent);background:#eef3fe}
+tr.sel{background:#f0f5ff}
+
+.tab-alerte{display:inline-flex;align-items:center;justify-content:center;gap:3px;margin-left:6px;color:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:20px;vertical-align:1px}
+.tab-alerte.rouge{background:var(--danger)}
+.tab-alerte.orange{background:var(--warn)}
+.tab-alerte i{font-size:11px}
+.tab-info{display:inline-block;margin-left:5px;background:var(--card2);color:var(--muted);font-size:10px;font-weight:500;padding:1px 6px;border-radius:20px}
+
+.zone-depot{border:2px dashed var(--border2);border-radius:10px;padding:22px 16px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg)}
+.zone-depot:hover,.zone-depot.survol{border-color:var(--accent);background:#eef3fe}
+
+.carte-emargement{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:13px 18px;margin-top:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.depot-mini{display:inline-flex;align-items:center;gap:7px;border:2px dashed var(--border2);border-radius:8px;padding:8px 14px;font-size:11.5px;color:var(--muted);cursor:pointer;transition:all .15s;flex:none}
+.depot-mini:hover,.depot-mini.survol{border-color:var(--accent);background:#eef3fe;color:var(--accent)}
+
+.fsel{display:flex;align-items:center;gap:7px;background:var(--carte);border:1px solid var(--border2);border-radius:9px;padding:8px 12px;font-size:12px;cursor:pointer;color:var(--text);font-family:inherit}
+.fsel i{color:var(--muted);font-size:15px}
+.fsel .fsel-val{font-weight:500}
+.type-chips{display:flex;gap:6px;margin:14px 0 18px;flex-wrap:wrap}
+.tchip{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--carte);color:var(--muted);cursor:pointer}
+.tchip:hover{border-color:var(--border2);color:var(--text)}
+.tchip.active{background:#1e2235;color:#fff;border-color:#1e2235}
+.tchip i{font-size:13px}
+.day-group{margin-bottom:22px}
+.day-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.day-label::after{content:'';flex:1;height:1px;background:var(--border)}
+.day-count{font-weight:400;color:var(--border2);text-transform:none;letter-spacing:0}
+.log-list{background:var(--carte);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.log-row{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid #f0f2f6;transition:background .12s}
+.log-row:last-child{border-bottom:none}
+.log-row:hover{background:#fafbff}
+.log-time{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;width:52px;flex-shrink:0;text-align:right}
+.log-ico{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.log-content{flex:1;min-width:0}
+.log-action{font-size:13px;line-height:1.4}
+.log-action strong{font-weight:600}
+.log-prat{color:var(--accent);font-weight:500}
+.log-meta{display:flex;align-items:center;gap:8px;margin-top:3px;flex-wrap:wrap}
+.ftag{display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:500}
+.ftag .fdot{width:6px;height:6px;border-radius:50%}
+.amount-tag{font-size:10px;color:var(--success);font-weight:600}
+.log-arrow{color:var(--muted);font-size:17px;flex-shrink:0;width:40px;height:30px;border-radius:8px;border:1px solid var(--border2);background:var(--carte);display:flex;align-items:center;justify-content:center;transition:all .12s}
+.log-arrow:hover{color:#fff;background:var(--accent);border-color:var(--accent)}
+.log-row:hover .log-arrow{border-color:var(--accent);color:var(--accent)}
+
+.etapes{display:flex;gap:0;background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:5px;margin-bottom:16px;overflow:hidden}
+.etape{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 14px;font-size:12.5px;color:var(--muted);cursor:pointer;border-radius:8px;transition:all .15s;white-space:nowrap}
+.etape:hover{background:var(--bg)}
+.etape.active{background:#eef3fe;color:var(--accent);font-weight:500}
+.etape.faite{color:var(--success)}
+.etape .num{width:21px;height:21px;border-radius:50%;background:var(--card2);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex:none}
+.etape.active .num{background:var(--accent);color:#fff}
+.etape.faite .num{background:#eafaf3;color:var(--success)}
+.champs{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.champ{display:flex;flex-direction:column;gap:5px}
+.champ>span{font-size:12px;font-weight:500;display:flex;align-items:center;gap:5px}
+.champ>span b{color:var(--danger)}
+.champ input[type=text],.champ input[type=number],.champ select,.champ textarea{border:1px solid var(--border2);border-radius:8px;padding:8px 11px;font-family:inherit;font-size:12.5px;color:var(--text);outline:none;background:var(--carte);width:100%;transition:border-color .15s}
+.champ input:focus,.champ select:focus,.champ textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,126,248,.1)}
+.champ textarea{resize:vertical;line-height:1.5}
+.champ em{font-size:10.5px;color:var(--muted);font-style:normal}
+
+.champ-doc{display:flex;gap:7px;align-items:stretch}
+.champ-doc input[type=text]{flex:1;min-width:0}
+.btn-depot{display:inline-flex;align-items:center;gap:5px;background:var(--carte);border:1px solid var(--border2);color:var(--muted);border-radius:8px;padding:8px 12px;font-size:11.5px;font-weight:500;font-family:inherit;cursor:pointer;white-space:nowrap;transition:all .15s;flex:none}
+.btn-depot:hover{border-color:var(--accent);color:var(--accent);background:#eef3fe}
+.btn-depot i{font-size:14px}
+
+.champ-doc{border-radius:8px;transition:all .15s}
+.champ-doc.survol-doc{outline:2px dashed var(--accent);outline-offset:3px;background:#eef3fe}
+.champ-doc.survol-doc *{pointer-events:none}
+#zone-pieces.survol-doc *{pointer-events:none}
+.champ textarea.survol-doc{border-color:var(--accent);background:#eef3fe}
+
+.balise{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;background:#1e2235;color:#a8c5ff;padding:4px 8px;border-radius:6px;cursor:pointer;white-space:nowrap;flex:none;transition:all .12s;display:inline-flex;align-items:center;gap:4px}
+.balise:hover{background:var(--accent);color:#fff}
+.balise.copie{background:var(--success);color:#fff}
+#zone-pieces.survol-doc{border-color:var(--accent);border-style:solid;background:#eef3fe}
+
+.note-format{font-size:11px;line-height:1.55;margin-top:6px;padding:8px 11px;background:var(--bg);border:1px solid var(--border);border-radius:8px}
+.note-format b{font-weight:600}
+
+.champ-doc.rempli input[type=text]{border-color:#7fcfa8;background:#e9f8f1}
+.btn-vider,.btn-ouvrir{display:inline-flex;align-items:center;justify-content:center;width:34px;border:1px solid var(--border2);border-radius:8px;background:var(--carte);color:var(--muted);cursor:pointer;font-family:inherit;transition:all .15s;flex:none;text-decoration:none}
+.btn-vider i,.btn-ouvrir i{font-size:15px}
+.btn-ouvrir:hover{border-color:var(--accent);color:var(--accent);background:#eef3fe}
+.btn-vider:hover{border-color:var(--danger);color:var(--danger);background:#fdeaea}
+.br-bandeau{display:flex;align-items:center;gap:11px;background:#fdf3e3;border:1px solid #f0dcb4;
+  color:#8a5606;border-radius:11px;padding:11px 15px;margin-bottom:16px;font-size:13px}
+.br-bandeau i{font-size:17px;flex:none}
+.br-bandeau span{flex:1;min-width:0}
+.br-b{border:1px solid #e0c89a;background:#fff;color:#8a5606;border-radius:8px;padding:6px 12px;
+  font-size:12.5px;font-family:inherit;cursor:pointer;white-space:nowrap}
+.br-b:hover{background:#fdf7ec}
+.br-ecart{border-color:transparent;background:none}
+html[data-sombre] .br-bandeau{background:#2d2418;border-color:#4a3c22;color:#e0b878}
+html[data-sombre] .br-b{background:#1c2029;border-color:#4a3c22;color:#e0b878}
+</style>
+<style>:root{--carte:#fff}</style>
+<style>
+.of-actuel{display:flex;align-items:center;gap:10px;margin:6px 12px 14px;padding:10px 12px;
+border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);
+text-decoration:none;transition:background .15s}
+.of-actuel:hover{background:rgba(255,255,255,.11)}
+.of-actuel-pt{width:9px;height:9px;border-radius:50%;flex:none;box-shadow:0 0 0 3px rgba(255,255,255,.09)}
+.of-actuel-x{flex:1;min-width:0;display:flex;flex-direction:column}
+.of-actuel-l{font-size:8.5px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;
+color:rgba(255,255,255,.38);line-height:1.4}
+.of-actuel-n{font-size:12.5px;font-weight:600;color:rgba(255,255,255,.94);line-height:1.35;
+white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.of-actuel-c{font-size:9.5px;color:rgba(255,255,255,.42);margin-top:2px;line-height:1.3}
+.of-actuel:hover .of-actuel-c{color:rgba(255,255,255,.68)}
+.of-actuel-f{color:rgba(255,255,255,.28);font-size:14px;flex:none}
+.of-actuel:hover .of-actuel-f{color:rgba(255,255,255,.6)}
+.of-actuel.incomplet{border-color:rgba(224,161,68,.42);background:rgba(224,161,68,.11)}
+.of-actuel.incomplet .of-actuel-c{color:#e0a144}
+</style>
+{% if of_actif %}<style>:root{--accent:{{ of_actif.couleur }}}</style>{% endif %}
+</head>
+<body>
+
+<div class="sidebar">
+  <a class="logo" href="/" title="Revenir au tableau de bord" style="align-items:center">
+    <div style="width:30px;height:30px;border-radius:7px;background:rgba(79,126,248,.18);border:1px solid rgba(79,126,248,.45);display:grid;place-items:center;flex:none">
+      <div style="width:11px;height:14px;background:#4f7ef8;border-radius:5.5px 5.5px 1.5px 1.5px"></div>
+    </div>
+    <div>
+      <div style="font-size:17px;font-weight:600;letter-spacing:-.02em;line-height:1">DFM</div>
+      <div style="font-size:7.5px;letter-spacing:.15em;text-transform:uppercase;color:#6b7280;margin-top:3px">Dental Formation Manager</div>
+    </div>
+  </a>
+{% if of_actif %}
+<a class="of-actuel {{ 'incomplet' if not of_actif.complet }}" href="/profils" title="Voir et changer d organisme de formation">
+  <span class="of-actuel-pt" style="background:{{ of_actif.couleur }}"></span>
+  <span class="of-actuel-x">
+    <span class="of-actuel-l">Organisme actif</span>
+    <span class="of-actuel-n">{{ of_actif.nom }}</span>
+    <span class="of-actuel-c">{% if of_actif.complet %}Changer d'organisme{% else %}Profil incomplet · compléter{% endif %}</span>
+  </span>
+  <i class="ti ti-selector of-actuel-f"></i>
+</a>
+{% endif %}
+
+  <a class="nav-item {% if request.path == '/' %}active{% endif %}" href="/"><i class="ti ti-layout-dashboard"></i>Dashboard</a>
+  <a class="nav-item {% if request.path.startswith('/journal') %}active{% endif %}" href="/journal"><i class="ti ti-history"></i>Journal d'activités</a>
+  <div class="nav-section">Formations</div>
+  <a class="nav-item {% if request.path.startswith('/session') %}active{% endif %}" href="/sessions"><i class="ti ti-calendar-event"></i>Sessions de formations<span class="compte">{{ nb_sessions }}</span></a>
+  <a class="nav-item {% if request.path.startswith('/formation') %}active{% endif %}" href="/formations"><i class="ti ti-books"></i>Bibliothèque formations<span class="compte">{{ nb_formations }}</span></a>
+  <div class="nav-section">Data clients</div>
+  <a class="nav-item {% if request.path.startswith('/contacts') or request.path.startswith('/inscrits') or request.path.startswith('/apprenant') %}active{% endif %}" href="/contacts" title="Apprenants et prospects, une seule liste"><i class="ti ti-database"></i>Bases de données</a>
+  <a class="nav-item {% if request.path.startswith('/client') %}active{% endif %}" href="/clients" title="Les structures qui achetent une formation pour leurs employes"><i class="ti ti-address-book"></i>Base clients</a>
+  <a class="nav-item {{ 'actif' if request.path.startswith('/messagerie') }}" href="/messagerie"><i class="ti ti-send"></i>Messagerie</a>
+  <div class="nav-section">Documents de suivi</div>
+  <a class="nav-item {% if request.path.startswith('/conventions') %}active{% endif %}" href="/conventions" title="Suivi des conventions de formation"><i class="ti ti-file-check"></i>Conventions</a>
+  <a class="nav-item {% if request.path.startswith('/reglements') %}active{% endif %}" href="/reglements" title="Vue consolidee des reglements"><i class="ti ti-coin"></i>Règlements</a>
+  <a class="nav-item {% if request.path.startswith('/questionnaires') %}active{% endif %}" href="/questionnaires" title="Evaluations et satisfaction"><i class="ti ti-clipboard-check"></i>Questionnaires</a>
+  <a class="nav-item {% if request.path.startswith('/templates') %}active{% endif %}" href="/templates" title="Bibliotheque de modeles de questionnaires et de mails"><i class="ti ti-file-pencil"></i>Modèles</a>
+  <a class="nav-item {% if request.path.startswith('/reclamations') %}active{% endif %}" href="/reclamations" title="Registre des reclamations et de leur traitement"><i class="ti ti-message-report"></i>Réclamations</a>
+  <div class="nav-section">Qualiopi</div>
+  <a class="nav-item {% if request.path.startswith('/audit') %}active{% endif %}" href="/audit" title="Le referentiel Qualiopi, critere par critere, avec vos preuves"><i class="ti ti-checkup-list"></i>Audit</a>
+  <a class="nav-item {% if request.path == '/veilles' %}active{% endif %}" href="/veilles" title="Critere 6 : les veilles et votre formation continue"><i class="ti ti-radar"></i>Veilles</a>
+  {% for v in nav_veilles %}
+  <a class="nav-item nav-sous {% if request.path == '/veille/' + v.cle %}active{% endif %}" href="/veille/{{ v.cle }}" title="Indicateur {{ v.indicateur }}"><i class="ti {{ v.icone }}"></i>{{ v.court }}<span class="pastille {{ 'p-ok' if v.solide else 'p-vide' }}">{{ v.indicateur }}</span></a>
+  {% endfor %}
+  <div class="nav-section">Profils et réglages</div>
+  <a class="nav-item {% if request.path.startswith('/profil') %}active{% endif %}" href="/profils" title="Vos organismes de formation"><i class="ti ti-building"></i>Profils organismes de formation</a>
+  <a class="nav-item {% if request.path.startswith('/formateur') %}active{% endif %}" href="/formateurs" title="Qui intervient, et ce qui prouve sa competence — indicateur 21"><i class="ti ti-users"></i>Profils formateurs</a>
+  <a class="nav-item {% if request.path.startswith('/document') %}active{% endif %}" href="/documents" title="Tous vos documents : programmes, RIB, reglements, pieces jointes"><i class="ti ti-folders"></i>Documents</a>
+  <a class="nav-item {% if request.path.startswith('/parametres') %}active{% endif %}" href="/parametres" title="Reglages de l application"><i class="ti ti-settings"></i>Paramètres</a>
+  {% if request.headers.get('X-Forwarded-Proto') or request.headers.get('X-Forwarded-For') %}
+  <a class="nav-item nav-portail" href="/portail"
+     title="Revenir au portail CEMEDIS Formations — de la, OPCO Watch">
+    <i class="ti ti-arrow-back-up"></i>Portail CEMEDIS</a>
+  {% endif %}
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <div>
+      <h1>{% block entete %}Dashboard{% endblock %}</h1>
+      <p style="font-size:12px;color:var(--muted);margin-top:2px">{% block sous_entete %}{% endblock %}</p>
+    </div>
+    <div class="topbar-actions">{% block actions %}{% endblock %}</div>
+  </div>
+  <pre id="console"></pre>
+  <div id="dfm_taches"></div>
+<style>
+.tk-boite{margin-bottom:16px}
+.tk{display:flex;align-items:center;gap:14px;border-radius:11px;padding:14px 18px;margin-bottom:8px;border:1px solid #f0b8b8;background:#fdeaea}
+.tk.moyenne{border-color:#f0cf94;background:#fdf3e3}
+.tk-ic{width:34px;height:34px;border-radius:9px;background:var(--carte);display:flex;align-items:center;justify-content:center;font-size:18px;flex:none;color:var(--danger)}
+.tk.moyenne .tk-ic{color:var(--warn)}
+.tk-x{flex:1;min-width:0}
+.tk-t{font-size:13.5px;font-weight:500;color:#8a2020}
+.tk.moyenne .tk-t{color:#8a5a06}
+.tk-d{font-size:12px;color:var(--muted);margin-top:2px}
+.tk-b{background:var(--carte);border:1px solid var(--border2);border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:500;text-decoration:none;color:var(--text);white-space:nowrap}
+.tk-b:hover{border-color:var(--accent);color:var(--accent)}
+</style>
+<script>
+function tkDuree(m){
+  if(m < 60) return "il y a " + m + " min";
+  var h = Math.floor(m / 60);
+  if(h < 24) return "il y a " + h + " h";
+  return "il y a " + Math.floor(h / 24) + " jour(s)";
+}
+function tkCharger(){
+  fetch("/taches").then(function(r){return r.json()}).then(function(j){
+    var z = document.getElementById("dfm_taches");
+    if(!z || !j.ok || !j.taches || !j.taches.length){ if(z) z.innerHTML = ""; return; }
+    var h = '<div class="tk-boite">';
+    j.taches.forEach(function(t){
+      h += '<div class="tk ' + (t.urgence === "haute" ? "" : "moyenne") + '">';
+      h += '<div class="tk-ic"><i class="ti ti-bell-ringing"></i></div>';
+      h += '<div class="tk-x"><div class="tk-t">À envoyer : ' + t.titre + '</div>';
+      h += '<div class="tk-d">' + t.detail + ' · ' + tkDuree(t.retard) + (t.auto ? " · envoi automatique activé" : "") + '</div></div>';
+      h += '<a class="tk-b" href="' + t.lien + '">Ouvrir la session</a></div>';
+    });
+    h += '</div>';
+    z.innerHTML = h;
+  }).catch(function(){});
+}
+tkCharger();
+setInterval(tkCharger, 120000);
+function tkReleve(){
+  var p = window.location.pathname;
+  var interesse = (p === "/" || p.indexOf("/questionnaires") === 0 || p.indexOf("/session/") === 0);
+  if(!interesse) return;
+  fetch("/questionnaires/relever-tout", {method: "POST"})
+  .then(function(r){return r.json()}).then(function(j){
+    if(j && j.traites > 0 && (p === "/" || p.indexOf("/questionnaires") === 0)){
+      window.location.reload();
+    }
+  }).catch(function(){});
+}
+tkReleve();
+</script>
+<div class="sy-bandeau" id="sy_bandeau">
+  <i class="ti ti-alert-triangle sy-ic"></i>
+  <div class="sy-x"><div class="sy-t" id="sy_titre"></div><div class="sy-d" id="sy_detail"></div></div>
+  <button class="sy-b" onclick="syDetails()">Voir le détail</button>
+  <button class="sy-b fort" onclick="syRelancer(this)">Relancer le traitement</button>
+  <button class="sy-x-f" onclick="syMasquer()" title="Masquer">&times;</button>
+</div>
+<style>
+.sy-bandeau{display:none;align-items:center;gap:14px;background:#fdeaea;border:1px solid #f0b8b8;
+border-radius:11px;padding:13px 17px;margin:0 0 16px;font-size:12.5px;color:#8a2020}
+.sy-bandeau.on{display:flex}
+.sy-bandeau.attention{background:#fdf3e3;border-color:#f0cf94;color:#8a5a10}
+.sy-bandeau.attention .sy-b{border-color:#e0bd80;color:#8a5a10}
+.sy-bandeau.attention .sy-b:hover{background:#fdf8ee}
+.sy-bandeau.attention .sy-b.fort{background:var(--warn);color:#fff;border-color:transparent}
+.sy-bandeau.attention .sy-x-f{color:#c09a50}
+.sy-bandeau.attention .sy-x-f:hover{color:#8a5a10}
+.sy-ic{font-size:20px;flex:none}
+.sy-x{flex:1;min-width:0}
+.sy-t{font-weight:600;font-size:13px}
+.sy-d{font-size:11.5px;margin-top:2px;opacity:.9;line-height:1.45}
+.sy-b{border:1px solid #e0a0a0;background:#fff;color:#8a2020;border-radius:8px;padding:7px 13px;
+font-size:12px;cursor:pointer;font-family:inherit;flex:none;white-space:nowrap}
+.sy-b:hover{background:#fdf3f3}
+.sy-b.fort{background:var(--danger);color:#fff;border-color:transparent}
+.sy-b.fort:hover{filter:brightness(.94)}
+.sy-x-f{background:none;border:none;color:#c08080;font-size:19px;cursor:pointer;padding:0 2px;
+line-height:1;font-family:inherit;flex:none}
+.sy-x-f:hover{color:#8a2020}
+</style>
+<script>
+var SY_RAPPORT = null;
+function syCharger(){
+  fetch("/synchro/etat").then(function(r){return r.json()}).then(function(j){
+    if(!j.ok || j.jamais || !j.rapport || j.rapport.ok){ return; }
+    SY_RAPPORT = j.rapport;
+    var e = j.rapport.echec || {};
+    var etapes = j.rapport.etapes || [];
+    // UN ECHEC N'EST PLUS UN ABANDON. Depuis que des etapes sont non bloquantes,
+    // une etape peut echouer sans que la suite s'arrete ; le bandeau annoncait
+    // pourtant « les etapes suivantes n'ont pas ete executees » dans tous les
+    // cas. Il faut COMPTER, pas supposer — une alarme qui se trompe sur ce
+    // qu'elle annonce cesse d'etre lue, et c'est la seule chose qu'on ne peut
+    // pas se permettre d'une alarme.
+    var abandonnees = etapes.filter(function(x){ return !x.executee; }).length;
+    var ratees = etapes.filter(function(x){ return !x.ok; }).length;
+    var titre, detail;
+    if(abandonnees > 0){
+      titre = "Le traitement s'est interrompu à l'étape " + (e.numero || "?")
+            + " : " + (e.titre || "");
+      detail = abandonnees + " étape(s) n'ont pas été exécutées — conventions, "
+             + "confirmations et factures peuvent être en retard.";
+    } else {
+      titre = ratees + " étape(s) ont échoué, le traitement a continué";
+      detail = "Rien n'a été abandonné. Ce qui a échoué sera repris au prochain passage.";
+    }
+    // NOMMER LA CAUSE QUAND ELLE EST UNIQUE. Treize echecs qui n'en font qu'un
+    // — une autorisation morte — se lisaient « 13 étapes ont échoué » : un
+    // compte, la ou il fallait un geste. On regarde si tout retombe sur la meme
+    // cause, et si oui on la dit, avec ce qu'il y a a faire.
+    var cause = syCauseCommune(etapes);
+    if(cause){
+      // QUAND DES ETAPES ONT ETE ABANDONNEES, LE TITRE RESTE L'ABANDON. La
+      // cause est utile, l'abandon est grave : la cause descend dans le detail
+      // plutot que de prendre la place du seul fait qui presse.
+      if(abandonnees > 0){ detail = cause.detail + " " + detail; }
+      else { titre = cause.titre; detail = cause.detail + " " + detail; }
+    }
+    document.getElementById("sy_titre").textContent = titre;
+    document.getElementById("sy_detail").textContent =
+      detail + " Dernier essai le " + (j.rapport.quand || "") + ".";
+    // Un echec sans abandon se signale en orange : le rouge dit ce qui n'a pas
+    // eu lieu, et il perd son sens s'il sert aussi a ce qui a eu lieu.
+    document.getElementById("sy_bandeau").classList.toggle("attention", abandonnees === 0);
+    document.getElementById("sy_bandeau").classList.add("on");
+  }).catch(function(){});
+}
+function syCauseCommune(etapes){
+  var ratees = etapes.filter(function(x){ return !x.ok; });
+  if(ratees.length < 2){ return null; }
+  var google = ratees.filter(function(x){
+    var c = (x.cause || "") + " " + (x.details || "");
+    return /utorisation Google|invalid_grant|revoqu|révoqu/i.test(c);
+  }).length;
+  if(google === ratees.length){
+    return {titre: "L'autorisation Google est expirée — " + ratees.length
+                 + " étape(s) en dépendent",
+            detail: "Pour la renouveler : fermez DFM, puis double-cliquez DFM.command. "
+                  + "Une page de connexion Google s'ouvre une fois."};
+  }
+  // Toute autre cause partagee mot pour mot par TOUS les echecs.
+  var premiere = (ratees[0].cause || "").trim();
+  if(premiere && ratees.every(function(x){ return (x.cause || "").trim() === premiere; })){
+    return {titre: ratees.length + " étape(s) ont échoué, toutes pour la même raison",
+            detail: premiere};
+  }
+  return null;
+}
+function syMasquer(){ document.getElementById("sy_bandeau").classList.remove("on"); }
+function syDetails(){
+  if(!SY_RAPPORT){ return; }
+  var e = SY_RAPPORT.echec || {};
+  // RIEN D'INTERROMPU N'EST PAS « INTERROMPU » — 07/10/2026. Le bandeau comptait
+  // deja les etapes abandonnees avant de parler d'interruption ; cette fenetre,
+  // elle, affichait « Traitement interrompu » en rouge pour TOUT echec, y compris
+  // celui d'une etape NON BLOQUANTE apres laquelle les quatre-vingt-dix autres
+  // s'etaient deroulees. Un import de formulaire qui tombe et un traitement
+  // reellement arrete ne demandent pas la meme reaction : leur donner le meme
+  // titre noie le vrai arret dans les faux, et une alarme qu'on cesse de lire ne
+  // sert plus a rien. Meme regle que le bandeau, meme vocabulaire.
+  var restantes = (SY_RAPPORT.etapes || []).filter(function(x){ return !x.executee; }).length;
+  var arrete = restantes > 0 ||
+    (SY_RAPPORT.etapes || []).some(function(x){ return x.ok === false && x.bloquant; });
+  var h = '<div class="dfm-bloc dfm-b-' + (arrete ? "dan" : "att") + '"><b>' + (e.titre || "") + '</b><br>' + (e.cause || "Cause inconnue") + '</div>';
+  h += '<div class="dfm-liste">';
+  (SY_RAPPORT.etapes || []).forEach(function(x){
+    var ok = x.ok;
+    h += '<div class="dfm-liste-l"><i class="ti ' + (ok ? "ti-circle-check" : "ti-alert-circle")
+       + '" style="color:' + (ok ? "var(--success)" : "var(--danger)") + '"></i><span>' + x.titre;
+    if(x.resume && x.resume.length){
+      h += '<br><span style="font-size:11px;color:var(--muted)">' + x.resume.join(" · ") + '</span>';
+    }
+    h += '</span></div>';
+  });
+  h += '</div>';
+  if(restantes > 0){
+    h += '<div class="dfm-bloc dfm-b-att">' + restantes + ' étape(s) n\'ont pas été exécutées.</div>';
+  } else {
+    h += '<div class="dfm-bloc dfm-b-ok">Rien n\'a été abandonné : toutes les autres étapes '
+       + 'se sont déroulées. Ce qui a échoué sera repris au prochain passage.</div>';
+  }
+  dfmFenetre({ton: arrete ? "danger" : "attention",
+    titre: arrete ? "Traitement interrompu" : "Traitement terminé, avec un avertissement",
+    sous: "Dernier essai le " + (SY_RAPPORT.quand || ""), corps: h,
+    boutons: [{libelle: "Fermer", style: "neutre"},
+              {libelle: "Relancer", style: arrete ? "danger" : "neutre", icone: "ti-refresh",
+               action: function(){ syRelancer(null); }}]});
+}
+function syRelancer(bouton){
+  if(bouton){ bouton.disabled = true; bouton.textContent = "En cours…"; }
+  dfmFenetre({ton: "info", titre: "Traitement en cours",
+    corps: "<p>Les douze étapes s'exécutent. Cela peut prendre une minute.</p>", boutons: []});
+  fetch("/synchro/relancer", {method: "POST"})
+  .then(function(r){return r.json()}).then(function(j){
+    var rap = j.rapport || {};
+    if(rap.ok){
+      dfmFenetre({ton: "succes", titre: "Traitement terminé",
+        corps: '<div class="dfm-bloc dfm-b-ok">Les douze étapes se sont déroulées sans erreur.</div>',
+        boutons: [{libelle: "Fermer", style: "primaire",
+                   action: function(){ window.location.reload(); }}]});
+      return;
+    }
+    SY_RAPPORT = rap;
+    syDetails();
+  }).catch(function(e){
+    dfmInfo("Erreur", "<p>" + e + "</p>", "danger");
+  });
+}
+setTimeout(syCharger, 700);
+/* ------------------------------------------------------------------
+   Brouillons — module commun aux ecrans de saisie longue.
+
+   Deux signaux, et un brouillon n'est retenu que si les DEUX concordent :
+     1. un evenement input/change a eu lieu (une consultation n'en produit
+        aucun : une affectation .value en JS ne declenche rien) ;
+     2. l'empreinte de l'etat differe de celle prise au demarrage.
+   Le second seul produirait un faux positif a chaque remplissage
+   asynchrone ; le premier seul en produirait un si l'on tape puis efface.
+
+   Stockage : localStorage. Le serveur ne voit jamais un brouillon — c'est
+   ce qui rend impossible de le confondre avec un enregistrement reel.
+   ------------------------------------------------------------------ */
+var dfmBrouillon = (function(){
+  var CLE = null, SERIALISER = null, RESTAURER = null;
+  var REF = null, TOUCHE = false, ARME = false, IGNORER = false;
+  var JOURS = 7;
+
+  function _cle(){ return "dfm_brouillon:" + CLE; }
+  function _etat(){
+    try{ return JSON.stringify(SERIALISER()); }catch(e){ return null; }
+  }
+  function modifie(){
+    if(!ARME || IGNORER || !TOUCHE) return false;
+    var e = _etat();
+    return e !== null && e !== REF;
+  }
+  function armer(){
+    REF = _etat(); TOUCHE = false; ARME = true;
+  }
+  function ecrire(){
+    if(!modifie()) return false;
+    try{
+      localStorage.setItem(_cle(), JSON.stringify({quand: Date.now(), etat: _etat()}));
+      return true;
+    }catch(e){ return false; }
+  }
+  function effacer(){ try{ localStorage.removeItem(_cle()); }catch(e){} }
+  function lire(){
+    try{
+      var b = localStorage.getItem(_cle());
+      if(!b) return null;
+      var d = JSON.parse(b);
+      if(!d || !d.etat) return null;
+      if(Date.now() - (d.quand || 0) > JOURS * 86400000){ effacer(); return null; }
+      return d;
+    }catch(e){ return null; }
+  }
+  function _quandTexte(t){
+    var d = new Date(t), n = new Date();
+    var h = (" " + d.getHours()).slice(-2) + "h" + ("0" + d.getMinutes()).slice(-2);
+    if(d.toDateString() === n.toDateString()) return "aujourd'hui à " + h.trim();
+    return "le " + d.getDate() + "/" + (d.getMonth() + 1) + " à " + h.trim();
+  }
+  function _bandeau(d){
+    var z = document.createElement("div");
+    z.className = "br-bandeau";
+    z.innerHTML = '<i class="ti ti-file-pencil"></i>'
+      + '<span>Un brouillon non enregistré vous attend, sauvegardé <b>'
+      + _quandTexte(d.quand) + '</b>.</span>'
+      + '<button type="button" class="br-b br-repr">Le reprendre</button>'
+      + '<button type="button" class="br-b br-ecart">L\'écarter</button>';
+    var zone = document.getElementById("dfm_brouillon_zone");
+    if(zone){ zone.appendChild(z); }
+    else { document.body.insertBefore(z, document.body.firstChild); }
+    z.querySelector(".br-repr").onclick = function(){
+      try{ RESTAURER(JSON.parse(d.etat)); }catch(e){}
+      effacer(); z.remove(); TOUCHE = true;
+    };
+    z.querySelector(".br-ecart").onclick = function(){ effacer(); z.remove(); };
+  }
+  function _sortie(cible){
+    // dfmFenetre et non dfmConfirmer : ce dernier impose ses deux boutons,
+    // or il en faut trois — conserver, ecarter, rester.
+    dfmFenetre({
+      ton: "attention", titre: "Modifications non enregistrées",
+      sous: "Vous quittez cette page sans avoir enregistré",
+      corps: "<p>Votre travail peut être conservé en brouillon. Vous le retrouverez "
+           + "en revenant sur cet écran, avec le choix de le reprendre ou de l'écarter.</p>"
+           + "<p style=\"color:var(--muted);font-size:12px\">Un brouillon n'est pas un "
+           + "enregistrement : il ne paraît ni dans la bibliothèque, ni dans le catalogue.</p>",
+      boutons: [
+        {libelle: "Rester sur la page", style: "neutre"},
+        {libelle: "Écarter et quitter", style: "attention",
+         action: function(){ effacer(); IGNORER = true; window.location = cible; }},
+        {libelle: "Conserver en brouillon", style: "primaire", icone: "ti-file-pencil",
+         action: function(){ ecrire(); IGNORER = true; window.location = cible; }}
+      ]
+    });
+  }
+  function installer(opt){
+    CLE = opt.cle; SERIALISER = opt.serialiser; RESTAURER = opt.restaurer;
+    document.addEventListener("input", function(){ TOUCHE = true; }, true);
+    document.addEventListener("change", function(){ TOUCHE = true; }, true);
+    document.addEventListener("click", function(e){
+      var a = e.target.closest ? e.target.closest("a[href]") : null;
+      if(!a) return;
+      var h = a.getAttribute("href") || "";
+      if(!h || h.charAt(0) === "#" || a.target === "_blank") return;
+      if(/^(mailto:|tel:|javascript:)/.test(h)) return;
+      if(!modifie()) return;
+      e.preventDefault(); e.stopPropagation();
+      _sortie(a.href);
+    }, true);
+    // Fermeture d'onglet, bouton retour, barre d'adresse : on ne peut pas
+    // afficher de dialogue. On ecrit le brouillon en silence, et le navigateur
+    // pose sa question generique. Rien n'est perdu, meme en repondant quitter.
+    window.addEventListener("beforeunload", function(e){
+      if(!modifie()) return;
+      ecrire();
+      e.preventDefault(); e.returnValue = "";
+      return "";
+    });
+    var d = lire();
+    if(d) _bandeau(d);
+  }
+  return {installer: installer, armer: armer, modifie: modifie,
+          enregistre: function(){ effacer(); armer(); },
+          ecarter: effacer};
+})();
+
+</script>
+
+<div id="dfm_brouillon_zone"></div>
+{% block corps %}{% endblock %}
+</div>
+
+<script>
+async function lancer(btn){
+  const c = document.getElementById("console");
+  const avant = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2"></i>Traitement…';
+  c.style.display = "block";
+  c.textContent = "Traitement en cours…";
+  try{
+    const r = await fetch("/lancer", {method:"POST"});
+    const d = await r.json();
+    c.textContent = d.sortie.join("\n");
+  }catch(e){ c.textContent = "Erreur : " + e.message; }
+  btn.disabled = false;
+  btn.innerHTML = avant;
+}
+</script>
+<style>
+[data-tip]{position:relative}
+[data-tip]:after{content:attr(data-tip);position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);
+background:#1e2235;color:#fff;font-size:11px;font-weight:400;line-height:1.35;padding:6px 9px;border-radius:6px;
+white-space:normal;width:max-content;max-width:210px;text-align:center;opacity:0;visibility:hidden;
+transition:opacity .12s .25s,visibility .12s .25s;pointer-events:none;z-index:200;box-shadow:0 3px 10px rgba(0,0,0,.2)}
+/* LA FLECHE DE L'INFOBULLE utilise « :before » — exactement la ou la police
+   d'icones place son dessin. Une icone portant une infobulle devenait donc
+   INVISIBLE : le glyphe etait remplace par le petit triangle, et l'on ne
+   voyait plus rien tant qu'on ne survolait pas.
+   Les icones sont donc exclues de la fleche. Elles gardent leur infobulle,
+   portee par « :after », qui ne leur sert a rien par ailleurs. */
+[data-tip]:not(.ti):before{content:"";position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);
+border:5px solid transparent;border-top-color:#1e2235;opacity:0;visibility:hidden;
+transition:opacity .12s .25s,visibility .12s .25s;pointer-events:none;z-index:200}
+[data-tip]:hover:after,[data-tip]:not(.ti):hover:before{opacity:1;visibility:visible}
+</style>
+<script>
+function dfmInfobulles(){
+  var el = document.querySelectorAll("[title]");
+  for(var i = 0; i < el.length; i++){
+    var t = (el[i].getAttribute("title") || "").trim();
+    if(!t) continue;
+    el[i].setAttribute("data-tip", t);
+    el[i].removeAttribute("title");
+  }
+}
+dfmInfobulles();
+document.addEventListener("click", function(){ setTimeout(dfmInfobulles, 400); });
+setInterval(dfmInfobulles, 2500);
+</script>
+<div class="dfm-voile" id="dfm_voile"><div class="dfm-modale" id="dfm_modale"></div></div>
+<style>
+.dfm-voile{position:fixed;inset:0;background:rgba(16,18,30,.62);display:none;align-items:center;
+justify-content:center;z-index:300;padding:24px;backdrop-filter:blur(2px)}
+.dfm-modale{background:var(--carte);border-radius:16px;padding:0;max-width:540px;width:100%;
+max-height:88vh;overflow:auto;box-shadow:0 20px 60px rgba(16,18,30,.28)}
+.dfm-tete{display:flex;align-items:flex-start;gap:15px;padding:24px 26px 18px}
+.dfm-ic{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;
+justify-content:center;font-size:22px;flex:none}
+.dfm-ic.info{background:#eef3fe;color:var(--accent)}
+.dfm-ic.succes{background:#eafaf3;color:var(--success)}
+.dfm-ic.attention{background:#fdf3e3;color:var(--warn)}
+.dfm-ic.danger{background:#fdeaea;color:var(--danger)}
+.dfm-tx{flex:1;min-width:0}
+.dfm-t{font-size:17.5px;font-weight:600;letter-spacing:-.2px;line-height:1.3}
+.dfm-st{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5}
+.dfm-corps{padding:0 26px 4px;font-size:13px;line-height:1.6}
+.dfm-corps p{margin:0 0 12px}
+.dfm-bloc{border-radius:10px;padding:13px 15px;font-size:12.5px;line-height:1.55;margin-bottom:12px}
+.dfm-b-info{background:#f0f4ff;border:1px solid #c5d4fb;color:#185fa5}
+.dfm-b-att{background:#fdf3e3;border:1px solid #f0cf94;color:#8a5a06}
+.dfm-b-dan{background:#fdeaea;border:1px solid #f0b8b8;color:#8a2020}
+.dfm-b-ok{background:#eafaf3;border:1px solid #9fe1cb;color:#0f6e56}
+.dfm-b-neutre{background:var(--bg);border:1px solid var(--border);color:var(--text)}
+.dfm-l{display:flex;align-items:flex-start;gap:9px;padding:5px 0;font-size:12.5px}
+.dfm-l i{flex-shrink:0;margin-top:2px;font-size:15px}
+.dfm-liste{border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px}
+.dfm-liste-l{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:12.5px;
+border-bottom:1px solid var(--border)}
+.dfm-liste-l:last-child{border-bottom:none}
+.dfm-liste-l i{flex:none;font-size:15px}
+.dfm-liste-n{margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums;flex:none}
+.dfm-saisie{width:100%;padding:11px 14px;border:1px solid var(--border2);border-radius:10px;
+font-size:14px;font-family:ui-monospace,Menlo,monospace;margin-top:4px;color:var(--text)}
+.dfm-saisie:focus{outline:none;border-color:var(--danger);box-shadow:0 0 0 3px rgba(208,59,59,.1)}
+.dfm-pied{display:flex;gap:10px;justify-content:flex-end;padding:18px 26px 24px;flex-wrap:wrap}
+.dfm-btn{display:inline-flex;align-items:center;gap:7px;border-radius:10px;padding:11px 20px;
+font-size:13.5px;font-weight:500;font-family:inherit;cursor:pointer;border:1px solid transparent}
+.dfm-btn-neutre{background:var(--carte);border-color:var(--border2);color:var(--text)}
+.dfm-btn-neutre:hover{background:var(--bg)}
+.dfm-btn-primaire{background:var(--accent);color:#fff}
+.dfm-btn-attention{background:var(--warn);color:#fff}
+.dfm-btn-danger{background:var(--danger);color:#fff}
+.dfm-btn:hover:not(:disabled){filter:brightness(.94)}
+.dfm-btn:disabled{opacity:.4;cursor:not-allowed}
+</style>
+<script>
+var DFM_ICONES = {info: "ti-info-circle", succes: "ti-circle-check",
+                  attention: "ti-alert-triangle", danger: "ti-alert-octagon"};
+function dfmFermer(){
+  document.getElementById("dfm_voile").style.display = "none";
+  document.getElementById("dfm_modale").innerHTML = "";
+}
+function dfmFenetre(o){
+  var ton = o.ton || "info";
+  var h = '<div class="dfm-tete"><div class="dfm-ic ' + ton + '"><i class="ti ' + (o.icone || DFM_ICONES[ton]) + '"></i></div>';
+  h += '<div class="dfm-tx"><div class="dfm-t">' + (o.titre || "") + '</div>';
+  if(o.sous){ h += '<div class="dfm-st">' + o.sous + '</div>'; }
+  h += '</div></div><div class="dfm-corps">' + (o.corps || "") + '</div>';
+  h += '<div class="dfm-pied">';
+  (o.boutons || []).forEach(function(b, i){
+    var style = b.style || "neutre";
+    h += '<button class="dfm-btn dfm-btn-' + style + '" id="dfm_b' + i + '"' + (b.desactive ? " disabled" : "") + '>';
+    if(b.icone){ h += '<i class="ti ' + b.icone + '"></i>'; }
+    h += (b.libelle || "OK") + '</button>';
+  });
+  h += '</div>';
+  document.getElementById("dfm_modale").innerHTML = h;
+  document.getElementById("dfm_voile").style.display = "flex";
+  (o.boutons || []).forEach(function(b, i){
+    var el = document.getElementById("dfm_b" + i);
+    if(!el) return;
+    // « garder » se lit SUR LE BOUTON, et aussi SUR LA FENETRE — mais au niveau
+    // de la fenetre il ne vaut que pour les boutons QUI AGISSENT. Un bouton sans
+    // action est un bouton de fermeture : il doit fermer, toujours.
+    //
+    // POURQUOI CETTE SOUPLESSE. Constate le 20/08/2026. Quatre appels passaient
+    // « garder » au niveau de la fenetre, ou personne ne le lisait : dfmFermer()
+    // vidait la fenetre AVANT l'action, les champs saisis disparaissaient du
+    // DOM, l'action lisait du vide, puis ressortait en silence sur son propre
+    // controle « si la date est absente ». « Enregistrer le reglement »
+    // n'enregistrait rien ET n'affichait aucune erreur — la pire des pannes,
+    // celle qui ressemble a un clic qui n'a pas pris.
+    var garder = (b.garder === true)
+              || (o.garder === true && typeof b.action === "function");
+    el.onclick = function(){
+      if(!garder){ dfmFermer(); }
+      if(typeof b.action === "function"){ b.action(el); }
+    };
+  });
+  if(o.apres){ o.apres(); }
+}
+function dfmInfo(titre, corps, ton){
+  dfmFenetre({ton: ton || "info", titre: titre, corps: corps,
+              boutons: [{libelle: "Fermer", style: "primaire"}]});
+}
+function dfmConfirmer(o){
+  dfmFenetre({ton: o.ton || "attention", titre: o.titre, sous: o.sous, corps: o.corps,
+    boutons: [{libelle: o.annuler || "Annuler", style: "neutre"},
+              {libelle: o.valider || "Confirmer", style: o.styleValider || "attention",
+               icone: o.iconeValider, action: o.action}]});
+}
+function dfmRisque(o){
+  var corps = (o.corps || "");
+  corps += '<div class="dfm-bloc dfm-b-dan"><b>Pour confirmer, recopiez exactement :</b> <code style="font-size:13px">' + o.motCle + '</code>';
+  corps += '<input type="text" class="dfm-saisie" id="dfm_cle" autocomplete="off" spellcheck="false" placeholder="' + o.motCle + '"></div>';
+  dfmFenetre({ton: "danger", titre: o.titre, sous: o.sous, corps: corps,
+    boutons: [{libelle: "Annuler", style: "neutre"},
+              {libelle: o.valider || "Confirmer", style: "danger", icone: o.iconeValider,
+               desactive: true, action: o.action}],
+    apres: function(){
+      var champ = document.getElementById("dfm_cle");
+      var bouton = document.getElementById("dfm_b1");
+      if(!champ || !bouton) return;
+      champ.focus();
+      champ.addEventListener("input", function(){
+        bouton.disabled = (champ.value.trim() !== o.motCle);
+      });
+    }});
+}
+function dfmEtapes(titre, sous, etapes, resume, ton){
+  var corps = "";
+  if(resume){ corps += '<div class="dfm-bloc dfm-b-' + (ton === "danger" ? "dan" : (ton === "attention" ? "att" : "ok")) + '">' + resume + '</div>'; }
+  if(etapes && etapes.length){
+    corps += '<div class="dfm-liste">';
+    etapes.forEach(function(e){
+      var ok = (e.ok !== false);
+      corps += '<div class="dfm-liste-l"><i class="ti ' + (ok ? "ti-circle-check" : "ti-alert-circle") + '" style="color:' + (ok ? "var(--success)" : "var(--warn)") + '"></i><span>' + (e.texte || e) + '</span></div>';
+    });
+    corps += '</div>';
+  }
+  dfmFenetre({ton: ton || "succes", titre: titre, sous: sous, corps: corps,
+              boutons: [{libelle: "Fermer", style: "primaire"}]});
+}
+document.addEventListener("click", function(e){ if(e.target && e.target.id === "dfm_voile") dfmFermer(); });
+document.addEventListener("keydown", function(e){ if(e.key === "Escape") dfmFermer(); });
+</script>
+<style>
+html[data-sombre]{
+  --carte:#1c2029;
+  --bg:#151822; --border:#282d3b; --border2:#394054; --text:#e9ebf2; --muted:#98a0b4;
+  --accent:#6b93fa; --accent2:#9b80fb; --success:#34c48d; --warn:#e0a144; --danger:#e46767;
+}
+html[data-sombre] body{background:#111420;color:var(--text)}
+html[data-sombre] .panel,
+html[data-sombre] .table-wrap,
+html[data-sombre] .carte,
+html[data-sombre] .ap-carte,.html[data-sombre] .qq-carte,
+html[data-sombre] .cv-kpi,html[data-sombre] .rg-kpi,html[data-sombre] .qq-kpi,
+html[data-sombre] .tp-carte,html[data-sombre] .tp-cta,html[data-sombre] .ed-carte,
+html[data-sombre] .qz-carte,html[data-sombre] .qf-bloc,html[data-sombre] .se-bandeau,
+html[data-sombre] .ap-hero,html[data-sombre] .log-list,html[data-sombre] .etapes,
+html[data-sombre] .dfm-modale,html[data-sombre] .qq-modale,html[data-sombre] .rl-modale,
+html[data-sombre] .tp-modale,html[data-sombre] .qr-modale{background:#1c2029 !important}
+html[data-sombre] [style*="background:#fff"],
+html[data-sombre] [style*="background: #fff"],
+html[data-sombre] [style*="background:#ffffff"],
+html[data-sombre] [style*="background:white"]{background:#1c2029 !important}
+html[data-sombre] table{background:transparent}
+html[data-sombre] thead th{background:#191d26 !important;color:var(--muted)}
+html[data-sombre] td{border-color:var(--border)}
+html[data-sombre] tr:hover td{background:#212633}
+html[data-sombre] .cv-pied,html[data-sombre] .rg-pied,html[data-sombre] tfoot tr{background:#191d26 !important}
+html[data-sombre] input,html[data-sombre] textarea,html[data-sombre] select{
+  background:#232834 !important;color:var(--text) !important;border-color:var(--border2) !important}
+html[data-sombre] input::placeholder,html[data-sombre] textarea::placeholder{color:#6d7488 !important}
+html[data-sombre] .btn,html[data-sombre] .cv-fb,html[data-sombre] .qq-btn-d,
+html[data-sombre] .tp-b,html[data-sombre] .ap-doc,html[data-sombre] .cv-lien,
+html[data-sombre] .btn-ouvrir,html[data-sombre] .btn-vider,html[data-sombre] .btn-depot,
+html[data-sombre] .dfm-btn-neutre,html[data-sombre] .obj-l input,html[data-sombre] .balise{
+  background:#232834;color:var(--text);border-color:var(--border2)}
+html[data-sombre] .btn-primary,html[data-sombre] .dfm-btn-primaire{background:var(--accent);color:#fff;border-color:transparent}
+html[data-sombre] .chip-g,html[data-sombre] .dfm-b-ok,html[data-sombre] .bien{background:#16332a !important;color:#4fd39d !important;border-color:#255e48 !important}
+html[data-sombre] .chip-w,html[data-sombre] .dfm-b-att,html[data-sombre] .a-warn,
+html[data-sombre] .cv-orange,html[data-sombre] .qz-warn,html[data-sombre] .ed-warn,
+html[data-sombre] .tp-ecart,html[data-sombre] .alerte.a-warn{background:#3a2c14 !important;color:#e8b968 !important;border-color:#6b5121 !important}
+html[data-sombre] .chip-r,html[data-sombre] .dfm-b-dan,html[data-sombre] .cv-rouge,
+html[data-sombre] .qz-alerte{background:#3a1c1c !important;color:#f0908f !important;border-color:#6e3131 !important}
+html[data-sombre] .chip-b,html[data-sombre] .dfm-b-info,html[data-sombre] .a-calme,
+html[data-sombre] .qz-info,html[data-sombre] .ed-info,html[data-sombre] .tp-info,
+html[data-sombre] .qq-faible{background:#1b2947 !important;color:#8fb0ff !important;border-color:#2f4478 !important}
+html[data-sombre] .chip-gray,html[data-sombre] .dfm-b-neutre,html[data-sombre] .note,
+html[data-sombre] .qz-note,html[data-sombre] .ap-verb,html[data-sombre] .qq-verb{background:#232834 !important;color:var(--muted) !important;border-color:var(--border) !important}
+html[data-sombre] .ss-sep td{background:#191d26 !important}
+html[data-sombre] .dfm-voile,html[data-sombre] .qq-voile,html[data-sombre] .rl-voile,
+html[data-sombre] .tp-voile,html[data-sombre] .qr-voile,html[data-sombre] .vd-voile,
+html[data-sombre] .bal-voile{background:rgba(6,8,14,.72)}
+html[data-sombre] .qz-plein{background:#1c2029}
+html[data-sombre] a{color:var(--accent)}
+html[data-sombre] img[src*="qrcode"],html[data-sombre] #qz_qr canvas,
+html[data-sombre] #qz_qr_grand canvas{background:#fff;padding:8px;border-radius:6px}
+.mode-bascule{display:flex;align-items:center;gap:7px;position:fixed;bottom:16px;left:14px;
+width:calc(var(--largeur-nav, 240px) - 28px);max-width:212px;padding:7px 10px;
+border-radius:8px;cursor:pointer;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
+font-size:11.5px;color:rgba(255,255,255,.5);transition:background .15s,color .15s;z-index:40}
+.mode-bascule:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.82)}
+.mode-bascule i{font-size:13px;flex:none}
+.mode-bascule span:first-of-type{flex:1}
+.mode-piste{width:26px;height:15px;border-radius:15px;background:rgba(255,255,255,.14);
+position:relative;flex:none;transition:background .2s}
+.mode-piste:before{content:"";position:absolute;width:11px;height:11px;border-radius:50%;
+background:var(--carte);top:2px;left:2px;transition:transform .2s}
+html[data-sombre] .mode-piste{background:var(--accent)}
+html[data-sombre] .mode-piste:before{transform:translateX(11px)}
+html[data-sombre] .chip,html[data-sombre] .icon-btn,html[data-sombre] .qz-sw .qz-cur,
+html[data-sombre] .cv-relb,html[data-sombre] .ss-bilan,html[data-sombre] .obj-sup,
+html[data-sombre] .ed-sup,html[data-sombre] .tp-b,html[data-sombre] .ap-doc{
+  background:var(--carte);border-color:var(--border2);color:var(--text)}
+html[data-sombre] .icon-btn:hover,html[data-sombre] .tp-b:hover,
+html[data-sombre] .ap-doc:hover,html[data-sombre] .cv-lien:hover{
+  background:#252b38;border-color:var(--accent);color:var(--accent)}
+html[data-sombre] .barre-selection,html[data-sombre] .table-scroll{background:transparent}
+html[data-sombre] .cv-rech,html[data-sombre] .rg-rech{background:#232834;border-color:var(--border2)}
+html[data-sombre] .mode-piste:before{background:#fff}
+
+/* ------------------------------------------------------------------
+   Mode sombre : fonds clairs fixes en dur sans couleur de texte.
+   Ces regles laissaient du texte clair sur fond quasi blanc — jusqu'a
+   1,0:1 de contraste, soit invisible. Corrigees en une passe le
+   02/08/2026 ; chaque equivalent depasse 12:1 (exigence WCAG : 4,5:1).
+   Volontairement NON touches : bilan.html (document A4 imprimable),
+   .em-mail (simulation d'un vrai mail, blanc par nature) et les
+   pastilles :before des interrupteurs.
+   ------------------------------------------------------------------ */
+/* base.html, editeur.html, session_creer.html */
+html[data-sombre] .champ-doc.rempli input[type=text],
+html[data-sombre] .ed-prop.bonne input[type=text],
+html[data-sombre] .sc-auto,
+html[data-sombre] .sc-plein input{background:#162b23}
+/* base.html, editeur_mail.html */
+html[data-sombre] .em-bloc.voisin,
+html[data-sombre] .log-row:hover{background:#1a1e29}
+/* recap.html */
+html[data-sombre] .page{background:#1c2029}
+/* editeur.html, editeur_mail.html, session_creer.html */
+html[data-sombre] .ed-ajout:hover,
+html[data-sombre] .em-bloc.neuf,
+html[data-sombre] .em-choix:hover,
+html[data-sombre] .em-p-b:hover,
+html[data-sombre] .sc-tpl.on{background:#1c2333}
+/* base.html, editeur_mail.html, formation_creer.html, profil.html, profils.html, questionnaires.html, session.html */
+html[data-sombre] .bal-ouvrir:hover,
+html[data-sombre] .balise:hover,
+html[data-sombre] .champ textarea.survol-doc,
+html[data-sombre] .champ-doc.survol-doc,
+html[data-sombre] .em-ajout button:hover,
+html[data-sombre] .em-assist:hover,
+html[data-sombre] .em-b:hover,
+html[data-sombre] .mf-neuf:hover,
+html[data-sombre] .obj-ajout:hover,
+html[data-sombre] .of-neuf:hover,
+html[data-sombre] .pr-depot:hover,
+html[data-sombre] .pro-btn:hover,
+html[data-sombre] .qf-neuf:hover,
+html[data-sombre] .qq-btn-d:hover,
+html[data-sombre] .ri-btn:hover,
+html[data-sombre] .zone-depot:hover,
+html[data-sombre] tr.sel{background:#1e2740}
+/* editeur_mail.html */
+html[data-sombre] .em-apercu{background:#232833}
+/* formation_creer.html */
+html[data-sombre] .qf-bloc.mauve .qf-neuf:hover{background:#241f3a}
+/* apprenant.html, base.html, session_creer.html */
+html[data-sombre] .ap-div,
+html[data-sombre] .ap-pastille,
+html[data-sombre] .sc-main,
+html[data-sombre] .tk.moyenne{background:#2d2418}
+/* base.html, conventions.html, formation_creer.html, profil.html, questionnaires.html, session_creer.html, sessions.html */
+html[data-sombre] .cv-fb.alerte.on,
+html[data-sombre] .pr-c input.souci,
+html[data-sombre] .qq-pdf-s:hover,
+html[data-sombre] .sc-vide input,
+html[data-sombre] .ss-bilan:hover,
+html[data-sombre] .sy-b:hover,
+html[data-sombre] .tk,
+html[data-sombre] .vd-l{background:#2f1d1f}
+@media print{html[data-sombre]{--bg:#fff;--text:#1a1d2e}html[data-sombre] body{background:#fff;color:#1a1d2e}}
+</style>
+<script>
+(function(){
+  try{
+    // Le choix fait sur cet appareil est prioritaire ; sans choix enregistre,
+    // on suit le reglage "Mode sombre par defaut" (C4).
+    var choix = localStorage.getItem("dfm_sombre");
+    var sombre = (choix === null || choix === undefined || choix === "")
+                 ? {{ 'true' if sombre_defaut else 'false' }}
+                 : (choix === "1");
+    if(sombre){
+      document.documentElement.setAttribute("data-sombre", "1");
+    }
+  }catch(e){}
+})();
+function dfmBasculerMode(){
+  var actif = document.documentElement.hasAttribute("data-sombre");
+  if(actif){
+    document.documentElement.removeAttribute("data-sombre");
+    try{ localStorage.setItem("dfm_sombre", "0"); }catch(e){}
+  } else {
+    document.documentElement.setAttribute("data-sombre", "1");
+    try{ localStorage.setItem("dfm_sombre", "1"); }catch(e){}
+  }
+  dfmMajBascule();
+}
+function dfmMajBascule(){
+  var b = document.getElementById("mode_bascule");
+  if(!b) return;
+  var actif = document.documentElement.hasAttribute("data-sombre");
+  b.querySelector("i").className = actif ? "ti ti-moon" : "ti ti-sun";
+  b.querySelector("span").textContent = actif ? "Mode sombre" : "Mode clair";
+}
+function dfmCalerBascule(){
+  var b = document.getElementById("mode_bascule");
+  var nav = document.querySelector(".nav-item");
+  if(!b || !nav) return;
+  var barre = nav.parentElement;
+  while(barre && barre.querySelectorAll(".nav-item").length < 3){ barre = barre.parentElement; }
+  if(!barre) barre = nav.parentElement;
+  var r = barre.getBoundingClientRect();
+  var marge = 14;
+  b.style.left = (r.left + marge) + "px";
+  b.style.width = Math.max(120, r.width - marge * 2) + "px";
+}
+window.addEventListener("resize", dfmCalerBascule);
+function dfmPoserBascule(){
+  if(document.getElementById("mode_bascule")){ dfmCalerBascule(); return; }
+  var nav = document.querySelector(".nav-item");
+  if(!nav) return;
+  var barre = nav.parentElement;
+  while(barre && barre.querySelectorAll(".nav-item").length < 3){ barre = barre.parentElement; }
+  if(!barre) barre = nav.parentElement;
+  barre.insertAdjacentHTML("beforeend",
+    '<div class="mode-bascule" id="mode_bascule" onclick="dfmBasculerMode()" title="Basculer entre le mode clair et le mode sombre">'
+    + '<i class="ti ti-sun"></i><span>Mode clair</span><span class="mode-piste"></span></div>');
+  dfmMajBascule();
+  dfmCalerBascule();
+}
+document.addEventListener("DOMContentLoaded", dfmPoserBascule);
+setTimeout(dfmPoserBascule, 300);
+setTimeout(dfmCalerBascule, 700);
+</script>
+<script>
+(function(){
+  var natif = window.alert;
+  window.alert = function(message){
+    if(typeof dfmFenetre !== "function"){ return natif(message); }
+    var texte = String(message === null || message === undefined ? "" : message);
+    var ton = "info", titre = "Information";
+    if(/erreur|impossible|échec|echec|non envoy/i.test(texte)){ ton = "danger"; titre = "Erreur"; }
+    else if(/attention|manque|obligatoire|d'abord|deja|déjà/i.test(texte)){ ton = "attention"; titre = "Attention"; }
+    else if(/envoy|enregistr|alignée|alignee|traitée|traitee|copié|copie/i.test(texte)){ ton = "succes"; titre = "C'est fait"; }
+    var brutes = texte.split("\n");
+    var lignes = [];
+    for(var i = 0; i < brutes.length; i++){
+      if(brutes[i].trim()){ lignes.push(brutes[i]); }
+    }
+    var corps = "";
+    if(lignes.length > 2){
+      var premiere = lignes.shift();
+      corps = '<div class="dfm-bloc dfm-b-neutre">' + premiere + '</div><div class="dfm-liste">';
+      for(var j = 0; j < lignes.length; j++){
+        var l = lignes[j].trim();
+        var ok = !/^(--|KO|ERREUR)/i.test(l);
+        var propre = l.replace(/^(OK|--)\s+/i, "");
+        corps += '<div class="dfm-liste-l"><i class="ti ' + (ok ? "ti-circle-check" : "ti-alert-circle")
+               + '" style="color:' + (ok ? "var(--success)" : "var(--warn)") + '"></i><span>' + propre + '</span></div>';
+      }
+      corps += '</div>';
+    } else {
+      corps = '<p>' + texte.replace(/\n/g, "<br>") + '</p>';
+    }
+    dfmFenetre({ton: ton, titre: titre, corps: corps,
+                boutons: [{libelle: "Fermer", style: "primaire"}]});
+  };
+})();
+</script>
+</body>
+</html>

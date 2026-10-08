@@ -1,0 +1,438 @@
+{% extends "base.html" %}
+{% block titre %}Éditeur de questionnaire{% endblock %}
+{% block entete %}{{ "Questionnaire d'évaluation" if type_ == "evaluation" else ("Évaluation à froid" if type_ == "froid" else "Questionnaire de satisfaction") }}{% endblock %}
+{% block sous_entete %}{{ "Chaque question est rattachée à un objectif pédagogique" if type_ == "evaluation" else "Items notés de 1 à 5, recommandation et questions ouvertes" }}{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" title="Revenir sans enregistrer" href="{{ retour if retour else '/templates' }}"><i class="ti ti-x"></i>Annuler</a>
+<button class="btn btn-primary" title="Enregistrer ce modele dans la bibliotheque" onclick="edEnregistrer(this)"><i class="ti ti-check"></i>Enregistrer le modèle</button>
+{% endblock %}
+{% block corps %}
+<style>
+.ed-carte{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:14px}
+.ed-titre{font-size:13px;font-weight:500;margin-bottom:15px;display:flex;align-items:center;gap:8px;padding-bottom:11px;border-bottom:1px solid var(--border)}
+.ed-titre i{color:var(--accent);font-size:16px}
+.ad-liste{display:flex;flex-direction:column;gap:7px}
+.ad-l{display:grid;grid-template-columns:186px 1fr;gap:10px;align-items:center}
+.ad-sens{font-size:11px;color:var(--muted);line-height:1.35}
+.ad-sens b{display:block;color:var(--text);font-size:11.5px;font-weight:600}
+.ad-note{display:flex;gap:8px;align-items:flex-start;margin-top:9px;font-size:11.5px;
+  color:var(--muted);line-height:1.55;background:var(--bg);border:1px solid var(--border);
+  border-radius:9px;padding:9px 11px}
+@media(max-width:760px){.ad-l{grid-template-columns:1fr;gap:3px}}
+.ed-f{margin-bottom:14px}
+.ed-f:last-child{margin-bottom:0}
+.ed-f label{display:block;font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.ed-f input,.ed-f textarea,.ed-f select{width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;background:var(--carte);color:var(--text)}
+.ed-f input:focus,.ed-f textarea:focus,.ed-f select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,126,248,.08)}
+.ed-deux{display:grid;grid-template-columns:1fr 150px;gap:12px}
+.ed-info{background:#f0f4ff;border:1px solid #c5d4fb;border-radius:8px;padding:11px 13px;font-size:12px;color:#185fa5;margin-bottom:14px;display:flex;gap:8px;align-items:flex-start}
+.ed-info i{flex-shrink:0;margin-top:1px}
+.ed-warn{background:#fdf3e3;border:1px solid #f0cf94;border-radius:8px;padding:11px 13px;font-size:12px;color:#8a5a06;margin-bottom:14px}
+.ed-ligne{border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;position:relative}
+.ed-ligne:hover{border-color:var(--border2)}
+.ed-lh{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+.ed-num{width:26px;height:26px;border-radius:50%;background:var(--bg);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:600;flex:none;border:1px solid var(--border2)}
+.ed-lh-x{flex:1}
+.ed-mini{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ed-mini select,.ed-mini input{padding:6px 9px;border:1px solid var(--border2);border-radius:7px;font-size:11.5px;font-family:inherit;background:var(--carte);color:var(--text)}
+.ed-sup{background:none;border:none;color:var(--border2);cursor:pointer;font-size:17px;padding:2px 4px;font-family:inherit;flex:none}
+.ed-sup:hover{color:var(--danger)}
+.ed-props{display:flex;flex-direction:column;gap:7px;margin-top:10px}
+.ed-prop{display:flex;align-items:center;gap:9px}
+.ed-prop input[type=radio]{width:17px;height:17px;flex:none;accent-color:var(--success);cursor:pointer}
+.ed-prop input[type=text]{flex:1;padding:8px 11px;border:1px solid var(--border2);border-radius:7px;font-size:12.5px;font-family:inherit}
+.ed-prop.bonne input[type=text]{border-color:#9fe1cb;background:#f4fbf8}
+.ed-aide{font-size:11px;color:var(--muted);margin-top:5px}
+.ed-ajout{width:100%;border:1px dashed var(--border2);border-radius:9px;padding:11px;background:var(--carte);color:var(--accent);font-size:12.5px;font-weight:500;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px}
+.ed-ajout:hover{border-color:var(--accent);background:#f5f8ff}
+.ed-compte{font-size:11.5px;color:var(--muted);margin-bottom:12px}
+.ed-pied{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.ed-vide{padding:24px;text-align:center;color:var(--muted);font-size:12.5px;border:1px dashed var(--border2);border-radius:9px;margin-bottom:10px}
+</style>
+<input type="hidden" id="ed_id" value="{{ fiche.id or '' }}">
+<input type="hidden" id="ed_type" value="{{ type_ }}">
+<input type="hidden" id="ed_retour" value="{{ retour }}">
+<div class="ed-carte">
+  <div class="ed-titre"><i class="ti ti-tag"></i>Identification du modèle</div>
+  {% if type_ == "evaluation" %}
+  <div class="ed-deux">
+    <div class="ed-f"><label>Titre du modèle <span style="color:var(--danger)">*</span></label>
+      <input type="text" id="ed_titre" value="{{ fiche.titre or '' }}" placeholder="Ex : Évaluation des connaissances — Usures"></div>
+    <div class="ed-f"><label>Seuil de réussite</label>
+      <input type="number" id="ed_seuil" value="{{ fiche.seuil or 70 }}" min="0" max="100"></div>
+  </div>
+  <div class="ed-aide">Le seuil sert à dire si les objectifs sont atteints en fin de formation. Il ne conditionne ni l'attestation ni la participation.</div>
+  {% else %}
+  <div class="ed-f"><label>Titre du modèle <span style="color:var(--danger)">*</span></label>
+    <input type="text" id="ed_titre" value="{{ fiche.titre or '' }}" placeholder="Ex : Satisfaction — formations cliniques"></div>
+  {% endif %}
+</div>
+{% if type_ == "evaluation" %}
+<div class="ed-carte">
+  <div class="ed-titre"><i class="ti ti-target"></i>Objectifs pédagogiques</div>
+  <div class="ed-info"><i class="ti ti-info-circle"></i><span>Chaque question sera rattachée à l'un de ces objectifs. C'est ce lien qui vous permet de démontrer, en audit, que vous évaluez bien ce que vous annoncez dans le programme.</span></div>
+  {% if request.args.get('objectifs') %}
+  <div style="background:#eafaf3;border:1px solid #9fe1cb;border-radius:8px;padding:11px 13px;font-size:12px;color:#0f6e56;margin-bottom:14px;display:flex;gap:8px;align-items:flex-start">
+    <i class="ti ti-arrow-down-circle" style="flex-shrink:0;margin-top:1px"></i>
+    <span>Objectifs repris de la formation que vous êtes en train de créer. Vous pouvez les reformuler pour les rendre mesurables — mais gardez le même sens, c'est ce que l'auditeur compare.</span>
+  </div>
+  {% endif %}
+  <div id="ed_objectifs"></div>
+  <button class="ed-ajout" onclick="edAjouterObjectif()"><i class="ti ti-plus"></i>Ajouter un objectif</button>
+</div>
+<div class="ed-carte">
+  <div class="ed-titre"><i class="ti ti-list-numbers"></i>Questions</div>
+  <div class="ed-compte" id="ed_compte"></div>
+  <div class="ed-warn" id="ed_conseil" style="display:none"></div>
+  <div id="ed_questions"></div>
+  <button class="ed-ajout" onclick="edAjouterQuestion()"><i class="ti ti-plus"></i>Ajouter une question</button>
+</div>
+{% else %}
+<div class="ed-carte">
+  <div class="ed-titre"><i class="ti ti-layout-list"></i>Grands axes</div>
+  <div class="ed-info"><i class="ti ti-info-circle"></i><span>Les axes regroupent vos items notés. Ils vous diront si un problème vient de l'organisation, de l'animation ou du contenu — beaucoup plus utile qu'une moyenne globale.</span></div>
+  <div id="ed_axes"></div>
+  <button class="ed-ajout" onclick="edAjouterAxe()"><i class="ti ti-plus"></i>Ajouter un axe</button>
+</div>
+<div class="ed-carte">
+  <div class="ed-titre"><i class="ti ti-star"></i>Items notés de 1 à 5</div>
+  <div class="ed-compte" id="ed_compte"></div>
+  <div id="ed_notes"></div>
+  <button class="ed-ajout" onclick="edAjouterNote()"><i class="ti ti-plus"></i>Ajouter un item noté</button>
+</div>
+<div class="ed-carte">
+  <div class="ed-titre"><i class="ti ti-thumb-up"></i>Recommandation et accessibilité</div>
+  <div class="ed-f"><label>Question de recommandation, notée de 0 à 10</label>
+    <input type="text" id="ed_reco" value="{{ fiche.recommandation.libelle if fiche.recommandation else '' }}" placeholder="Recommanderiez-vous cette formation à un confrère ?"></div>
+  {% if type_ != "froid" %}
+  <div class="ed-f"><label>Question sur les besoins d'adaptation</label>
+    <input type="text" id="ed_adapt" value="{{ fiche.adaptation.libelle if fiche.adaptation else '' }}" placeholder="Aviez-vous un besoin particulier d'adaptation ?"></div>
+  <div class="ed-f">
+    <label>Réponses proposées</label>
+    <div class="ad-liste" id="ed_adapt_props"></div>
+    <div class="ad-note"><i class="ti ti-info-circle" style="font-size:13px"></i>
+      <span>Vous modifiez la <b>formulation</b> ; le sens de chaque réponse est fixe et rappelé à gauche.
+      C'est lui qui alimente le bilan — « x participants concernés, dont y pris en compte ».
+      Réordonner ou supprimer une réponse fausserait ce comptage sans le signaler.</span></div>
+  </div>
+  <div class="ed-aide">Cette dernière question documente votre prise en compte des situations de handicap. Je vous conseille de la garder.</div>
+  {% else %}
+  <input type="hidden" id="ed_adapt" value="">
+  <div class="ed-aide">La question sur l'adaptation n'a pas de sens trois mois après la formation : elle n'apparaît pas ici.</div>
+  {% endif %}
+</div>
+<div class="ed-carte">
+  <div class="ed-titre"><i class="ti ti-message-2"></i>Questions ouvertes</div>
+  <div id="ed_ouvertes"></div>
+  <button class="ed-ajout" onclick="edAjouterOuverte()"><i class="ti ti-plus"></i>Ajouter une question ouverte</button>
+</div>
+{% endif %}
+<div class="ed-pied">
+  <div style="font-size:12px;color:var(--muted)" id="ed_etat">Modèle non enregistré</div>
+  <button class="btn btn-primary" onclick="edEnregistrer(this)"><i class="ti ti-check"></i>Enregistrer le modèle</button>
+</div>
+<script>
+var ED_FICHE = {{ fiche|tojson }};
+var ED_TYPE = document.getElementById("ed_type").value;
+var OBJ = [], QST = [], AXES = [], NOTES = [], OUV = [];
+function edEch(t){ return (t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
+function edLettre(i){ return String.fromCharCode(65 + i); }
+function edInit(){
+  if(ED_TYPE === "evaluation"){
+    var o = ED_FICHE.objectifs || {};
+    Object.keys(o).sort().forEach(function(c){ OBJ.push({cle: c, libelle: o[c]}); });
+    if(!OBJ.length){ OBJ = [{cle: "A", libelle: ""}, {cle: "B", libelle: ""}, {cle: "C", libelle: ""}]; }
+    QST = (ED_FICHE.questions || []).map(function(q){
+      // L'identifiant est transporte tel quel : c'est la cle sous laquelle les
+      // reponses des participants sont deja stockees. Le perdre casserait la
+      // correspondance avec toutes les sessions passees.
+      return {id: q.id || "", type: q.type || "qcm", objectif: q.objectif || OBJ[0].cle, poids: q.poids || 1,
+              enonce: q.enonce || "", propositions: (q.propositions || []).slice(),
+              reponse: (q.reponse === undefined ? 0 : q.reponse), explication: q.explication || ""};
+    });
+    if(!QST.length){ for(var i = 0; i < 12; i++){ QST.push(edNeuveQuestion()); } }
+    edRendreObjectifs();
+    edRendreQuestions();
+  } else {
+    var a = ED_FICHE.axes || {};
+    Object.keys(a).forEach(function(c){ AXES.push({cle: c, libelle: a[c]}); });
+    if(!AXES.length){ AXES = [{cle: "avant", libelle: "Avant la formation"}, {cle: "pendant", libelle: "Pendant la formation"}, {cle: "apres", libelle: "Résultats et suites"}]; }
+    NOTES = (ED_FICHE.notes || []).map(function(n){ return {id: n.id || "", axe: n.axe || AXES[0].cle, libelle: n.libelle || ""}; });
+    if(!NOTES.length){ for(var j = 0; j < 6; j++){ NOTES.push({axe: AXES[0].cle, libelle: ""}); } }
+    OUV = (ED_FICHE.ouvertes || []).map(function(o){ return {id: o.id || "", libelle: o.libelle || ""}; });
+    if(!OUV.length){ OUV = [{libelle: "Ce qui vous a le plus apporté"}, {libelle: "Ce que nous devrions améliorer"}]; }
+    edRendreAxes();
+    edRendreNotes();
+    edRendreOuvertes();
+  }
+}
+function edNeuveQuestion(){
+  return {id: "", type: "qcm", objectif: (OBJ[0] || {cle: "A"}).cle, poids: 1, enonce: "",
+          propositions: ["", "", "", ""], reponse: 0, explication: ""};
+}
+function edRendreObjectifs(){
+  var h = "";
+  OBJ.forEach(function(o, i){
+    h += '<div class="ed-ligne" style="padding:11px 13px"><div class="ed-lh" style="margin-bottom:0">';
+    h += '<div class="ed-num">' + o.cle + '</div>';
+    h += '<div class="ed-lh-x"><input type="text" value="' + edEch(o.libelle) + '" placeholder="Ex : Connaître les types d\'usure et leur étiologie" oninput="OBJ[' + i + '].libelle=this.value" style="width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:7px;font-size:12.5px;font-family:inherit"></div>';
+    if(OBJ.length > 1){ h += '<button class="ed-sup" title="Retirer cet objectif" onclick="edRetirerObjectif(' + i + ')">&times;</button>'; }
+    h += '</div></div>';
+  });
+  document.getElementById("ed_objectifs").innerHTML = h;
+}
+function edAjouterObjectif(){
+  if(OBJ.length >= 8){ alert("Huit objectifs suffisent largement."); return; }
+  OBJ.push({cle: edLettre(OBJ.length), libelle: ""});
+  edRendreObjectifs();
+  edRendreQuestions();
+}
+function edRetirerObjectif(i){
+  var cle = OBJ[i].cle;
+  OBJ.splice(i, 1);
+  OBJ.forEach(function(o, n){ o.cle = edLettre(n); });
+  QST.forEach(function(q){ if(!OBJ.some(function(o){ return o.cle === q.objectif; })){ q.objectif = OBJ[0].cle; } });
+  edRendreObjectifs();
+  edRendreQuestions();
+}
+function edRendreQuestions(){
+  var h = "";
+  QST.forEach(function(q, i){
+    h += '<div class="ed-ligne"><div class="ed-lh"><div class="ed-num">' + (i + 1) + '</div>';
+    h += '<div class="ed-lh-x"><div class="ed-mini">';
+    h += '<select title="Type de question" onchange="edType(' + i + ', this.value)">';
+    h += '<option value="qcm"' + (q.type === "qcm" ? " selected" : "") + '>QCM à choix</option>';
+    h += '<option value="vf"' + (q.type === "vf" ? " selected" : "") + '>Vrai ou faux</option></select>';
+    h += '<select title="Objectif pedagogique rattache" onchange="QST[' + i + '].objectif=this.value">';
+    OBJ.forEach(function(o){
+      h += '<option value="' + o.cle + '"' + (q.objectif === o.cle ? " selected" : "") + '>Objectif ' + o.cle + '</option>';
+    });
+    h += '</select>';
+    h += '<select title="Poids : 2 pour une question centrale" onchange="QST[' + i + '].poids=parseInt(this.value)">';
+    [1, 2, 3].forEach(function(p){
+      h += '<option value="' + p + '"' + (q.poids === p ? " selected" : "") + '>poids ' + p + '</option>';
+    });
+    h += '</select></div></div>';
+    h += '<button class="ed-sup" title="Retirer cette question" onclick="edRetirerQuestion(' + i + ')">&times;</button>';
+    h += '</div>';
+    h += '<textarea rows="2" placeholder="Énoncé de la question" oninput="QST[' + i + '].enonce=this.value" style="width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit">' + edEch(q.enonce) + '</textarea>';
+    h += '<div class="ed-props">';
+    var props = (q.type === "vf") ? ["Vrai", "Faux"] : q.propositions;
+    props.forEach(function(p, j){
+      var bonne = (q.reponse === j);
+      h += '<label class="ed-prop' + (bonne ? " bonne" : "") + '">';
+      h += '<input type="radio" name="rep' + i + '" ' + (bonne ? "checked" : "") + ' title="Marquer comme bonne reponse" onchange="edBonne(' + i + ',' + j + ')">';
+      if(q.type === "vf"){
+        h += '<span style="flex:1;font-size:12.5px">' + p + '</span>';
+      } else {
+        h += '<input type="text" value="' + edEch(p) + '" placeholder="Proposition ' + (j + 1) + '" oninput="QST[' + i + '].propositions[' + j + ']=this.value">';
+      }
+      h += '</label>';
+    });
+    h += '</div>';
+    h += '<div class="ed-f" style="margin-top:11px;margin-bottom:0"><label>Explication affichée après le test final</label>';
+    h += '<input type="text" value="' + edEch(q.explication) + '" placeholder="Une phrase qui apprend quelque chose, pas une répétition de l\'énoncé" oninput="QST[' + i + '].explication=this.value"></div>';
+    h += '</div>';
+  });
+  if(!QST.length){ h = '<div class="ed-vide">Aucune question. Ajoute la première avec le bouton ci-dessous.</div>'; }
+  document.getElementById("ed_questions").innerHTML = h;
+  edCompte();
+}
+function edType(i, v){
+  QST[i].type = v;
+  if(v === "vf"){ QST[i].reponse = 0; }
+  else if(!QST[i].propositions.length){ QST[i].propositions = ["", "", "", ""]; }
+  edRendreQuestions();
+}
+function edBonne(i, j){ QST[i].reponse = j; edRendreQuestions(); }
+function edAjouterQuestion(){ QST.push(edNeuveQuestion()); edRendreQuestions(); }
+function edRetirerQuestion(i){ QST.splice(i, 1); edRendreQuestions(); }
+function edCompte(){
+  var n = QST.length;
+  var qcm = QST.filter(function(q){ return q.type === "qcm"; }).length;
+  var poids = QST.reduce(function(a, q){ return a + (q.poids || 1); }, 0);
+  var couverts = {};
+  QST.forEach(function(q){ couverts[q.objectif] = (couverts[q.objectif] || 0) + 1; });
+  document.getElementById("ed_compte").textContent = n + " question(s) · " + qcm + " QCM et " + (n - qcm) + " vrai/faux · poids total " + poids;
+  var soucis = [];
+  if(n < 10){ soucis.push("Moins de 10 questions : une seule réponse fera bouger le score de plus de 10 points, la progression deviendra difficile à interpréter."); }
+  if(qcm < n / 2){ soucis.push("Moins de la moitié en QCM : le hasard rapporte 50 % sur un vrai/faux, ce qui écrase la marge de progression visible."); }
+  OBJ.forEach(function(o){
+    if(!couverts[o.cle]){ soucis.push("L'objectif " + o.cle + " n'est évalué par aucune question — c'est le décrochage qui coûte une non-conformité majeure."); }
+    else if(couverts[o.cle] < 3){ soucis.push("L'objectif " + o.cle + " n'a que " + couverts[o.cle] + " question(s) : trois au minimum."); }
+  });
+  var z = document.getElementById("ed_conseil");
+  if(soucis.length){ z.innerHTML = soucis.join("<br>"); z.style.display = "block"; }
+  else { z.style.display = "none"; }
+}
+function edRendreAxes(){
+  var h = "";
+  AXES.forEach(function(a, i){
+    h += '<div class="ed-ligne" style="padding:11px 13px"><div class="ed-lh" style="margin-bottom:0">';
+    h += '<div class="ed-num">' + (i + 1) + '</div><div class="ed-lh-x">';
+    h += '<input type="text" value="' + edEch(a.libelle) + '" placeholder="Nom de l\'axe" oninput="AXES[' + i + '].libelle=this.value" style="width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:7px;font-size:12.5px;font-family:inherit"></div>';
+    if(AXES.length > 1){ h += '<button class="ed-sup" title="Retirer cet axe" onclick="edRetirerAxe(' + i + ')">&times;</button>'; }
+    h += '</div></div>';
+  });
+  document.getElementById("ed_axes").innerHTML = h;
+}
+function edAjouterAxe(){
+  AXES.push({cle: "axe" + (AXES.length + 1), libelle: ""});
+  edRendreAxes(); edRendreNotes();
+}
+function edRetirerAxe(i){
+  var cle = AXES[i].cle;
+  AXES.splice(i, 1);
+  NOTES.forEach(function(n){ if(n.axe === cle){ n.axe = AXES[0].cle; } });
+  edRendreAxes(); edRendreNotes();
+}
+function edRendreNotes(){
+  var h = "";
+  NOTES.forEach(function(n, i){
+    h += '<div class="ed-ligne" style="padding:11px 13px"><div class="ed-lh" style="margin-bottom:0">';
+    h += '<div class="ed-num">' + (i + 1) + '</div><div class="ed-lh-x" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+    h += '<input type="text" value="' + edEch(n.libelle) + '" placeholder="Ex : Qualité de l\'animation et des explications" oninput="NOTES[' + i + '].libelle=this.value" style="flex:1;min-width:200px;padding:8px 11px;border:1px solid var(--border2);border-radius:7px;font-size:12.5px;font-family:inherit">';
+    h += '<select title="Axe de rattachement" onchange="NOTES[' + i + '].axe=this.value" style="padding:7px 9px;border:1px solid var(--border2);border-radius:7px;font-size:11.5px;font-family:inherit">';
+    AXES.forEach(function(a){
+      h += '<option value="' + a.cle + '"' + (n.axe === a.cle ? " selected" : "") + '>' + edEch(a.libelle || a.cle) + '</option>';
+    });
+    h += '</select></div>';
+    h += '<button class="ed-sup" title="Retirer cet item" onclick="edRetirerNote(' + i + ')">&times;</button>';
+    h += '</div></div>';
+  });
+  if(!NOTES.length){ h = '<div class="ed-vide">Aucun item noté.</div>'; }
+  document.getElementById("ed_notes").innerHTML = h;
+  document.getElementById("ed_compte").textContent = NOTES.length + " item(s) noté(s) · " + AXES.length + " axe(s) · durée estimée " + Math.max(1, Math.round((NOTES.length + OUV.length * 2) / 4)) + " min";
+}
+function edAjouterNote(){
+  if(NOTES.length >= 18){ alert("Dix-huit items, c'est déjà beaucoup pour un questionnaire de satisfaction."); return; }
+  NOTES.push({axe: AXES[0].cle, libelle: ""}); edRendreNotes();
+}
+function edRetirerNote(i){ NOTES.splice(i, 1); edRendreNotes(); }
+function edRendreOuvertes(){
+  var h = "";
+  OUV.forEach(function(o, i){
+    h += '<div class="ed-ligne" style="padding:11px 13px"><div class="ed-lh" style="margin-bottom:0">';
+    h += '<div class="ed-num">' + (i + 1) + '</div><div class="ed-lh-x">';
+    h += '<input type="text" value="' + edEch(o.libelle) + '" placeholder="Intitulé de la question ouverte" oninput="OUV[' + i + '].libelle=this.value" style="width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:7px;font-size:12.5px;font-family:inherit"></div>';
+    h += '<button class="ed-sup" title="Retirer cette question" onclick="edRetirerOuverte(' + i + ')">&times;</button>';
+    h += '</div></div>';
+  });
+  if(!OUV.length){ h = '<div class="ed-vide">Aucune question ouverte. Les verbatims sont pourtant la matière la plus utile de vos retours.</div>'; }
+  document.getElementById("ed_ouvertes").innerHTML = h;
+}
+function edAjouterOuverte(){
+  if(OUV.length >= 5){ alert("Cinq questions ouvertes, personne ne les remplira toutes."); return; }
+  OUV.push({libelle: ""}); edRendreOuvertes();
+}
+function edRetirerOuverte(i){ OUV.splice(i, 1); edRendreOuvertes(); }
+// Propositions de la question d'adaptation. Leur SENS est positionnel et lu par
+// le bilan (app.py : index 0 = non concerne, 1 = pris en compte, >0 = concerne).
+// On laisse donc modifier la formulation, jamais l'ordre ni le nombre : une
+// suppression fausserait le comptage sans qu'aucun ecran ne le signale.
+var ADAPT_SENS = [
+  {t: "Pas de besoin", d: "ne compte pas comme concerné"},
+  {t: "Besoin pris en compte", d: "compte comme concerné et satisfait"},
+  {t: "Pris en compte en partie", d: "compte comme concerné"},
+  {t: "Besoin non pris en compte", d: "compte comme concerné"}
+];
+var ADAPT_DEFAUT = ["Non concerné", "Oui, pris en compte",
+                    "Oui, partiellement pris en compte", "Oui, non pris en compte"];
+function adaptRendre(){
+  var z = document.getElementById("ed_adapt_props");
+  if(!z) return;
+  var actuelles = ((ED_FICHE.adaptation || {}).propositions) || [];
+  var h = "";
+  for(var i = 0; i < ADAPT_SENS.length; i++){
+    var v = (actuelles[i] !== undefined && actuelles[i] !== null && actuelles[i] !== "")
+            ? actuelles[i] : ADAPT_DEFAUT[i];
+    h += '<div class="ad-l">'
+       + '<div class="ad-sens"><b>' + ADAPT_SENS[i].t + '</b>' + ADAPT_SENS[i].d + '</div>'
+       + '<input type="text" class="ad-p" data-i="' + i + '" value="'
+       + String(v).replace(/"/g, "&quot;") + '" placeholder="' + ADAPT_DEFAUT[i] + '">'
+       + '</div>';
+  }
+  z.innerHTML = h;
+}
+function adaptLire(){
+  var champs = document.querySelectorAll("#ed_adapt_props .ad-p");
+  if(!champs.length){ return ((ED_FICHE.adaptation || {}).propositions) || []; }
+  var sortie = [];
+  for(var i = 0; i < champs.length; i++){
+    var v = (champs[i].value || "").trim();
+    sortie.push(v || ADAPT_DEFAUT[i] || ("Réponse " + (i + 1)));
+  }
+  return sortie;
+}
+adaptRendre();
+function edCorps(){
+  var corps = {id: document.getElementById("ed_id").value,
+               titre: document.getElementById("ed_titre").value};
+  if(ED_TYPE === "evaluation"){
+    corps.seuil = document.getElementById("ed_seuil").value;
+    corps.objectifs = OBJ;
+    corps.questions = QST;
+  } else {
+    corps.axes = AXES;
+    corps.notes = NOTES;
+    corps.ouvertes = OUV;
+    corps.recommandation = {id: (ED_FICHE.recommandation || {}).id || "",
+                            libelle: document.getElementById("ed_reco").value};
+    corps.adaptation = {id: (ED_FICHE.adaptation || {}).id || "",
+                        libelle: document.getElementById("ed_adapt").value,
+                        propositions: adaptLire()};
+  }
+  return corps;
+}
+function edEnregistrer(bouton){
+  var corps = edCorps();
+  bouton.disabled = true;
+  bouton.innerHTML = "Enregistrement…";
+  fetch("/templates/questionnaire/" + ED_TYPE, {method: "POST",
+        headers: {"Content-Type": "application/json"}, body: JSON.stringify(corps)})
+  .then(function(r){return r.json()}).then(function(j){
+    bouton.disabled = false;
+    bouton.innerHTML = '<i class="ti ti-check"></i>Enregistrer le modèle';
+    if(!j.ok){ alert(j.message || "Enregistrement impossible"); return; }
+    document.getElementById("ed_id").value = j.id;
+    document.getElementById("ed_etat").textContent = "Enregistré · " + j.nb + " élément(s)";
+    var retour = document.getElementById("ed_retour").value;
+    dfmBrouillon.enregistre();
+    if(retour){ window.location.href = retour + (retour.indexOf("?") > -1 ? "&" : "?") + "modele=" + encodeURIComponent(j.id) + "&type=" + ED_TYPE; }
+    else { window.location.href = "/templates"; }
+  }).catch(function(e){
+    bouton.disabled = false;
+    bouton.innerHTML = '<i class="ti ti-check"></i>Enregistrer le modèle';
+    alert("Erreur : " + e);
+  });
+}
+edInit();
+dfmBrouillon.installer({
+  cle: "questionnaire:" + ED_TYPE + ":" + (document.getElementById("ed_id").value || "nouveau"),
+  serialiser: edCorps,
+  restaurer: function(d){
+    document.getElementById("ed_titre").value = d.titre || "";
+    var s = document.getElementById("ed_seuil");
+    if(d.seuil !== undefined && s) s.value = d.seuil;
+    if(d.objectifs) OBJ = d.objectifs;
+    if(d.questions) QST = d.questions;
+    if(d.axes) AXES = d.axes;
+    if(d.notes) NOTES = d.notes;
+    if(d.ouvertes) OUV = d.ouvertes;
+    var r = document.getElementById("ed_reco");
+    if(d.recommandation && r) r.value = d.recommandation.libelle || "";
+    var a = document.getElementById("ed_adapt");
+    if(d.adaptation){
+      if(a) a.value = d.adaptation.libelle || "";
+      ED_FICHE.adaptation = d.adaptation;
+      if(typeof adaptRendre === "function") adaptRendre();
+    }
+    ["edRendreObjectifs","edRendreQuestions","edRendreAxes","edRendreNotes","edRendreOuvertes"]
+      .forEach(function(fn){ if(typeof window[fn] === "function") window[fn](); });
+  }
+});
+// Arme APRES l'initialisation complete : une empreinte prise trop tot ferait
+// passer chaque remplissage differe pour une modification.
+dfmBrouillon.armer();
+</script>
+{% endblock %}

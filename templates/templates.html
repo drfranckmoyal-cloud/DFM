@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block titre %}Modèles{% endblock %}
+{% block entete %}Bibliothèque de modèles{% endblock %}
+{% block sous_entete %}Questionnaires et modèles de mails, à rattacher à vos formations{% endblock %}
+{% block actions %}
+<input class="bm-rech" id="bm_q" type="search" placeholder="Rechercher un modèle…"
+       oninput="bmFiltrer()" autocomplete="off">
+{% endblock %}
+{% block corps %}
+
+<div class="bm-chapeau">
+  <i class="ti ti-info-circle" style="font-size:16px;flex:none"></i>
+  <span><b>{{ total }}</b> modèle(s), dont <b>{{ nb_dfm }}</b> fourni(s) avec DFM.
+  Une trame fournie avec DFM sert de <b>valeur par défaut</b> à toute formation qui n'a rien de rattaché —
+  ce n'est pas un simple exemple. Modifier un modèle ne change rien aux sessions déjà préparées :
+  leurs questions et leur clé de correction sont figées au moment de la préparation.
+  <a href="/templates/balises" style="color:var(--accent);text-decoration:none;white-space:nowrap">
+  Voir les balises des mails <i class="ti ti-arrow-right" style="font-size:12px"></i></a></span>
+</div>
+
+<div class="bm-mod" id="bm_mod" onclick="if(event.target===this)bmFermer()">
+  <div class="bm-mod-c">
+    <div class="bm-mod-h">
+      <i class="ti ti-eye" style="color:var(--accent)"></i>
+      <span class="bm-mod-t" id="bm_mod_t">Aperçu</span>
+      <button class="bm-mod-x" onclick="bmFermer()">&times;</button>
+    </div>
+    <div class="bm-mod-b" id="bm_mod_b"></div>
+  </div>
+</div>
+{% for f in familles %}
+<div class="bm-sect">
+  <i class="ti {{ f.icone }}" style="color:{{ f.couleur }};font-size:16px;flex:none"></i>
+  <span class="bm-sect-t">{{ f.nom }}</span>
+  <span class="bm-sect-n">· {{ f.lignes|length }}</span>
+  <span class="bm-trait"></span>
+  {% if f.cle == 'mail' %}
+    {% for u in usages_mail %}
+    <a class="btn btn-second bm-neuf" href="/templates/mail/{{ u.cle }}/nouveau"><i class="ti ti-plus"></i>{{ u.nom }}</a>
+    {% endfor %}
+  {% else %}
+    <a class="btn btn-second bm-neuf" href="/templates/questionnaire/{{ f.cle }}/nouveau"><i class="ti ti-plus"></i>Nouveau</a>
+  {% endif %}
+</div>
+
+{% for l in f.lignes %}
+<div class="bm-l" data-rech="{{ (l.titre ~ ' ' ~ l.detail ~ ' ' ~ l.famille_nom ~ ' ' ~ (l.usages|map(attribute='nom')|join(' ')))|lower }}">
+  <i class="ti {{ l.icone }}" style="color:{{ l.couleur }};font-size:17px;flex:none"></i>
+  <div class="bm-x">
+    <div class="bm-t">{{ l.titre }}{% if l.source == 'dfm' %}<span class="bm-dfm">fourni avec DFM</span>{% endif %}</div>
+    <div class="bm-d">{{ l.detail }}{% if l.modifie_le %} · modifié le {{ l.modifie_le }}{% endif %}</div>
+  </div>
+  {% if l.source == 'fige' %}
+    <span class="bm-tag bm-fige" title="Ce mail est construit dans le code : il n'est pas modifiable depuis l'application"><i class="ti ti-lock" style="font-size:11px"></i> figé dans le code</span>
+  {% elif l.usages %}
+    <span class="bm-tag bm-lie" title="Formations qui utilisent ce modèle">{{ l.usages|map(attribute='nom')|join(', ') }}</span>
+  {% elif l.source == 'dfm' %}
+    <span class="bm-tag bm-neutre" title="Aucune formation ne retombe sur cette trame : toutes ont un modèle rattaché">non utilisée</span>
+  {% else %}
+    <span class="bm-tag bm-orph" title="Ce modèle n'est rattaché à aucune formation">orphelin</span>
+  {% endif %}
+  <div class="bm-cmd">
+    {% if l.source == 'fige' %}
+      <span style="font-size:11px;color:var(--muted);padding-right:4px">non modifiable</span>
+    {% endif %}
+    {% if l.apercu %}
+      <button class="bm-b" title="Voir ce modèle tel qu'il sera présenté"
+              onclick="bmApercu('{{ l.apercu }}','{{ l.famille }}')"><i class="ti ti-eye"></i></button>
+    {% endif %}
+    {% if l.source == 'dfm' %}
+      <a class="bm-b" href="{{ l.edition }}" title="Créer une copie modifiable de cette trame"><i class="ti ti-copy"></i></a>
+    {% else %}
+      {% if l.dupliquer %}
+      <button class="bm-b" title="Créer une copie de ce modèle"
+              onclick="bmDupliquer('{{ l.dupliquer }}',this)"><i class="ti ti-copy"></i></button>
+      {% endif %}
+      <a class="bm-b" href="{{ l.edition }}" title="Modifier ce modèle"><i class="ti ti-pencil"></i></a>
+      <button class="bm-b bm-rouge" title="Supprimer ce modèle"
+              onclick="bmSupprimer('{{ l.famille }}','{{ l.id }}','{{ l.usage|default('') }}',this)"><i class="ti ti-trash"></i></button>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div class="bm-vide">Aucun modèle dans cette famille.</div>
+{% endfor %}
+{% endfor %}
+
+<div class="bm-vide" id="bm_rien" style="display:none">Aucun modèle ne correspond à cette recherche.</div>
+
+<style>
+.bm-rech{border:1px solid var(--border2);border-radius:9px;padding:8px 13px;font-size:13px;
+  width:260px;background:var(--carte);color:var(--text);font-family:inherit}
+.bm-chapeau{display:flex;gap:10px;align-items:flex-start;background:#f0f4ff;border:1px solid #c9d9fb;
+  border-radius:10px;padding:12px 15px;font-size:12.5px;color:#2f5fd0;line-height:1.55;margin-bottom:6px}
+html[data-sombre] .bm-chapeau{background:#1f2a42;border-color:#33456b;color:#a9c4fb}
+.bm-sect{display:flex;align-items:center;gap:9px;margin:22px 0 8px}
+.bm-sect-t{font-size:12.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.bm-sect-n{font-size:11.5px;color:var(--muted)}
+.bm-trait{flex:1;height:1px;background:var(--border)}
+.bm-neuf{font-size:11.5px !important;padding:5px 11px !important}
+.bm-mod{position:fixed;inset:0;background:rgba(10,12,20,.55);display:none;z-index:900;
+  align-items:center;justify-content:center;padding:24px}
+.bm-mod.on{display:flex}
+.bm-mod-c{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  width:min(720px,100%);max-height:86vh;display:flex;flex-direction:column;overflow:hidden}
+.bm-mod-h{display:flex;align-items:center;gap:10px;padding:14px 17px;border-bottom:1px solid var(--border)}
+.bm-mod-t{font-weight:600;font-size:14.5px;flex:1;min-width:0}
+.bm-mod-x{background:none;border:none;color:var(--muted);cursor:pointer;font-size:19px;line-height:1}
+.bm-mod-b{padding:17px;overflow:auto}
+.bm-mod-obj{font-size:12px;color:var(--muted);margin-bottom:12px;padding-bottom:11px;
+  border-bottom:1px dashed var(--border)}
+.bm-rendu{background:#fff;color:#1a1d2e;border-radius:9px;padding:15px;font-size:13px;line-height:1.6}
+.bm-q{padding:9px 0;border-bottom:1px solid var(--border);font-size:13px}
+.bm-q:last-child{border-bottom:none}
+.bm-q-l{margin-bottom:5px}
+.bm-q-o{font-size:11px;color:var(--muted);margin-bottom:4px}
+.bm-ch{font-size:12.5px;color:var(--muted);padding:2px 0 2px 15px}
+.bm-ch.ok{color:var(--success);font-weight:600}
+.bm-l{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--border);
+  border-radius:10px;margin-bottom:6px;background:var(--carte)}
+.bm-x{flex:1;min-width:0}
+.bm-t{font-size:13.5px;font-weight:500;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.bm-d{font-size:11.5px;color:var(--muted);margin-top:2px}
+.bm-dfm{font-size:10.5px;font-weight:400;color:var(--muted);border:1px solid var(--border);
+  border-radius:20px;padding:1px 8px}
+.bm-tag{font-size:10.5px;padding:3px 9px;border-radius:20px;white-space:nowrap;flex:none;max-width:230px;
+.bm-fige{background:rgba(138,144,162,.14);color:#8a90a2;border-color:rgba(138,144,162,.3);display:inline-flex;align-items:center;gap:4px}
+  overflow:hidden;text-overflow:ellipsis}
+.bm-lie{color:#0f6e56;background:#eafaf3;border:1px solid #9fe1cb}
+.bm-orph{color:#8a5a06;background:#fdf6ec;border:1px solid #f0cf94}
+.bm-neutre{color:var(--muted);border:1px dashed var(--border2)}
+html[data-sombre] .bm-lie{background:#1c3a30;border-color:#2f6b56;color:#7fd9b8}
+html[data-sombre] .bm-orph{background:#3a2f1c;border-color:#6b5a2f;color:#e0b968}
+.bm-cmd{display:flex;gap:5px;flex:none}
+.bm-b{background:var(--carte);border:1px solid var(--border2);border-radius:7px;width:30px;height:30px;
+  cursor:pointer;color:var(--text);display:grid;place-items:center;text-decoration:none}
+.bm-b:hover{border-color:var(--accent);color:var(--accent)}
+.bm-b i{font-size:14px}
+.bm-rouge:hover{border-color:var(--danger);color:var(--danger)}
+.bm-vide{padding:14px;font-size:12.5px;color:var(--muted);border:1px dashed var(--border);
+  border-radius:10px;margin-bottom:6px}
+</style>
+
+<script>
+function bmFiltrer(){
+  var q = (document.getElementById("bm_q").value || "").toLowerCase().trim();
+  var lignes = document.querySelectorAll(".bm-l");
+  var vus = 0;
+  for(var i = 0; i < lignes.length; i++){
+    var ok = !q || (lignes[i].dataset.rech || "").indexOf(q) !== -1;
+    lignes[i].style.display = ok ? "" : "none";
+    if(ok) vus++;
+  }
+  // Masque une section entiere quand aucune de ses lignes ne ressort.
+  var sections = document.querySelectorAll(".bm-sect");
+  for(var s = 0; s < sections.length; s++){
+    var visible = false, n = sections[s].nextElementSibling;
+    while(n && !n.classList.contains("bm-sect")){
+      if(n.classList.contains("bm-l") && n.style.display !== "none") visible = true;
+      n = n.nextElementSibling;
+    }
+    sections[s].style.display = (!q || visible) ? "" : "none";
+  }
+  document.getElementById("bm_rien").style.display = (q && vus === 0) ? "" : "none";
+}
+function bmFermer(){ document.getElementById("bm_mod").classList.remove("on"); }
+async function bmApercu(url, famille){
+  var m = document.getElementById("bm_mod");
+  var b = document.getElementById("bm_mod_b");
+  document.getElementById("bm_mod_t").textContent = "Aperçu";
+  b.innerHTML = '<div style="color:var(--muted);font-size:13px">Chargement…</div>';
+  m.classList.add("on");
+  try{
+    var r = await fetch(url);
+    var d = await r.json();
+    if(!d.ok){ b.innerHTML = '<div style="color:var(--danger)">' + (d.message || "Aperçu impossible") + '</div>'; return; }
+    document.getElementById("bm_mod_t").textContent = d.titre || "Aperçu";
+    var h = "";
+    if(famille === "mail"){
+      h += '<div class="bm-mod-obj"><b>Objet :</b> ' + (d.objet || "—") + '</div>';
+      h += '<div class="bm-rendu">' + (d.html || "") + '</div>';
+      h += '<div style="font-size:11px;color:var(--muted);margin-top:10px">'
+         + 'Rendu avec des valeurs d\'exemple : les balises seront remplacées par les données réelles à l\'envoi.</div>';
+    } else {
+      if(d.seuil){ h += '<div class="bm-mod-obj">Seuil de réussite : <b>' + d.seuil + ' %</b></div>'; }
+      (d.items || []).forEach(function(q, i){
+        h += '<div class="bm-q">';
+        if(q.objectif){ h += '<div class="bm-q-o">' + q.objectif + '</div>'; }
+        h += '<div class="bm-q-l"><b>' + (i + 1) + '.</b> ' + (q.libelle || "") + '</div>';
+        (q.choix || []).forEach(function(c){
+          h += '<div class="bm-ch' + (c.juste ? " ok" : "") + '">'
+             + (c.juste ? "✓ " : "· ") + c.texte + '</div>';
+        });
+        if(q.genre === "note"){ h += '<div class="bm-ch">note de 1 à 5</div>'; }
+        if(q.genre === "ouverte"){ h += '<div class="bm-ch">réponse libre</div>'; }
+        h += '</div>';
+      });
+      if(!(d.items || []).length){ h += '<div style="color:var(--muted)">Ce modèle ne contient aucune question.</div>'; }
+    }
+    b.innerHTML = h;
+  }catch(e){
+    b.innerHTML = '<div style="color:var(--danger)">Aperçu impossible : ' + e + '</div>';
+  }
+}
+async function bmDupliquer(url, bouton){
+  bouton.disabled = true;
+  try{
+    var r = await fetch(url, {method: "POST"});
+    var d = await r.json();
+    if(d.ok){ window.location = d.edition; return; }
+    alert(d.message || "Duplication impossible");
+  }catch(e){ alert("Duplication impossible : " + e); }
+  bouton.disabled = false;
+}
+function bmSupprimer(famille, identifiant, usage, bouton){
+  // La route des mails utilise l'usage pour son garde-fou : il doit etre reel.
+  var url = (famille === "mail")
+    ? "/templates/mail/" + encodeURIComponent(usage) + "/" + encodeURIComponent(identifiant) + "/supprimer"
+    : "/templates/questionnaire/" + famille + "/" + encodeURIComponent(identifiant) + "/supprimer";
+  fetch(url, {method: "POST"}).then(function(r){return r.json()}).then(function(j){
+    if(j.ok){ window.location.reload(); return; }
+    // Refus : montrer QUELLES formations retomberaient sur le texte par defaut.
+    var corps = '<div class="dfm-bloc dfm-b-att">' + (j.message || "Suppression impossible") + '</div>';
+    if(j.usages && j.usages.length){
+      corps += '<div class="dfm-bloc dfm-b-neutre"><b>Formations concernées :</b><br>'
+             + j.usages.map(function(u){ return "· " + u.nom; }).join("<br>") + '</div>'
+             + '<div class="dfm-bloc dfm-b-neutre">Détachez-le de ces formations depuis leur fiche, '
+             + 'puis revenez le supprimer.</div>';
+    }
+    dfmInfo("Suppression refusée", corps, "attention");
+  }).catch(function(e){ alert("Erreur : " + e); });
+}
+</script>
+{% endblock %}

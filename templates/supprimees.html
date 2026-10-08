@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block titre %}Sessions supprimées{% endblock %}
+{% block entete %}Sessions supprimées{% endblock %}
+{% block sous_entete %}Les pièces conservées des sessions retirées de DFM{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" href="/sessions"><i class="ti ti-arrow-left"></i>Sessions</a>
+{% endblock %}
+{% block corps %}
+<style>
+.sp-i{background:var(--carte);border:1px solid var(--border);border-radius:12px;
+  padding:14px 16px;margin-bottom:14px;font-size:12.5px;color:var(--muted);line-height:1.7}
+.sp-c{background:var(--carte);border:1px solid var(--border);border-radius:12px;
+  padding:16px 18px;margin-bottom:14px}
+.sp-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+.sp-n{font-size:15px;font-weight:600}
+.sp-o{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+.sp-g{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+.sp-p{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px}
+.sp-l{display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid var(--border);
+  border-radius:9px;background:var(--bg);text-decoration:none;color:inherit;font-size:12.5px}
+.sp-l:hover{border-color:var(--accent)}
+.sp-l i{color:var(--muted);font-size:16px;flex:none}
+.sp-l b{font-weight:600;display:block}
+.sp-l span{color:var(--muted);font-size:11.5px}
+.sp-vide{padding:12px 0;color:var(--muted);font-size:12.5px}
+.sp-t{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:12px}
+.sp-t th{text-align:left;font-weight:600;color:var(--muted);font-size:11px;
+  text-transform:uppercase;letter-spacing:.6px;padding:6px 8px;border-bottom:1px solid var(--border)}
+.sp-t td{padding:7px 8px;border-bottom:1px solid var(--border)}
+.sp-t tr:last-child td{border-bottom:none}
+html[data-sombre] a.sp-l{color:var(--text)}
+</style>
+
+<div class="sp-i">
+  <i class="ti ti-archive" style="font-size:15px"></i>
+  <b>Rien n'a été détruit.</b> Supprimer une session la retire de DFM, mais son onglet
+  de suivi est conservé et ses documents restent sur le Drive. Cet écran les retrouve —
+  c'est ce que vous présenterez si un contrôle porte sur une formation supprimée.<br>
+  <b>Lecture seule.</b> Aucune restauration possible depuis ici : le code de la session
+  a pu être réutilisé depuis, et cette décision ne se prend pas d'un clic.
+</div>
+
+{% for s in liste %}
+<div class="sp-c">
+  <div class="sp-h">
+    <span class="sp-n">{{ s.nom_lisible }}</span>
+    <span class="sp-o">{{ s.organisme_nom }}</span>
+  </div>
+  <div class="sp-g">
+    {{ s.inscrits }} inscrit{{ 's' if s.inscrits > 1 }} conservé{{ 's' if s.inscrits > 1 }}
+    {% if s.gens %} · {{ s.gens|join(', ') }}{% endif %}
+  </div>
+
+  {% if s.pieces %}
+  <div class="sp-p">
+    {% for p in s.pieces %}
+    <a class="sp-l" href="{{ p.lien }}" target="_blank" rel="noopener">
+      <i class="ti ti-folder"></i>
+      <span style="min-width:0"><b>{{ p.rubrique }}</b>
+        <span>{{ p.pieces }} pièce{{ 's' if p.pieces > 1 }}</span></span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="sp-vide">Aucun dossier retrouvé sur le Drive sous ce nom.
+    Les pièces ont pu être déplacées ou n'avoir jamais été produites.</div>
+  {% endif %}
+
+  {% if s.lignes %}
+  <table class="sp-t">
+    <thead><tr><th>Nom</th><th>Convention</th><th>Règlement</th><th>Attestation</th></tr></thead>
+    <tbody>
+      {% for l in s.lignes %}
+      <tr>
+        <td>{{ l.prenom }} {{ l.nom }}<br><span style="color:var(--muted)">{{ l.mail }}</span></td>
+        <td>{% if l.lien_pdf %}<a class="sp-l" style="border:none;padding:0;display:inline-flex"
+              href="{{ l.lien_pdf }}" target="_blank" rel="noopener">signée le {{ l.signe_le[:10] }}</a>
+            {% else %}<span style="color:var(--muted)">—</span>{% endif %}</td>
+        <td>{% if l.paiement_recu_le %}{{ l.montant_recu }} € le {{ l.paiement_recu_le[:10] }}
+            {% else %}<span style="color:var(--muted)">—</span>{% endif %}</td>
+        <td>{% if l.lien_attestation %}<a class="sp-l" style="border:none;padding:0;display:inline-flex"
+              href="{{ l.lien_attestation }}" target="_blank" rel="noopener">remise</a>
+            {% else %}<span style="color:var(--muted)">—</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <div style="font-size:11.5px;color:var(--muted);margin-top:12px;padding-top:10px;
+              border-top:1px solid var(--border)">
+    Onglet <code>{{ s.onglet }}</code> du classeur de {{ s.organisme_nom }}.
+  </div>
+</div>
+{% else %}
+<div class="sp-c">
+  <div class="sp-vide" style="padding:24px 0;text-align:center">
+    Aucune session supprimée. Tout ce que DFM a produit est rattaché à une session vivante.
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

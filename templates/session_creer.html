@@ -1,0 +1,723 @@
+{% extends "base.html" %}
+{% block titre %}Nouvelle session{% endblock %}
+{% block entete %}Créer une session{% endblock %}
+{% block sous_entete %}Choisir une formation puis définir les dates et les réglages propres à cette session{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" title="Abandonner sans enregistrer" href="/sessions"><i class="ti ti-x"></i>Annuler</a>
+{% endblock %}
+{% block corps %}
+<style>
+/* Les journees d'une formation. La bande n'apparait qu'au-dela de deux jours :
+   pour une formation d'un ou deux jours — le cas courant — l'ecran ne change
+   pas d'un pixel. */
+.jr-grille{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 6px}
+.jr-j{border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-size:12px;
+  cursor:pointer;background:var(--bg);color:var(--muted);user-select:none;line-height:1.3;
+  text-align:center;min-width:52px}
+.jr-j.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.jr-j small{display:block;font-size:9.5px;opacity:.75;font-weight:400}
+.jr-j.dim{opacity:.45}
+.jr-actions{float:right;font-weight:400;font-size:11px}
+.jr-actions a{color:var(--accent);text-decoration:none}
+
+.sc-etiq{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px}
+.sc-picker{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:26px}
+.sc-tpl{background:var(--carte);border:2px solid var(--border);border-radius:12px;padding:16px 18px;cursor:pointer;transition:border-color .15s}
+.sc-tpl:hover{border-color:var(--accent)}
+.sc-tpl.on{border-color:var(--accent);background:#f5f8ff}
+.sc-tpl-h{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
+.sc-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.sc-nom{font-size:14px;font-weight:500}
+.sc-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.sc-check{margin-left:auto;color:var(--accent);font-size:18px;display:none}
+.sc-tpl.on .sc-check{display:block}
+.sc-tags{display:flex;gap:5px;flex-wrap:wrap}
+.sc-tag{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:500;background:#eef3fe;color:var(--accent)}
+.sc-grid{display:grid;grid-template-columns:1fr 310px;gap:20px;align-items:start}
+.sc-card{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:20px 22px;margin-bottom:14px}
+.sc-titre{font-size:13px;font-weight:500;margin-bottom:16px;display:flex;align-items:center;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.sc-titre i{color:var(--accent);font-size:16px}
+.sc-f{margin-bottom:16px}
+.sc-f:last-child{margin-bottom:0}
+.sc-f label{display:block;font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.sc-req{color:var(--danger)}
+.sc-opt{color:var(--border2);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px}
+.sc-f input,.sc-f textarea{width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;color:var(--text);background:var(--carte);font-family:inherit}
+.sc-f input:focus,.sc-f textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,126,248,.08)}
+.sc-deux{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sc-aide{font-size:11px;color:var(--muted);margin-top:4px}
+.sc-boite{position:relative}
+.sc-coche{position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--success);font-size:17px;display:none}
+.sc-lien input{padding-right:36px;transition:background .15s,border-color .15s}
+.sc-vide input{background:#fdf2f2;border-color:#f0b8b8}
+.sc-plein input{background:#e9f8f1;border-color:#9fe1cb}
+.sc-plein .sc-coche{display:block}
+.sc-info{background:#f0f4ff;border:1px solid #c5d4fb;border-radius:8px;padding:10px 14px;font-size:12px;color:#185fa5;margin-bottom:14px;display:flex;gap:8px;align-items:flex-start}
+.sc-info i{flex-shrink:0;margin-top:1px}
+.sc-inh{display:flex;flex-direction:column;gap:6px}
+.sc-inh-l{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border-radius:6px;font-size:12px}
+.sc-inh-l i{font-size:14px;flex-shrink:0}
+.sc-apercu{background:var(--carte);border:1px solid var(--border);border-radius:12px;overflow:hidden;position:sticky;top:20px}
+.sc-ap-h{padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px;color:var(--muted);background:#fafafa}
+.sc-ap-b{padding:16px}
+.sc-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:500;background:#eef3fe;color:var(--accent);margin-bottom:10px}
+.sc-ap-t{font-size:14px;font-weight:500;margin-bottom:8px;line-height:1.4}
+.sc-ap-m{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.sc-ap-m span{display:flex;align-items:center;gap:6px}
+.sc-sep{height:1px;background:var(--border);margin:10px 0}
+.sc-ligne{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;gap:10px}
+.sc-ligne span:first-child{color:var(--muted);flex-shrink:0}
+.sc-ligne span:last-child{font-weight:500;text-align:right}
+.sc-auto{background:#eafaf3;border:1px solid #9fe1cb;border-radius:8px;padding:12px 14px;margin-top:14px}
+.sc-auto-t{font-size:12px;font-weight:500;color:#085041;margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.sc-auto-i{display:flex;align-items:flex-start;gap:7px;font-size:11px;color:#0f6e56;padding:3px 0}
+.sc-main{background:#fdf3e3;border:1px solid #f0cf94;border-radius:8px;padding:12px 14px;margin-top:12px}
+.sc-main-t{font-size:12px;font-weight:500;color:#8a5a06;margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.sc-main-i{display:flex;align-items:flex-start;gap:7px;font-size:11px;color:#a06a10;padding:3px 0}
+.sc-pied{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:16px 22px;display:flex;justify-content:space-between;align-items:center;gap:16px}
+.sc-pied-g{font-size:12px;color:var(--muted)}
+.sc-ok{background:var(--success);color:#fff}
+.sc-voile{position:fixed;inset:0;background:rgba(16,18,30,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+.sc-modale{background:var(--carte);border-radius:14px;padding:26px 28px;max-width:520px;width:100%;max-height:90vh;overflow:auto}
+.sc-et{display:flex;align-items:flex-start;gap:9px;font-size:13px;padding:6px 0}
+.sc-et i{font-size:16px;flex-shrink:0;margin-top:1px}
+.sc-mode{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.sc-m{text-align:left;border:1.5px solid var(--border);background:var(--bg);border-radius:10px;
+  padding:12px 13px;cursor:pointer;font-family:inherit;color:var(--text)}
+.sc-m:hover{border-color:var(--border2)}
+.sc-m.on{border-color:var(--accent);background:var(--bg2)}
+.sc-m i{font-size:19px;color:var(--muted);display:block;margin-bottom:6px}
+.sc-m.on i{color:var(--accent)}
+.sc-m b{display:block;font-size:13px;margin-bottom:4px}
+.sc-m span{font-size:11.5px;color:var(--muted);line-height:1.5;display:block}
+@media(max-width:760px){.sc-mode{grid-template-columns:1fr}}
+.sc-l{display:grid;grid-template-columns:1fr 1fr 168px 26px;gap:7px;margin-bottom:6px;position:relative}
+.sc-l input,.sc-l select{padding:7px 9px;border:1px solid var(--border);border-radius:7px;
+  background:var(--bg);color:var(--text);font-size:12.5px;font-family:inherit;width:100%}
+.sc-x{border:none;background:none;color:var(--muted);cursor:pointer;font-size:15px;font-family:inherit}
+.sc-x:hover{color:var(--danger)}
+.sc-plus{border:1px dashed var(--border2);background:var(--bg);color:var(--muted);border-radius:8px;
+  padding:6px 13px;font-size:12.5px;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.sc-plus:hover{border-color:var(--accent);color:var(--text)}
+.sc-sug{position:absolute;top:100%;left:0;right:0;z-index:40;background:var(--carte);
+  border:1px solid var(--border2);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.14);overflow:hidden}
+.sc-sug div{padding:7px 11px;font-size:12.5px;cursor:pointer}
+.sc-sug div:hover{background:var(--bg2)}
+.sc-sug small{color:var(--muted);display:block;font-size:11px}
+.sc-trop{background:#fdf3e3;border:1px solid #f0dcb4;color:#8a5606;border-radius:8px;
+  padding:8px 11px;font-size:12px;margin-top:9px}
+</style>
+<div class="sc-etiq">Étape 1 — Choisir la formation</div>
+<div class="sc-picker">
+{% for f in formations %}
+  <div class="sc-tpl" onclick="choisir(this)" data-code="{{ f.code }}" data-nom="{{ f.nom }}" data-titre="{{ f.titre }}" data-tarif="{{ f.tarif }}" data-places="{{ f.places }}" data-adresse="{{ f.adresse }}">
+    <div class="sc-tpl-h">
+      <div class="sc-dot" style="background:{{ ['#4f7ef8','#7c5bf7','#0f9e6a','#d4890a','#d03b3b'][loop.index0 % 5] }}"></div>
+      <div style="flex:1">
+        <div class="sc-nom">{{ f.titre }}</div>
+        <div class="sc-meta">{{ f.duree }}{% if f.duree %} h · {% endif %}{{ f.tarif }} € · {{ f.places }} places</div>
+      </div>
+      <i class="ti ti-circle-check sc-check"></i>
+    </div>
+    <div class="sc-tags"><span class="sc-tag">Code : {{ f.code }}</span></div>
+  </div>
+{% else %}
+  <div class="sc-card" style="grid-column:span 2;margin:0">Aucune formation dans la bibliothèque. <a href="/formations/nouvelle" style="color:var(--accent)">Créer une formation</a> d'abord.</div>
+{% endfor %}
+</div>
+<div class="sc-etiq">Étape 2 — Paramètres de la session</div>
+<form id="formulaire" onsubmit="return false">
+<input type="hidden" name="formation" id="formation">
+<input type="hidden" name="mode" id="mode" value="individuel">
+<div class="sc-grid">
+  <div>
+    <div class="sc-card">
+      <div class="sc-titre"><i class="ti ti-users"></i>Qui achète cette formation</div>
+      <div class="sc-mode">
+        <button type="button" class="sc-m on" data-mode="individuel" onclick="scMode('individuel')">
+          <i class="ti ti-user"></i>
+          <b>Inscriptions individuelles</b>
+          <span>Chaque praticien s'inscrit, signe sa convention, règle sa formation.</span>
+        </button>
+        <button type="button" class="sc-m" data-mode="client" onclick="scMode('client')">
+          <i class="ti ti-building"></i>
+          <b>Formation réalisée pour un client</b>
+          <span>Une structure achète pour ses praticiens : une convention, une facture, un règlement.</span>
+        </button>
+      </div>
+      <div class="sc-f" id="sc_zone_client" style="display:none;margin-top:12px">
+        <label>Client <span class="sc-req">*</span></label>
+        <select name="client" id="client" onchange="scClient()">
+          <option value="">— choisir dans la base clients —</option>
+          {% for c in clients %}
+          <option value="{{ c.id }}">{{ c.raison_sociale }}</option>
+          {% endfor %}
+        </select>
+        <div class="sc-aide" id="sc_aide_client">
+          {% if not clients %}Aucun client dans la base. <a href="/clients" style="color:var(--accent)">Créez-en un</a> d'abord.
+          {% else %}La convention et la facture seront établies à son nom.{% endif %}
+        </div>
+      </div>
+      <div class="sc-info" style="margin-top:11px"><i class="ti ti-info-circle"></i>
+        <span>Ce choix se fait <b>maintenant et une seule fois</b> : les documents que produira la
+        session en dépendent. Il ne se modifie pas ensuite.</span></div>
+    </div>
+    <div class="sc-card" id="sc_zone_appr" style="display:none">
+      <div class="sc-titre"><i class="ti ti-users"></i>Apprenants pour cette session
+        <span id="sc_compte" style="margin-left:auto;font-size:11.5px;color:var(--muted)"></span></div>
+      <div id="sc_appr"></div>
+      <div style="display:flex;gap:9px;align-items:center;margin-top:8px">
+        <button type="button" class="sc-plus" onclick="apAjouter()"><i class="ti ti-plus"></i>ajouter une ligne</button>
+        <span class="sc-aide" style="margin:0">Le centre vous fournit sa liste. Tapez trois lettres :
+          DFM propose les personnes déjà connues.</span>
+      </div>
+      <div id="sc_alerte_appr"></div>
+    </div>
+    <div class="sc-card">
+      <div class="sc-titre"><i class="ti ti-hash"></i>Identifiant de la session</div>
+      <div class="sc-f">
+        <label>Code de session <span class="sc-req">*</span></label>
+        <input type="text" name="code_session" id="code_session" placeholder="nov26" oninput="codeTape()">
+        <div class="sc-aide">Proposé d'après la date de début saisie plus bas. Modifiable — deux sessions ne peuvent pas porter le même code.</div>
+      </div>
+      <div class="sc-ligne" style="padding-top:6px"><span>Code complet</span><span id="ap_code" style="color:var(--accent)">—</span></div>
+      <div class="sc-ligne"><span>Onglet créé dans le Sheet</span><span id="ap_onglet">—</span></div>
+      <div class="sc-ligne"><span>Référence de paiement</span><span id="ap_ref" style="font-size:11px">—</span></div>
+    </div>
+    <div class="sc-card">
+      <div class="sc-titre"><i class="ti ti-calendar"></i>Dates et horaires</div>
+      <div class="sc-deux">
+        <div class="sc-f">
+          <label>Date de début <span class="sc-req">*</span></label>
+          <input type="date" name="date_debut" id="date_debut" oninput="majDates()">
+        </div>
+        <div class="sc-f">
+          <label>Date de fin <span class="sc-req">*</span></label>
+          <input type="date" name="date_fin" id="date_fin" oninput="majDates()">
+        </div>
+      </div>
+      <div class="sc-f" id="bloc_jours" style="display:none">
+        <label>Journées de formation <span class="sc-req">*</span>
+          <span class="jr-actions"><a href="#" onclick="jrTout(1);return false">Toutes</a>
+            · <a href="#" onclick="jrTout(0);return false">Aucune</a></span></label>
+        <div class="jr-grille" id="jr_grille"></div>
+        <div class="sc-aide" id="jr_compte"></div>
+      </div>
+      <div class="sc-f">
+        <label>Formulation des dates</label>
+        <input type="text" name="date_texte" id="date_texte" placeholder="Calculée automatiquement">
+        <div class="sc-aide">Ce texte apparaît dans les mails et la convention. Rempli tout seul, modifiable.</div>
+      </div>
+      <div class="sc-deux">
+        <div class="sc-f">
+          <label>Heure de début <span class="sc-opt">facultatif</span></label>
+          <input type="text" name="heure_debut" id="heure_debut" placeholder="08h30">
+        </div>
+        <div class="sc-f">
+          <label>Heure de fin <span class="sc-opt">facultatif</span></label>
+          <input type="text" name="heure_fin" id="heure_fin" placeholder="17h00">
+        </div>
+      </div>
+    </div>
+    <div class="sc-card">
+      <div class="sc-titre"><i class="ti ti-map-pin"></i>Lieu et capacité</div>
+      <div class="sc-info"><i class="ti ti-info-circle"></i><span>Ces valeurs sont héritées de la formation. Les modifier ici ne change que cette session.</span></div>
+      <div class="sc-f">
+        <label>Adresse</label>
+        <input type="text" name="adresse" id="adresse" placeholder="Lieu de la formation, adresse complète">
+      </div>
+      <div class="sc-f">
+        <label>Salle, étage, précisions <span class="sc-opt">facultatif</span></label>
+        <input type="text" name="salle" id="salle" placeholder="Ex : salle 3, 2e étage">
+      </div>
+      <div class="sc-deux">
+        <div class="sc-f">
+          <label>Places maximum</label>
+          <input type="number" name="places_max" id="places_max" value="{{ capacite_defaut|default(14) }}" placeholder="{{ capacite_defaut|default(14) }}">
+        </div>
+        <div class="sc-f">
+          <label>Tarif TTC</label>
+          <input type="number" name="tarif" id="tarif" placeholder="975">
+        </div>
+      </div>
+      <div class="sc-f">
+        <label>Note interne <span class="sc-opt">facultatif</span></label>
+        <textarea name="note" rows="2" placeholder="Groupe particulier, partenariat, remarque..."></textarea>
+      </div>
+    </div>
+    <div class="sc-card">
+      <div class="sc-titre"><i class="ti ti-link"></i>Liens à coller</div>
+      <div class="sc-info"><i class="ti ti-alert-triangle"></i><span>DFM ne peut créer ni le formulaire Google ni le lien Stripe. Crée-les à la main, puis colle-les ici. Tu peux aussi les ajouter plus tard.</span></div>
+      <div class="sc-info" id="sc_sans_forms" style="display:none"><i class="ti ti-info-circle"></i>
+        <span><b>Session client : ni formulaire ni lien de paiement.</b> Les apprenants sont saisis
+        ci-dessus, le centre règle sur facture. Ces deux champs restent vides — DFM ne les lira pas.</span></div>
+      <div class="sc-f sc-lien sc-vide">
+        <label>Sheet de réponses du formulaire</label>
+        <div class="sc-boite">
+          <input type="text" name="sheet_reponses" placeholder="Colle l'adresse complète du Google Sheet (ou l'identifiant seul)" oninput="majLien(this)" onblur="scVerifierSheet(this)">
+          <i class="ti ti-circle-check sc-coche"></i>
+        </div>
+        <div id="sc_verif_sheet" style="font-size:11px;margin-top:5px"></div>
+        <div class="sc-aide">C'est là que DFM va lire les inscriptions. Sans lui, rien ne remonte. Lien complet ou identifiant : DFM extrait l'identifiant et vérifie le document.</div>
+      </div>
+      <div class="sc-f sc-lien sc-vide">
+        <label>Lien de paiement Stripe</label>
+        <div class="sc-boite">
+          <input type="text" name="stripe_lien" placeholder="https://buy.stripe.com/..." oninput="majLien(this)">
+          <i class="ti ti-circle-check sc-coche"></i>
+        </div>
+      </div>
+    </div>
+    <div class="sc-card">
+      <div class="sc-titre"><i class="ti ti-template"></i>Hérité de la formation</div>
+      <div class="sc-inh">
+        <div class="sc-inh-l"><i class="ti ti-file-text" style="color:var(--accent)"></i><span>Convention, attestation et facture</span></div>
+        <div class="sc-inh-l"><i class="ti ti-paperclip" style="color:var(--accent)"></i><span>Programme, infos d'accès et pièces jointes de rappel</span></div>
+        <div class="sc-inh-l"><i class="ti ti-mail" style="color:var(--accent)"></i><span>Les 7 mails du parcours praticien</span></div>
+        <div class="sc-inh-l" id="sc_quest"><i class="ti ti-clipboard-list" style="color:var(--muted)"></i><span style="color:var(--muted)">Questionnaires — choisissez d'abord une formation</span></div>
+      </div>
+      <div class="sc-aide" style="margin-top:10px">Pour changer un de ces éléments, passe par la fiche de la formation.</div>
+    </div>
+  </div>
+  <div>
+    <div class="sc-apercu">
+      <div class="sc-ap-h"><i class="ti ti-eye" style="font-size:14px"></i>Aperçu de la session</div>
+      <div class="sc-ap-b">
+        <div class="sc-badge"><i class="ti ti-calendar-event" style="font-size:11px"></i>Nouvelle session</div>
+        <div class="sc-ap-t" id="ap_titre">Choisis une formation</div>
+        <div class="sc-ap-m">
+          <span><i class="ti ti-calendar"></i><b id="ap_dates" style="font-weight:400">Dates à définir</b></span>
+          <span><i class="ti ti-clock"></i><b id="ap_horaires" style="font-weight:400">Horaires à définir</b></span>
+          <span><i class="ti ti-map-pin"></i><b id="ap_adresse" style="font-weight:400">—</b></span>
+          <span><i class="ti ti-users"></i><b id="ap_places" style="font-weight:400">—</b></span>
+          <span><i class="ti ti-coin"></i><b id="ap_tarif" style="font-weight:400">—</b></span>
+        </div>
+        <div class="sc-sep"></div>
+        <div class="sc-ligne"><span>Statut à la création</span><span style="color:var(--success)">Ouverte</span></div>
+        <div class="sc-ligne"><span>Rappel envoyé le</span><span id="ap_rappel">—</span></div>
+        <div class="sc-ligne"><span>Annulation possible jusqu'au</span><span id="ap_annul">—</span></div>
+        <div class="sc-auto">
+          <div class="sc-auto-t"><i class="ti ti-sparkles" style="font-size:13px"></i>DFM s'en occupe</div>
+          <div class="sc-auto-i"><i class="ti ti-table"></i><span>Création de l'onglet de suivi et de ses 40 colonnes</span></div>
+          <div class="sc-auto-i"><i class="ti ti-list-check"></i><span>Ligne ajoutée dans l'onglet Sessions</span></div>
+          <div class="sc-auto-i"><i class="ti ti-device-floppy"></i><span>Fiche de session enregistrée</span></div>
+        </div>
+        <div class="sc-main">
+          <div class="sc-main-t"><i class="ti ti-hand-click" style="font-size:13px"></i>À faire à la main</div>
+          <div class="sc-main-i"><i class="ti ti-forms"></i><span>Dupliquer le formulaire Google et coller son Sheet de réponses</span></div>
+          <div class="sc-main-i"><i class="ti ti-credit-card"></i><span>Créer le lien de paiement Stripe</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="sc-pied">
+  <div class="sc-pied-g">La session sera immédiatement ouverte aux inscriptions.</div>
+  <div style="display:flex;gap:10px">
+    <a class="btn btn-ghost" href="/sessions">Annuler</a>
+    <button type="button" class="btn sc-ok" onclick="creer(this)" title="Creer la session dans le Sheet et dans DFM"><i class="ti ti-rocket"></i>Créer la session</button>
+  </div>
+</div>
+</form>
+<div class="sc-voile" id="voile"><div class="sc-modale" id="modale"></div></div>
+<script>
+var AP_FONCTIONS = {{ fonctions|tojson }};
+// Duree d'une journee, lue des Parametres : elle apparait sur la convention.
+document.body.setAttribute("data-heures-jour", {{ heures_par_jour|tojson }});
+var AP_N = 0;
+var AP_SUG = {};
+function apLigne(){
+  var i = AP_N++;
+  var opts = AP_FONCTIONS.map(function(f, k){
+    return '<option value="' + f + '"' + (k === 0 ? " selected" : "") + '>' + f + '</option>';
+  }).join("");
+  return '<div class="sc-l" id="ap_l' + i + '">'
+    + '<input type="text" id="ap_nom' + i + '" placeholder="NOM Prénom" autocomplete="off" '
+    + 'oninput="apChercher(' + i + ')">'
+    + '<input type="text" id="ap_mail' + i + '" placeholder="adresse mail" autocomplete="off" '
+    + 'oninput="apChercher(' + i + ')">'
+    + '<select id="ap_fonc' + i + '">' + opts + '</select>'
+    + '<button type="button" class="sc-x" onclick="apRetirer(' + i + ')" title="Retirer">&times;</button>'
+    + '<div id="ap_sug' + i + '"></div></div>';
+}
+function apAjouter(){
+  document.getElementById("sc_appr").insertAdjacentHTML("beforeend", apLigne());
+  apCompter();
+}
+function apRetirer(i){
+  var e = document.getElementById("ap_l" + i);
+  if(e) e.remove();
+  apCompter();
+}
+function apV(id){ var e = document.getElementById(id); return e ? e.value.trim() : ""; }
+function apListe(){
+  var gens = [];
+  document.querySelectorAll("#sc_appr .sc-l").forEach(function(l){
+    var i = l.id.replace("ap_l", "");
+    var nom = apV("ap_nom" + i), mail = apV("ap_mail" + i);
+    if(nom || mail){ gens.push({nom: nom, prenom: "", mail: mail, fonction: apV("ap_fonc" + i)}); }
+  });
+  return gens;
+}
+function apCompter(){
+  var n = apListe().length;
+  var max = parseInt(document.getElementById("places_max") ? document.getElementById("places_max").value : "0", 10) || 0;
+  var c = document.getElementById("sc_compte");
+  if(c) c.textContent = n + (max ? " / " + max + " places" : " saisi(s)");
+  var z = document.getElementById("sc_alerte_appr");
+  // Avertissement, jamais blocage : c'est vous qui savez si le centre a
+  // negocie une place de plus.
+  z.innerHTML = (max && n > max)
+    ? '<div class="sc-trop"><b>' + n + ' apprenants pour ' + max + ' places.</b> '
+      + 'La session sera créée quand même — vérifiez simplement que c\'est voulu.</div>' : "";
+}
+document.addEventListener("click", function(ev){
+  // Sans cela, une liste ouverte par erreur ne se refermait que par un
+  // rechargement de la page.
+  if(ev.target.closest && ev.target.closest(".sc-l")) return;
+  document.querySelectorAll(".sc-sug").forEach(function(x){ x.remove(); });
+});
+var AP_ATTENTE = null;
+function apChercher(i){
+  apCompter();
+  clearTimeout(AP_ATTENTE);
+  AP_ATTENTE = setTimeout(function(){
+    var q = apV("ap_nom" + i) || apV("ap_mail" + i);
+    var z = document.getElementById("ap_sug" + i);
+    if(!z) return;
+    if(q.length < 3){ z.innerHTML = ""; return; }
+    fetch("/contacts/suggestions?q=" + encodeURIComponent(q))
+    .then(function(r){return r.json()}).then(function(j){
+      if(!j.gens || !j.gens.length){ z.innerHTML = ""; return; }
+      // On garde les propositions en memoire et on ne passe qu'un INDEX dans
+      // l'attribut. La version precedente y encodait le JSON complet : les
+      // guillemets internes cassaient l'attribut, le clic ne partait jamais,
+      // et la liste restait ouverte — impasse jusqu'au rechargement.
+      AP_SUG[i] = j.gens;
+      z.innerHTML = '<div class="sc-sug">' + j.gens.map(function(g, k){
+        return '<div onclick="apPrendre(' + i + ',' + k + ')">'
+          + g.affiche + '<small>' + (g.mail || "sans adresse") + '</small></div>';
+      }).join("") + '</div>';
+    });
+  }, 240);
+}
+function apPrendre(i, k){
+  var g = (AP_SUG[i] || [])[k];
+  if(!g) return;
+  document.getElementById("ap_nom" + i).value = g.affiche;
+  document.getElementById("ap_mail" + i).value = g.mail;
+  var f = document.getElementById("ap_fonc" + i);
+  if(f && g.fonction) f.value = g.fonction;
+  document.getElementById("ap_sug" + i).innerHTML = "";
+  apCompter();
+}
+var SC_MANQUES = {{ manques|tojson }};
+var SC_QUEST = {{ questionnaires|tojson }};
+function scQuestionnaires(codeFormation){
+  var el = document.getElementById("sc_quest");
+  if(!el) return;
+  var q = SC_QUEST[codeFormation];
+  // Cette ligne annoncait « pas encore disponibles » en dur, pour toutes les
+  // formations et pour toujours — un vestige de l'epoque ou les questionnaires
+  // n'existaient pas. Elle dit desormais ce qui sera reellement herite.
+  if(q && q.length){
+    el.innerHTML = '<i class="ti ti-clipboard-list" style="color:var(--accent)"></i>'
+      + '<span>' + q.join(" · ") + '</span>';
+  } else if(codeFormation){
+    el.innerHTML = '<i class="ti ti-clipboard-list" style="color:var(--muted)"></i>'
+      + '<span style="color:var(--muted)">Aucun questionnaire sur cette formation — '
+      + 'à définir dans sa fiche</span>';
+  }
+}
+function scMode(m){
+  document.getElementById("mode").value = m;
+  document.querySelectorAll(".sc-m").forEach(function(b){
+    b.className = "sc-m" + (b.getAttribute("data-mode") === m ? " on" : "");
+  });
+  document.getElementById("sc_zone_client").style.display = (m === "client") ? "" : "none";
+  var sf = document.getElementById("sc_sans_forms");
+  if(sf){
+    sf.style.display = (m === "client") ? "" : "none";
+    // Grisee plutot que masquee : cacher un champ laisse croire qu'on l'a
+    // oublie, l'expliquer montre qu'on a decide.
+    document.querySelectorAll(".sc-lien").forEach(function(z){
+      z.style.opacity = (m === "client") ? ".4" : "";
+      z.style.pointerEvents = (m === "client") ? "none" : "";
+    });
+  }
+  var za = document.getElementById("sc_zone_appr");
+  if(za){
+    za.style.display = (m === "client") ? "" : "none";
+    if(m === "client" && !document.querySelector("#sc_appr .sc-l")){
+      for(var k = 0; k < 8; k++){ apAjouter(); }   // huit lignes au depart
+    }
+  }
+  if(m !== "client"){ document.getElementById("client").value = ""; }
+  scClient();
+}
+function scClient(){
+  var sel = document.getElementById("client");
+  var aide = document.getElementById("sc_aide_client");
+  if(!sel || !aide) return;
+  var manque = SC_MANQUES[sel.value];
+  if(sel.value && manque && manque.length){
+    // On previent, on ne bloque pas : la session peut se creer, c'est
+    // l'edition de la convention qui butera plus tard.
+    aide.innerHTML = '<span style="color:var(--warn)">Fiche client incomplète : '
+      + manque.join(", ") + '. La convention ne pourra pas être éditée tant qu\'il manquera '
+      + 'ces informations — <a href="/clients" style="color:var(--accent)">compléter la fiche</a>.</span>';
+  } else if(sel.value){
+    aide.textContent = "La convention et la facture seront établies à son nom.";
+  }
+}
+var MOIS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+var ABR = ["janv","fev","mars","avr","mai","juin","juil","aout","sept","oct","nov","dec"];
+var codeManuel = false;
+function V(id){ var e = document.getElementById(id); return e ? e.value : ""; }
+function T(id, v){ var e = document.getElementById(id); if(e) e.textContent = v; }
+function choisir(el){
+  document.querySelectorAll(".sc-tpl").forEach(function(x){x.classList.remove("on")});
+  el.classList.add("on");
+  document.getElementById("formation").value = el.dataset.code;
+  scQuestionnaires(el.dataset.code);
+  var a = document.getElementById("adresse"), p = document.getElementById("places_max"), t = document.getElementById("tarif");
+  if(el.dataset.adresse){ a.placeholder = el.dataset.adresse; if(!a.value) a.value = el.dataset.adresse; }
+  if(el.dataset.places){ p.placeholder = el.dataset.places; if(!p.value) p.value = el.dataset.places; }
+  if(el.dataset.tarif){ t.placeholder = el.dataset.tarif; if(!t.value) t.value = el.dataset.tarif; }
+  maj();
+}
+function nettoyer(v){ return (v||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,""); }
+function decaler(iso, jours){
+  if(!iso) return "";
+  var d = new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() - jours);
+  return d.getDate() + " " + MOIS[d.getMonth()] + " " + d.getFullYear();
+}
+function codeTape(){ codeManuel = true; maj(); }
+function proposerCode(){
+  if(codeManuel) return;
+  var deb = V("date_debut");
+  if(!deb) return;
+  var d = new Date(deb + "T12:00:00");
+  document.getElementById("code_session").value = ABR[d.getMonth()] + String(d.getFullYear()).slice(2);
+}
+function majLien(el){
+  var w = el.parentNode.parentNode;
+  if(el.value.trim()){ w.classList.add("sc-plein"); w.classList.remove("sc-vide"); }
+  else { w.classList.add("sc-vide"); w.classList.remove("sc-plein"); }
+}
+function maj(){
+  try{
+    var sel = document.querySelector(".sc-tpl.on");
+    var cs = nettoyer(V("code_session"));
+    var _att = sel ? "Saisis le code de session" : "Choisis une formation";
+    T("ap_code", sel && cs ? sel.dataset.code + "-" + cs : _att);
+    T("ap_onglet", sel && cs ? sel.dataset.nom + "-" + cs : _att);
+    T("ap_ref", sel && cs ? (sel.dataset.nom + "-" + cs + "-NOM").toUpperCase() : _att);
+    T("ap_titre", sel ? sel.dataset.titre : "Choisis une formation");
+    T("ap_dates", V("date_texte") || "Dates à définir");
+    var h1 = V("heure_debut"), h2 = V("heure_fin");
+    T("ap_horaires", h1 && h2 ? h1 + " \u2013 " + h2 : "Horaires à définir");
+    T("ap_adresse", V("adresse") || "\u2014");
+    T("ap_places", V("places_max") ? "0 / " + V("places_max") + " inscrits" : "\u2014");
+    T("ap_tarif", V("tarif") ? V("tarif") + " € TTC" : "\u2014");
+    T("ap_rappel", decaler(V("date_debut"), 20) || "\u2014");
+    T("ap_annul", decaler(V("date_debut"), 20) || "\u2014");
+  }catch(err){ console.log("apercu:", err); }
+}
+// Les journees retenues. C'est CETTE liste qui part au serveur ; les deux
+// champs de date ne servent qu'a proposer la periode, puis se recalent sur le
+// premier et le dernier jour reellement retenus.
+var JR_RETENUS = [];
+var JR_JOURS = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
+var JR_MOIS = ["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+
+function jrDate(iso){ var p = iso.split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+function jrIso(d){
+  return d.getFullYear() + "-" + ("0"+(d.getMonth()+1)).slice(-2) + "-" + ("0"+d.getDate()).slice(-2);
+}
+function jrPeriode(deb, fin){
+  var sortie = [], d = jrDate(deb), f = jrDate(fin);
+  while(d <= f){ sortie.push(jrIso(d)); d.setDate(d.getDate()+1); }
+  return sortie;
+}
+function jrTout(actif){
+  var deb = V("date_debut"), fin = V("date_fin");
+  if(!deb || !fin) return;
+  // « Toutes » n'inclut jamais le dimanche : aucune formation ne s'y tient.
+  JR_RETENUS = actif ? jrPeriode(deb, fin).filter(function(x){ return jrDate(x).getDay() !== 0; }) : [];
+  jrRendre();
+}
+function jrBasculer(iso){
+  var i = JR_RETENUS.indexOf(iso);
+  if(i >= 0) JR_RETENUS.splice(i, 1); else JR_RETENUS.push(iso);
+  JR_RETENUS.sort();
+  jrRendre();
+}
+function jrRendre(){
+  var deb = V("date_debut"), fin = V("date_fin");
+  var bloc = document.getElementById("bloc_jours");
+  var grille = document.getElementById("jr_grille");
+  // Champs cachés : un par journée retenue, relus par la route de création.
+  var cache = document.getElementById("jr_cache");
+  if(!cache){
+    cache = document.createElement("div");
+    cache.id = "jr_cache"; cache.style.display = "none";
+    document.getElementById("formulaire").appendChild(cache);
+  }
+  cache.innerHTML = JR_RETENUS.map(function(x){
+    return '<input type="hidden" name="jours" value="' + x + '">'; }).join("");
+
+  if(!deb || !fin || jrPeriode(deb, fin).length <= 2){ bloc.style.display = "none"; jrTexte(); return; }
+  bloc.style.display = "";
+  grille.innerHTML = jrPeriode(deb, fin).map(function(x){
+    var d = jrDate(x), on = JR_RETENUS.indexOf(x) >= 0;
+    return '<div class="jr-j' + (on ? " on" : "") + (d.getDay() === 0 ? " dim" : "")
+      + '" onclick="jrBasculer(\'' + x + '\')" title="' + (d.getDay() === 0 ? "dimanche" : "") + '">'
+      + JR_JOURS[d.getDay()].slice(0,3) + " " + d.getDate()
+      + "<small>" + JR_MOIS[d.getMonth()] + "</small></div>";
+  }).join("");
+  jrTexte();
+}
+function jrTexte(){
+  var n = JR_RETENUS.length;
+  var h = parseFloat(document.body.getAttribute("data-heures-jour") || "7");
+  var c = document.getElementById("jr_compte");
+  if(c) c.textContent = n
+    ? n + " journée" + (n>1?"s":"") + " retenue" + (n>1?"s":"") + " · "
+      + (n*h) + " heures au total (" + h + " h par journée)"
+    : "Aucune journée retenue : cliquez sur celles qui sont travaillées.";
+  // Les bornes se recalent sur la selection : ce sont elles qui figurent sur
+  // la convention, elles ne doivent jamais contredire la liste.
+  if(n){
+    document.getElementById("date_debut").value = JR_RETENUS[0];
+    document.getElementById("date_fin").value = JR_RETENUS[n-1];
+  }
+  var fd = new FormData();
+  JR_RETENUS.forEach(function(x){ fd.append("jours", x); });
+  fd.append("debut", V("date_debut")); fd.append("fin", V("date_fin"));
+  fetch("/apercu-dates", {method:"POST", body:fd}).then(function(r){return r.json()}).then(function(j){
+    if(j.texte) document.getElementById("date_texte").value = j.texte;
+    maj();
+  }).catch(function(){ maj(); });
+}
+function majDates(){
+  var deb = V("date_debut"), fin = V("date_fin");
+  if(deb && !fin){ document.getElementById("date_fin").value = deb; fin = deb; }
+  proposerCode();
+  if(!deb || !fin){ maj(); return; }
+  // Toute la periode est proposee, dimanche exclu : on retire ce qui n'est pas
+  // travaille plutot que d'ajouter un par un.
+  JR_RETENUS = jrPeriode(deb, fin).filter(function(x){ return jrDate(x).getDay() !== 0; });
+  jrRendre();
+}
+function fermer(){ document.getElementById("voile").style.display = "none"; }
+
+function _bCorpsForm(){
+  var f = document.getElementById("formulaire");
+  var d = {};
+  if(!f) return d;
+  f.querySelectorAll("input[name],textarea[name],select[name]").forEach(function(e){
+    if(e.type === "file") return;
+    d[e.name] = (d[e.name] !== undefined ? d[e.name] + "\n" : "") + e.value;
+  });
+  return d;
+}
+function _bRestForm(d){
+  var f = document.getElementById("formulaire");
+  if(!f) return;
+  Object.keys(d).forEach(function(nom){
+    var els = f.querySelectorAll("[name='" + nom + "']");
+    if(!els.length) return;
+    var vals = String(d[nom]).split("\n");
+    if(els.length === 1){ els[0].value = d[nom]; }
+    else { for(var i = 0; i < els.length; i++){ els[i].value = vals[i] || ""; } }
+  });
+}
+setTimeout(function(){
+  dfmBrouillon.installer({cle: "session:nouvelle", serialiser: _bCorpsForm, restaurer: _bRestForm});
+  dfmBrouillon.armer();
+}, 900);
+function creer(bouton){
+  if(!document.getElementById("formation").value){ alert("Choisis d'abord une formation."); return; }
+  bouton.disabled = true;
+  bouton.innerHTML = "<i class=\"ti ti-loader-2\"></i>Création...";
+  fetch("/sessions/nouvelle", {method:"POST", body:new FormData(document.getElementById("formulaire"))})
+  .then(function(r){return r.json()}).then(function(j){
+    bouton.disabled = false;
+    bouton.innerHTML = "<i class=\"ti ti-rocket\"></i>Créer la session";
+    var h = "";
+    if(j.ok){
+      dfmBrouillon.enregistre();
+      var gens = (document.getElementById("mode").value === "client") ? apListe() : [];
+      if(gens.length){
+        var fd = new FormData();
+        fd.append("participants", JSON.stringify(gens));
+        fetch("/session/" + j.code + "/participants", {method:"POST", body:fd})
+        .then(function(r){return r.json()}).then(function(p){
+          var z = document.getElementById("sc_apres");
+          if(z && p.ok){
+            z.innerHTML = '<div class="sc-et"><i class="ti ti-circle-check" style="color:var(--success)"></i>'
+              + '<span>' + p.ajoutes + ' apprenant(s) inscrit(s)'
+              + (p.fiches_creees ? ', ' + p.fiches_creees + ' fiche(s) créée(s) dans la base' : '')
+              + '</span></div>';
+          }
+        });
+      }
+      h += "<div style=\"font-size:16px;font-weight:500;margin-bottom:4px\">Session créée</div>";
+      h += "<div style=\"font-size:13px;color:var(--muted);margin-bottom:16px\">" + j.code + "</div>";
+    } else {
+      h += "<div style=\"font-size:16px;font-weight:500;margin-bottom:16px;color:var(--danger)\">" + (j.message || "Échec") + "</div>";
+    }
+    (j.etapes || []).forEach(function(e){
+      h += "<div class=\"sc-et\"><i class=\"ti " + (e.ok ? "ti-circle-check" : "ti-alert-circle") + "\" style=\"color:" + (e.ok ? "var(--success)" : "var(--danger)") + "\"></i><span>" + e.texte + "</span></div>";
+    });
+    if(j.ok && (j.manquants || []).length){
+      h += "<div class=\"sc-main\" style=\"margin-top:16px\"><div class=\"sc-main-t\"><i class=\"ti ti-hand-click\"></i>Il reste à ajouter</div>";
+      j.manquants.forEach(function(m){ h += "<div class=\"sc-main-i\"><i class=\"ti ti-point\"></i><span>" + m + "</span></div>"; });
+      h += "</div>";
+    }
+    h += "<div style=\"display:flex;gap:10px;justify-content:flex-end;margin-top:20px\">";
+    h += "<button class=\"btn btn-ghost\" onclick=\"fermer()\">Fermer</button>";
+    if(j.ok) h += "<a class=\"btn btn-primary\" href=\"/session/" + j.code + "\">Ouvrir la session</a>";
+    h += "</div>";
+    document.getElementById("modale").innerHTML = h;
+    document.getElementById("voile").style.display = "flex";
+  }).catch(function(e){
+    bouton.disabled = false;
+    bouton.innerHTML = "<i class=\"ti ti-rocket\"></i>Créer la session";
+    alert("Erreur : " + e);
+  });
+}
+document.getElementById("formulaire").addEventListener("input", function(){ maj(); });
+maj();
+var _cs = document.getElementById("code_session");
+if(_cs){ _cs.addEventListener("input", function(){ codeManuel = true; maj(); }); _cs.addEventListener("keyup", function(){ codeManuel = true; maj(); }); }
+maj();
+var _cartes = document.querySelectorAll(".sc-tpl");
+if(_cartes.length === 1){ choisir(_cartes[0]); }
+
+async function scVerifierSheet(input){
+  var z = document.getElementById("sc_verif_sheet");
+  if(!z) return;
+  var v = input.value.trim();
+  if(!v){ z.innerHTML = ""; return; }
+  z.innerHTML = '<span style="color:var(--muted)">Vérification…</span>';
+  var fd = new FormData();
+  fd.append("valeur", v);
+  fd.append("champ", "sheet_reponses");
+  try{
+    var r = await fetch("/verifier-document", {method: "POST", body: fd});
+    var d = await r.json();
+    if(d.ok && !d.alerte){
+      z.innerHTML = '<span style="color:var(--success)">✓ ' + d.nom + ' · ' + d.type + (d.lien ? ' · identifiant extrait du lien' : '') + '</span>'
+                  + ' · <a href="https://drive.google.com/open?id=' + d.id + '" target="_blank" style="color:var(--accent);text-decoration:none">Ouvrir <i class="ti ti-external-link" style="font-size:11px"></i></a>';
+    } else if(d.ok){
+      z.innerHTML = '<span style="color:var(--warn)">' + d.nom + ' · ' + d.type + ' — ' + d.alerte + '</span>';
+    } else {
+      z.innerHTML = '<span style="color:var(--danger)">' + (d.message || "Vérification impossible") + '</span>';
+    }
+  }catch(e){ z.innerHTML = ""; }
+}
+</script>
+{% endblock %}

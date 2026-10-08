@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Dossier — {{ d.nom }}</title>
+<style>
+@page{size:A4;margin:14mm}
+*{box-sizing:border-box}
+body{margin:0;background:#f4f5f8;color:#1a1d2e;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.55;font-size:13px}
+.page{max-width:780px;margin:0 auto;background:#fff;padding:36px 42px 50px}
+.entete{border-bottom:2px solid #1a1d2e;padding-bottom:15px;margin-bottom:22px}
+.org{font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:#6b7280}
+h1{font-size:22px;margin:9px 0 3px;font-weight:600}
+.sous{font-size:13.5px;color:#3d4250}
+.meta{display:flex;gap:22px;margin-top:12px;font-size:11.5px;color:#5b6172;flex-wrap:wrap}
+h2{font-size:11.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:#6b7280;margin:26px 0 12px;padding-bottom:5px;border-bottom:1px solid #e5e8f0}
+.note{background:#f7f8fb;border-left:3px solid #d1d5e0;padding:11px 14px;font-size:11.5px;color:#5b6172;margin-bottom:14px}
+.manque{background:#fff8ec;border-left:3px solid #e08a1e;padding:11px 14px;font-size:12px;color:#8a5a12;margin-bottom:14px}
+.complet{background:#f0faf6;border-left:3px solid #0f9e6a;padding:11px 14px;font-size:12px;color:#0f6e56;margin-bottom:14px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+td{padding:7px 0;border-bottom:1px solid #eef0f5;vertical-align:top}
+tr:last-child td{border-bottom:none}
+.droite{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;color:#5b6172}
+a{color:#2a5fd6}
+.q{border-left:3px solid #d1d5e0;padding:2px 0 2px 14px;margin-bottom:15px;page-break-inside:avoid}
+.q-n{font-size:10px;color:#8a90a2;text-transform:uppercase;letter-spacing:.5px}
+.q-t{font-size:14px;font-weight:600;margin:3px 0 3px}
+.q-d{font-size:11.5px;color:#6b7280}
+.rep{font-size:12.5px;margin:6px 0 0;padding-left:2px}
+.rep b{font-weight:600}
+.vide{color:#8a90a2;font-style:italic}
+.libre{background:#f7f8fb;border-radius:6px;padding:9px 12px;font-size:12.5px;margin-top:5px;white-space:pre-wrap}
+.axe{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:#8a90a2;padding-top:14px}
+.ouvrir{font-weight:600;white-space:nowrap}
+/* LA BARRE D'ACCES AUX QUESTIONNAIRES. Ces liens etaient une phrase grise au
+   milieu d'un paragraphe : introuvables. Un auditeur qui demande a voir un
+   questionnaire ne doit pas avoir a chercher — d'ou des boutons pleins, en
+   haut de page, avant meme les pieces contractuelles. */
+.acces{border:1px solid #d7dcea;background:#f7f9fe;border-radius:10px;padding:14px 16px;margin-bottom:20px}
+.acces-t{font-size:12px;font-weight:600;color:#1a1d2e;margin-bottom:3px}
+.acces-s{font-size:11.5px;color:#5b6172;margin-bottom:11px}
+.acces-b{display:flex;flex-wrap:wrap;gap:9px}
+.acces-b a{display:inline-flex;align-items:center;gap:7px;background:#2a5fd6;color:#fff;
+  text-decoration:none;font-size:12.5px;font-weight:600;padding:9px 15px;border-radius:8px;
+  line-height:1.25}
+.acces-b a .fl{font-size:15px;line-height:1;opacity:.85}
+.pastille{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;margin-left:6px}
+.p-ok{background:#eafaf3;color:#0f9e6a}
+.p-att{background:#fdf2e2;color:#a06a14}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 14px}
+.bloc{border:1px solid #e5e8f0;border-radius:8px;padding:13px 12px;text-align:center}
+.bloc-l{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px}
+.bloc-v{font-size:26px;font-weight:600;line-height:1.2;margin-top:3px;font-variant-numeric:tabular-nums}
+.vert{color:#0f9e6a}.gris{color:#6b7280}
+.pied{margin-top:30px;padding-top:13px;border-top:1px solid #e5e8f0;font-size:10px;color:#8a90a2;line-height:1.7}
+.imprimer{position:fixed;top:16px;right:16px;background:#4f7ef8;color:#fff;border:none;border-radius:8px;padding:11px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 3px 12px rgba(0,0,0,.18)}
+@media print{.imprimer{display:none}body{background:#fff}.page{padding:0;max-width:none}h2{page-break-after:avoid}a{color:#1a1d2e;text-decoration:none}
+  /* A l'impression, ces boutons sont de la navigation : ils deviennent une
+     simple mention de ce qui existe a cote, sans couleur ni pave bleu. */
+  .acces{background:#fff;border-color:#e5e8f0}
+  .acces-b a{background:none;color:#1a1d2e;border:1px solid #d1d5e0;padding:5px 10px;font-weight:500}
+  .acces-b a .fl{display:none}}
+</style>
+</head>
+<body>
+<button class="imprimer" onclick="window.print()">Imprimer ou enregistrer en PDF</button>
+<div class="page">
+
+  <div class="entete">
+    <div class="org">{{ marque }}{% if organisme %} · {{ organisme }}{% endif %}</div>
+    <h1>{{ d.nom }}</h1>
+    <div class="sous">{{ d.session.titre_complet or d.session.nom_formation }}</div>
+    <div class="meta">
+      <span>{{ d.mail }}</span>
+      {% if d.fonction %}<span>{{ d.fonction }}</span>{% endif %}
+      {% if d.session.date_texte %}<span>{{ d.session.date_texte }}</span>{% endif %}
+      {% if d.session.lieu %}<span>{{ d.session.lieu }}</span>{% endif %}
+    </div>
+  </div>
+
+  {% if d.manques %}
+  <div class="manque"><b>Dossier incomplet.</b> Il manque&nbsp;: {{ d.manques|join(', ') }}.
+    Ces pièces sont attendues en contrôle&nbsp;; leur absence ici signifie qu'elles
+    n'existent pas encore dans DFM, pas qu'elles ont été perdues.</div>
+  {% else %}
+  <div class="complet"><b>Dossier complet.</b> Convention signée, évaluations d'entrée
+    et de sortie, satisfaction et attestation sont réunies.</div>
+  {% endif %}
+
+  {% if d.pieces %}
+  <div class="acces">
+    <div class="acces-t">Voir les questionnaires remplis</div>
+    <div class="acces-s">Chaque énoncé, la réponse cochée, la réponse attendue&nbsp;— tel que
+      cette personne l'a rempli. Chaque page s'imprime séparément.</div>
+    <div class="acces-b">
+      {% for p in d.pieces %}
+      <a href="{{ p.lien }}" target="_blank" rel="noopener"><span class="fl">&rarr;</span>{{ p.libelle }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <h2>Pièces contractuelles et administratives</h2>
+  {% if d.documents %}
+  <table>
+    {% for x in d.documents %}
+    <tr>
+      <td><a href="{{ x.lien }}" target="_blank" rel="noopener">{{ x.quoi }}</a></td>
+      <td class="droite">{{ x.quand or '—' }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="note">Aucun document produit pour cette personne.</div>
+  {% endif %}
+
+  {% for p in d.pieces %}
+    {% if p.quoi == 'evaluation' and p.detail %}
+    <h2>{{ p.libelle }}</h2>
+    <div class="trio">
+      <div class="bloc"><div class="bloc-l">Score</div>
+        <div class="bloc-v {{ 'vert' if p.score and p.score >= 70 else 'gris' }}">{{ p.score }}<span style="font-size:15px">%</span></div></div>
+      <div class="bloc"><div class="bloc-l">Réponses justes</div>
+        <div class="bloc-v gris">{{ p.detail.justes }}<span style="font-size:15px">/{{ p.detail.questions }}</span></div></div>
+      <div class="bloc"><div class="bloc-l">Passé le</div>
+        <div class="bloc-v gris" style="font-size:15px;padding-top:8px">{{ p.quand }}</div></div>
+    </div>
+    {% if p.detail.objectifs %}
+    <table>
+      {% for cle, texte in p.detail.objectifs|dictsort %}
+      <tr>
+        <td><b>{{ cle }}</b> — {{ texte }}</td>
+        <td class="droite">{{ p.detail.par_objectif.get(cle, '—') }}{% if p.detail.par_objectif.get(cle) is not none %}%{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+    <div class="note"><a class="ouvrir" href="{{ p.lien }}" target="_blank">Consulter
+      le questionnaire rempli</a> — chaque énoncé, la réponse cochée, la réponse
+      attendue.{% if d.recap %} Le <a href="{{ d.recap }}" target="_blank">récapitulatif
+      pédagogique</a>, remis à l'apprenant, compare l'entrée et la sortie sur une
+      même page.{% endif %}</div>
+
+    {% elif p.detail %}
+    <h2>{{ p.libelle }}</h2>
+    <div class="note">Rempli le {{ p.quand }}.
+      {% if p.detail.moyenne is not none %}Moyenne des notes&nbsp;:
+      <b>{{ p.detail.moyenne }}/{{ p.detail.sur }}</b>.{% endif %}
+      <a class="ouvrir" href="{{ p.lien }}" target="_blank">Consulter le questionnaire
+      rempli</a> sur sa propre page, imprimable.</div>
+    <table>
+      {% set ns = namespace(axe='') %}
+      {% for n in p.detail.notes %}
+        {% if n.axe and n.axe != ns.axe %}
+        <tr><td colspan="2" class="axe" style="border-bottom:none">{{ n.axe }}</td></tr>
+        {% set ns.axe = n.axe %}
+        {% endif %}
+      <tr>
+        <td>{{ n.libelle }}</td>
+        <td class="droite">{% if n.sans_reponse %}<span class="vide">sans réponse</span>
+          {% else %}<b>{{ n.note }}</b>/{{ p.detail.sur }}{% endif %}</td>
+      </tr>
+      {% endfor %}
+      {% if p.detail.recommandation %}
+      <tr>
+        <td>{{ p.detail.recommandation.libelle }}</td>
+        <td class="droite">{% if p.detail.recommandation.sans_reponse %}<span class="vide">sans réponse</span>
+          {% else %}<b>{{ p.detail.recommandation.note }}</b>/10{% endif %}</td>
+      </tr>
+      {% endif %}
+    </table>
+
+    {% if p.detail.adaptation %}
+    <div class="q" style="border-color:#2a5fd6;margin-top:16px">
+      <div class="q-n">Accessibilité — indicateur 26</div>
+      <div class="q-t">{{ p.detail.adaptation.libelle }}</div>
+      <div class="rep">{% if p.detail.adaptation.sans_reponse %}<span class="vide">Sans réponse</span>
+        {% else %}<b>{{ p.detail.adaptation.repondu }}</b>{% endif %}</div>
+    </div>
+    {% endif %}
+
+    {% for o in p.detail.ouvertes %}
+    <div style="margin-top:14px;page-break-inside:avoid">
+      <div class="q-d">{{ o.libelle }}</div>
+      {% if o.sans_reponse %}<div class="libre vide">Sans réponse</div>
+      {% else %}<div class="libre">{{ o.repondu }}</div>{% endif %}
+    </div>
+    {% endfor %}
+
+    {% else %}
+    <h2>{{ p.libelle }}</h2>
+    <div class="note">Rempli le {{ p.quand }}. Le modèle de questionnaire utilisé
+      n'a pas pu être retrouvé&nbsp;: les réponses sont restituées telles qu'elles
+      ont été enregistrées.</div>
+    <table>
+      {% for k, v in (p.brut or {})|dictsort %}
+      <tr><td>{{ k }}</td><td class="droite">{{ v }}</td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+  {% endfor %}
+
+  {% if not d.pieces %}
+  <h2>Questionnaires</h2>
+  <div class="note">Aucun questionnaire rempli par cette personne pour cette session.</div>
+  {% endif %}
+
+  <div class="pied">
+    Dossier édité le {{ edite }} depuis DFM — il rassemble des pièces existantes
+    et n'en crée aucune.<br>
+    {% if d.fige %}Les questionnaires ont été figés à la préparation de la session&nbsp;:
+    les modèles restitués ici sont ceux qui ont réellement servi.
+    {% else %}Aucun instantané n'a été figé pour cette session&nbsp;: les modèles
+    restitués sont ceux de la bibliothèque, susceptibles d'avoir évolué depuis.{% endif %}<br>
+    Session {{ d.code }} · {{ marque }}
+  </div>
+</div>
+</body>
+</html>

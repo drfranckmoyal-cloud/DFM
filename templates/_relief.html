@@ -1,0 +1,56 @@
+{# ====================== LE RELIEF DES CARTES ==========================
+   UN SEUL ENDROIT POUR QUATRE ECRANS. Ce style est ne dans session.html le
+   04/10/2026, puis demande sur les sessions, la bibliotheque de formations et
+   l'ecran de modification d'une formation. Le recopier quatre fois aurait
+   garanti qu'il diverge : il vit ici, et chaque page qui le veut l'inclut par
+   « {% include "_relief.html" %} ». Les ecrans qui ne l'incluent pas gardent
+   l'ancienne presentation — rien n'est impose a tout DFM.
+
+   LE DEFAUT CORRIGE. Les cartes etaient du blanc (#fff) sur un fond presque
+   blanc (#f8f9fc), separees par un trait d'un pixel : rien n'isolait les parties
+   d'une page qui en compte sept. Trois leviers agissent ensemble, et aucun ne
+   suffit seul — le fond descend d'un ton, l'ombre prend trois couches, et l'air
+   entre les blocs passe de 14 a 18 pixels. #}
+<style>
+/* 1. LE FOND DESCEND D'UN TON. Une ombre ne cree pas du relief toute seule : il
+      faut que la carte soit plus claire que ce qui l'entoure. */
+body{background:#e9ecf4}
+html[data-sombre] body{background:#0f1219}
+
+/* 2. TROIS COUCHES D'OMBRE, pas une. La premiere dessine l'arete, la deuxieme
+      donne l'epaisseur, la troisieme pose la carte sur le fond. C'est la
+      difference entre un trait et un volume. */
+.table-wrap, .panel, .fcard, .kpi, .kpi-mini,
+.cl-prog, .cl-liste, .session-hero, .carte-emargement{
+  border:1px solid rgba(26,29,46,.07);
+  border-radius:14px;
+  box-shadow:0 1px 3px rgba(20,24,40,.07),
+             0 6px 14px -4px rgba(20,24,40,.10),
+             0 24px 44px -22px rgba(20,24,40,.26);
+}
+html[data-sombre] .table-wrap, html[data-sombre] .panel,
+html[data-sombre] .fcard, html[data-sombre] .kpi, html[data-sombre] .kpi-mini,
+html[data-sombre] .cl-prog, html[data-sombre] .cl-liste,
+html[data-sombre] .session-hero, html[data-sombre] .carte-emargement{
+  background:#20242f;
+  border-color:rgba(255,255,255,.06);
+  box-shadow:0 1px 3px rgba(0,0,0,.5),
+             0 6px 14px -4px rgba(0,0,0,.55),
+             0 24px 44px -22px rgba(0,0,0,.95);
+}
+/* Une carte qui se survole se souleve un peu plus : le relief sert aussi a dire
+   qu'elle est cliquable. */
+.fcard:hover{box-shadow:0 2px 5px rgba(20,24,40,.09),
+                        0 10px 22px -6px rgba(20,24,40,.16),
+                        0 30px 54px -24px rgba(20,24,40,.30)}
+
+/* 3. DE L'AIR ENTRE LES BLOCS. A quatorze pixels, deux ombres se touchent et les
+      cartes se relisent comme une seule. */
+.table-wrap, .panel, .cl-prog, .cl-liste{margin-bottom:18px}
+.kpi-row{gap:16px;margin-bottom:22px}
+
+/* L'en-tete d'une carte prend un fond tenu : on voit ou commence un bloc sans
+   avoir a lire son titre. */
+.table-wrap > div:first-child:not(.table-scroll){background:var(--card2)}
+html[data-sombre] .table-wrap > div:first-child:not(.table-scroll){background:#262b38}
+</style>

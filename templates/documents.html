@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+{% block titre %}Documents{% endblock %}
+{% block entete %}<i class="ti ti-folders" style="color:var(--accent);vertical-align:-3px;margin-right:6px"></i>Documents{% endblock %}
+{% block sous_entete %}Tout ce que DFM détient pour {{ inv.marque }} — déposez, remplacez, retirez{% endblock %}
+{% block corps %}
+<style>
+/* UN SEUL ENDROIT POUR REGARDER. DFM rangeait ses documents par PROVENANCE :
+   un programme là où l'écran Formation savait écrire, un logo là où l'écran
+   Profil savait écrire. Six endroits pour déposer, aucun pour regarder.
+   Cet écran ne déplace rien — il regarde partout. */
+.dc-k{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:18px}
+.dc-kc{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:15px 17px}
+.dc-kc.att{border-left:3px solid var(--warn)}
+.dc-kc.ok{border-left:3px solid var(--success)}
+.dc-kl{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.dc-kv{font-size:26px;font-weight:500;line-height:1.2;margin-top:5px;font-variant-numeric:tabular-nums}
+.dc-ks{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.45}
+
+.dc-s{margin-bottom:22px}
+.dc-st{display:flex;align-items:center;gap:10px;margin:0 0 11px}
+.dc-si{width:30px;height:30px;border-radius:8px;background:rgba(79,126,248,.12);color:var(--accent);
+  display:flex;align-items:center;justify-content:center;font-size:16px;flex:none}
+.dc-sn{font-size:15px;font-weight:600}
+.dc-sa{font-size:11.5px;color:var(--muted)}
+
+.dc-c{background:var(--carte);border:1px solid var(--border);border-radius:12px;overflow:hidden;
+  margin-bottom:11px}
+.dc-ct{display:flex;align-items:baseline;gap:10px;padding:12px 17px;border-bottom:1px solid var(--border);
+  flex-wrap:wrap}
+.dc-cn{font-size:13.5px;font-weight:600}
+.dc-cd{font-size:11.5px;color:var(--muted);flex:1;min-width:0}
+
+/* UNE LIGNE PAR DOCUMENT. La vignette à gauche, ce qu'il est au milieu, les
+   gestes à droite. Une ligne vide est une CIBLE : on y dépose. */
+.dc-l{display:flex;align-items:center;gap:13px;padding:11px 17px;border-top:1px solid var(--border)}
+.dc-l:first-child{border-top:0}
+.dc-l.survol{background:rgba(79,126,248,.07)}
+.dc-l.survol *{pointer-events:none}
+.dc-v{width:42px;height:54px;flex:none;border:1px solid var(--border);border-radius:6px;overflow:hidden;
+  background:var(--bg);display:flex;align-items:center;justify-content:center;position:relative}
+.dc-v img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+.dc-v i{font-size:17px;color:var(--muted)}
+.dc-v.vide{border-style:dashed}
+.dc-x{flex:1;min-width:0}
+.dc-n{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dc-n a{color:inherit;text-decoration:none;border-bottom:1px solid transparent}
+.dc-n a:hover{border-bottom-color:currentColor}
+.dc-m{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.45}
+.dc-e{font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap;flex:none}
+.dc-e.local{background:rgba(15,158,106,.14);color:var(--success)}
+.dc-e.drive{background:rgba(212,137,10,.16);color:#a06a14}
+.dc-e.absent{background:var(--card2);color:var(--muted);border:1px dashed var(--border2)}
+.dc-b{display:flex;gap:6px;flex:none}
+.dc-bt{border:1px solid var(--border2);background:var(--carte);color:var(--muted);border-radius:7px;
+  padding:5px 10px;font-size:11.5px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.dc-bt:hover{border-color:var(--accent);color:var(--accent)}
+.dc-bt.dan:hover{border-color:var(--danger);color:var(--danger)}
+
+.dc-p{display:flex;flex-wrap:wrap;gap:7px;padding:11px 17px;border-top:1px solid var(--border)}
+.dc-pi{display:flex;align-items:center;gap:7px;font-size:12px;background:var(--bg);
+  border:1px solid var(--border);border-radius:8px;padding:5px 10px}
+.dc-pi a{color:inherit;text-decoration:none}
+.dc-pi a:hover{text-decoration:underline}
+.dc-vide{font-size:12.5px;color:var(--muted);padding:13px 17px;font-style:italic}
+.dc-etat{font-size:12px;color:var(--muted);margin-top:8px;min-height:16px}
+@media(max-width:620px){ .dc-l{flex-wrap:wrap} .dc-b{width:100%;justify-content:flex-end} }
+</style>
+
+<div class="dc-k">
+  <div class="dc-kc ok">
+    <div class="dc-kl">Sur cet ordinateur</div>
+    <div class="dc-kv">{{ resume.local }}</div>
+    <div class="dc-ks">Lisibles sans réseau, sauvegardés avec DFM.</div>
+  </div>
+  <div class="dc-kc {{ 'att' if resume.drive else '' }}">
+    <div class="dc-kl">Seulement dans le Drive</div>
+    <div class="dc-kv {{ 'orange' if resume.drive else '' }}">{{ resume.drive }}</div>
+    <div class="dc-ks">{% if resume.drive %}Une convocation partirait sans elles.
+      Lancez « DFM - Rapatrier les pieces » sur votre bureau.{% else %}Rien ne dépend plus de Google.{% endif %}</div>
+  </div>
+  <div class="dc-kc {{ 'att' if resume.manque else '' }}">
+    <div class="dc-kl">Manquants</div>
+    <div class="dc-kv {{ 'orange' if resume.manque else '' }}">{{ resume.manque }}</div>
+    <div class="dc-ks">{% if resume.manque %}Déposez-les ci-dessous.{% else %}Rien ne manque.{% endif %}</div>
+  </div>
+</div>
+
+{# ------------------------------------------------------------ L'ORGANISME #}
+<div class="dc-s">
+  <div class="dc-st"><div class="dc-si"><i class="ti ti-building"></i></div>
+    <div><div class="dc-sn">{{ inv.marque }}</div>
+      <div class="dc-sa">Ces pièces appartiennent à cette entité juridique et à elle seule.</div></div></div>
+
+  <div class="dc-c">
+    {% for p in inv.pieces_organisme %}
+    {{ ligne(p) }}
+    {% endfor %}
+  </div>
+
+  <div class="dc-c">
+    <div class="dc-ct"><span class="dc-cn">Images d'identité</span>
+      <span class="dc-cd">Déposées depuis la fiche de l'organisme.</span>
+      <a class="dc-bt" href="/profil">Ouvrir la fiche</a></div>
+    <div class="dc-p">
+      {% for i in inv.images %}
+      <span class="dc-pi">
+        <i class="ti {{ 'ti-photo-check' if i.etat == 'local' else 'ti-photo-off' }}"
+           style="color:{{ 'var(--success)' if i.etat == 'local' else 'var(--muted)' }}"></i>
+        {{ i.libelle }}{% if i.etat != 'local' %} — absent{% endif %}</span>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{# ------------------------------------------------------------ LES FORMATIONS #}
+<div class="dc-s">
+  <div class="dc-st"><div class="dc-si"><i class="ti ti-books"></i></div>
+    <div><div class="dc-sn">Formations</div>
+      <div class="dc-sa">Communes à vos organismes : leur programme l'est aussi.</div></div></div>
+
+  {% for f in inv.formations %}
+  <div class="dc-c" {% if f.couleur %}style="border-left:3px solid {{ f.couleur }}"{% endif %}>
+    <div class="dc-ct"><span class="dc-cn">{{ f.nom }}</span>
+      <span class="dc-cd">{{ f.titre }}</span>
+      <a class="dc-bt" href="/formation/{{ f.code }}/modifier">Ouvrir la fiche</a></div>
+    {% for p in f.pieces %}
+    {{ ligne(p) }}
+    {% endfor %}
+    <div class="dc-ct" style="border-top:1px solid var(--border);border-bottom:0">
+      <span class="dc-cn" style="font-size:12px">Pièces jointes à la convocation</span>
+      <span class="dc-cd">Envoyées à J-20 avec les horaires.</span>
+      <button class="dc-bt" onclick="dcChoisir('convocation','{{ f.code }}',null)">
+        <i class="ti ti-plus"></i>Ajouter</button></div>
+    {% for p in f.convocation %}
+    {{ ligne(p, true) }}
+    {% else %}
+    <div class="dc-vide">Aucune pièce jointe à la convocation.</div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="dc-c"><div class="dc-vide">Aucune formation dans la bibliothèque.</div></div>
+  {% endfor %}
+</div>
+
+{# ------------------------------------------------------------ LES FORMATEURS #}
+<div class="dc-s">
+  <div class="dc-st"><div class="dc-si"><i class="ti ti-users"></i></div>
+    <div><div class="dc-sn">Formateurs</div>
+      <div class="dc-sa">Ce qui prouve leur compétence — indicateur 21.</div></div></div>
+  <div class="dc-c">
+    {% for g in inv.formateurs %}
+    <div class="dc-l">
+      <div class="dc-v {{ 'vide' if not g.cv }}">
+        {% if g.cv %}<img src="/formateur/{{ g.id }}/vignette?ref={{ g.cv.ref|urlencode }}"
+             alt="" onerror="this.remove()">{% else %}<i class="ti ti-user"></i>{% endif %}</div>
+      <div class="dc-x"><div class="dc-n">{{ g.nom }}</div>
+        <div class="dc-m">
+          {% if g.manques %}{{ g.manques|join(" et ") }} manquant{{ "s" if g.manques|length > 1 }}
+          {% else %}CV et diplôme déposés{% endif %}
+          {%- if g.autres %} · {{ g.autres|length }} pièce(s) complémentaire(s){% endif %}</div></div>
+      <span class="dc-e {{ 'absent' if g.manques else 'local' }}">
+        {{ "Incomplet" if g.manques else "Complet" }}</span>
+      <div class="dc-b"><a class="dc-bt" href="/formateur/{{ g.id }}?de=documents">Ouvrir la fiche</a></div>
+    </div>
+    {% else %}
+    <div class="dc-vide">Aucun formateur enregistré pour cet organisme.</div>
+    {% endfor %}
+  </div>
+</div>
+
+{# ------------------------------------------------------- CE QUE DFM A PRODUIT #}
+<div class="dc-s">
+  <div class="dc-st"><div class="dc-si"><i class="ti ti-file-stack"></i></div>
+    <div><div class="dc-sn">Produits par DFM</div>
+      <div class="dc-sa">Conventions, factures, attestations, émargements. Ils ne se déposent pas :
+        ils se fabriquent.</div></div></div>
+  {% for s in inv.produits %}
+  <div class="dc-c">
+    <div class="dc-ct"><span class="dc-cn">{{ s.titre }}</span><span class="dc-cd">{{ s.session }}</span></div>
+    <div class="dc-p">
+      {% for c in s.categories %}{% for x in c.fichiers %}
+      <span class="dc-pi"><i class="ti ti-file-type-pdf" style="color:var(--danger)"></i>
+        <a href="/document?ref={{ x.ref|urlencode }}" target="_blank" rel="noopener">{{ x.nom }}</a></span>
+      {% endfor %}{% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="dc-c"><div class="dc-vide">Aucun document produit pour cet organisme.</div></div>
+  {% endfor %}
+</div>
+
+{# --------------------------------------------------------------- LA VEILLE #}
+{% if inv.veille %}
+<div class="dc-s">
+  <div class="dc-st"><div class="dc-si"><i class="ti ti-radar"></i></div>
+    <div><div class="dc-sn">Justificatifs de veille</div>
+      <div class="dc-sa">Déposés depuis les écrans Veilles — critère 6.</div></div></div>
+  <div class="dc-c">
+    {% for v in inv.veille %}
+    <div class="dc-l"><div class="dc-v"><i class="ti ti-file-check"></i></div>
+      <div class="dc-x"><div class="dc-n">{{ v.axe }}</div>
+        <div class="dc-m">{{ v.nombre }} justificatif(s)</div></div>
+      <div class="dc-b"><a class="dc-bt" href="/veilles">Ouvrir</a></div></div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="dc-etat" id="dc_etat"></div>
+
+<input type="file" id="dc_fichier" style="display:none" onchange="dcEnvoyer(this.files)">
+
+<script>
+var DC_CIBLE = null;
+
+function dcChoisir(cle, porteur, ref){
+  DC_CIBLE = {cle: cle, porteur: porteur, ref: ref || ""};
+  document.getElementById("dc_fichier").click();
+}
+
+function dcEnvoyer(fichiers){
+  var f = fichiers && fichiers[0];
+  document.getElementById("dc_fichier").value = "";
+  if(!f || !DC_CIBLE) return;
+  var etat = document.getElementById("dc_etat");
+  etat.textContent = "Dépôt de " + f.name + "…";
+  var fd = new FormData();
+  fd.append("doc", f);
+  fd.append("cle", DC_CIBLE.cle);
+  fd.append("porteur", DC_CIBLE.porteur);
+  fetch("/documents/deposer", {method: "POST", body: fd})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d.ok){ etat.textContent = d.message || "Dépôt impossible."; return; }
+      etat.textContent = "Déposé.";
+      window.location.reload();
+    })
+    .catch(function(e){ etat.textContent = "Erreur : " + e; });
+}
+
+function dcRetirer(cle, porteur, ref, libelle){
+  if(!confirm("Retirer « " + libelle + " » ?\n\n"
+            + "Le document est détaché de sa fiche et déplacé dans "
+            + "documents/_corbeille. DFM ne détruit rien.")) return;
+  var fd = new FormData();
+  fd.append("cle", cle); fd.append("porteur", porteur); fd.append("ref", ref || "");
+  fetch("/documents/retirer", {method: "POST", body: fd})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d.ok){ document.getElementById("dc_etat").textContent = d.message || ""; return; }
+      window.location.reload();
+    });
+}
+
+/* LE GLISSER-DEPOSER SUR CHAQUE LIGNE. Une ligne vide est une cible, une ligne
+   pleine aussi — y lâcher un fichier remplace la pièce. Le retour visuel est
+   indispensable : sans lui on ne sait pas si lâcher ici fera quelque chose. */
+(function(){
+  Array.prototype.forEach.call(document.querySelectorAll(".dc-l[data-cle]"), function(z){
+    ["dragenter","dragover"].forEach(function(e){
+      z.addEventListener(e, function(ev){ ev.preventDefault(); z.classList.add("survol"); }); });
+    ["dragleave","drop"].forEach(function(e){
+      z.addEventListener(e, function(ev){ ev.preventDefault(); z.classList.remove("survol"); }); });
+    z.addEventListener("drop", function(ev){
+      var f = ev.dataTransfer && ev.dataTransfer.files;
+      if(!f || !f.length) return;
+      if(f.length > 1){
+        document.getElementById("dc_etat").textContent =
+          "Un seul fichier par ligne : le premier a été pris.";
+      }
+      DC_CIBLE = {cle: z.getAttribute("data-cle"), porteur: z.getAttribute("data-porteur"), ref: ""};
+      dcEnvoyer([f[0]]);
+    });
+  });
+})();
+</script>
+{% endblock %}
+
+{% macro ligne(p, multiple=false) %}
+<div class="dc-l" data-cle="{{ p.cle }}" data-porteur="{{ p.porteur }}">
+  <div class="dc-v {{ 'vide' if p.etat != 'local' }}">
+    {% if p.etat == 'local' and p.ref %}
+    <img src="/document/vignette?ref={{ p.ref|urlencode }}" alt=""
+         onerror="this.parentNode.innerHTML='<i class=\'ti ti-file\'></i>'">
+    {% elif p.etat == 'drive' %}<i class="ti ti-cloud-off"></i>
+    {% else %}<i class="ti ti-file-plus"></i>{% endif %}
+  </div>
+  <div class="dc-x">
+    <div class="dc-n">
+      {% if p.etat == 'local' and p.ref %}
+      <a href="/document?ref={{ p.ref|urlencode }}" target="_blank" rel="noopener">{{ p.nom or p.libelle }}</a>
+      {% else %}{{ p.libelle }}{% endif %}
+    </div>
+    <div class="dc-m">
+      {% if p.etat == 'local' %}{{ p.libelle }}{% if p.poids %} · {{ p.poids }}{% endif %}{% if p.quand %} · {{ p.quand }}{% endif %}
+      {% elif p.etat == 'drive' %}Hébergé dans le Drive, aucune copie ici. {{ p.aide }}
+      {% else %}{{ p.aide }}{% endif %}
+    </div>
+  </div>
+  <span class="dc-e {{ p.etat }}">
+    {% if p.etat == 'local' %}Sur cet ordinateur
+    {% elif p.etat == 'drive' %}Seulement dans le Drive
+    {% else %}Absent{% endif %}</span>
+  <div class="dc-b">
+    <button class="dc-bt" onclick="dcChoisir('{{ p.cle }}','{{ p.porteur }}',null)">
+      <i class="ti ti-upload"></i>{{ "Remplacer" if p.etat == 'local' else "Déposer" }}</button>
+    {% if p.valeur %}
+    <button class="dc-bt dan" onclick="dcRetirer('{{ p.cle }}','{{ p.porteur }}','{{ p.valeur }}','{{ p.libelle }}')">
+      <i class="ti ti-x"></i></button>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}

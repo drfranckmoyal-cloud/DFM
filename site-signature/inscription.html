@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inscription à une formation</title>
+<style>
+  /* --------------------------------------------------------------------
+     Cette page est vue par des gens qui HESITENT ENCORE. Les cinq autres
+     pages du site s'adressent a des inscrits ; celle-ci doit inspirer
+     confiance avant de demander un nom et un telephone. D'ou le bandeau
+     porteur du logo, l'espace, et la lisibilite avant la densite.
+     -------------------------------------------------------------------- */
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --encre:#151a29; --encre2:#5b6479; --gris:#8a90a2;
+    --bleu:#2f56b5; --bleu-vif:#4f7ef8; --bleu-pale:#f4f7fe; --bleu-trait:#dbe4f8;
+    --trait:#e2e7f1; --vert:#0f9e6a; --rouge:#c0392f; --ambre:#8a5a06;
+  }
+  body{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,sans-serif;
+    background:#eceff6;color:var(--encre);line-height:1.55;
+    display:flex;justify-content:center;padding:24px 16px 56px;-webkit-font-smoothing:antialiased}
+  .card{background:#fff;border-radius:18px;box-shadow:0 2px 6px rgba(30,34,53,.05),0 18px 48px -22px rgba(30,34,53,.3);
+    max-width:560px;width:100%;overflow:hidden;
+    /* min-width:0 : PRECAUTION, pas correction. « body » est un conteneur flex,
+       et un element flex vaut par defaut min-width:auto — il refuse alors de
+       retrecir sous la largeur minimale de son contenu. Aucun debordement n'a
+       ete constate (scrollWidth mesure egal a la fenetre de 500 a 1200 px),
+       mais un descriptif contenant une adresse tres longue pourrait en creer un. */
+    min-width:0}
+
+  /* --- bandeau d'identite --- */
+  .entete{padding:30px 30px 26px;text-align:center;border-bottom:1px solid var(--trait);
+    background:linear-gradient(180deg,var(--bleu-pale) 0%,#fff 100%)}
+  .logo{max-height:62px;max-width:210px;margin:0 auto 14px;display:block}
+  .marque{font-size:19px;font-weight:600;letter-spacing:-.01em}
+  .accroche{font-size:11.5px;color:var(--gris);text-transform:uppercase;
+    letter-spacing:1.1px;margin-top:5px}
+  .corps{padding:26px 30px 30px}
+
+  h1{font-size:21px;font-weight:600;letter-spacing:-.015em;margin-bottom:7px}
+  .sub{font-size:13.5px;color:var(--encre2);margin-bottom:22px}
+
+  /* --- descriptif de la formation --- */
+  .descriptif{background:var(--bleu-pale);border:1px solid var(--bleu-trait);
+    border-radius:12px;padding:17px 19px;margin-bottom:24px;display:none}
+  .descriptif h2{font-size:11px;font-weight:700;color:var(--bleu);text-transform:uppercase;
+    letter-spacing:.7px;margin-bottom:9px}
+  .descriptif p{font-size:13.5px;color:var(--encre);margin-bottom:8px}
+  .descriptif p:last-child{margin-bottom:0}
+
+  /* --- REPLI DU DESCRIPTIF ---
+     Un deroule de deux journees repousse le premier champ a plus d'un ecran
+     et demi de defilement sur telephone. On le replie, JAMAIS on ne le tronque :
+     le texte entier est dans la page des le depart, le repli n'est qu'une
+     hauteur. Celui qui veut lire lit ; celui qui veut s'inscrire s'inscrit. */
+  .descriptif-corps{overflow:hidden;position:relative;
+    transition:max-height .3s ease}
+  .descriptif.replie .descriptif-corps{max-height:250px}
+  .descriptif.replie .descriptif-corps::after{content:"";position:absolute;
+    left:0;right:0;bottom:0;height:74px;pointer-events:none;
+    background:linear-gradient(180deg,rgba(244,247,254,0) 0%,var(--bleu-pale) 92%)}
+  .plus{width:auto;margin:10px 0 0;padding:7px 15px;background:#fff;
+    border:1px solid var(--bleu-trait);color:var(--bleu);border-radius:20px;
+    font-size:12.5px;font-weight:600;display:none;align-items:center;gap:6px}
+  .plus:hover{opacity:1;background:#fff;border-color:var(--bleu-vif)}
+  .plus.visible{display:inline-flex}
+  .plus .fleche{font-size:10px;transition:transform .2s ease;display:inline-block}
+  .descriptif:not(.replie) .plus .fleche{transform:rotate(180deg)}
+  @media (prefers-reduced-motion:reduce){
+    .descriptif-corps,.plus .fleche{transition:none}
+  }
+
+  label{display:block;font-size:12px;font-weight:650;color:#454c5e;margin:19px 0 7px;
+    letter-spacing:.01em}
+  label .oblig{color:var(--rouge);font-weight:400}
+  input[type=text],input[type=email],input[type=tel],select,textarea{
+    width:100%;padding:12px 13px;border:1px solid #d3dae9;border-radius:10px;
+    font-size:14.5px;font-family:inherit;color:var(--encre);background:#fff;
+    transition:border-color .15s,box-shadow .15s}
+  input::placeholder{color:#b3b9c8}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--bleu-vif);
+    box-shadow:0 0 0 3px rgba(79,126,248,.15)}
+  select{appearance:none;background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath fill='%235b6479' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+  .aide{font-size:12px;color:var(--gris);margin-top:6px}
+
+  /* --- LE CHOIX DE LA FORMATION, en cartes --- */
+  /* C'est la decision la plus lourde du formulaire : elle determine la
+     convention, la date, le montant. Un menu deroulant la range dans le
+     composant le moins visible de la page, avec une valeur preselectionnee
+     que personne ne relit. Une carte se voit, se touche, et son etat retenu
+     ne laisse aucun doute. */
+  .cartes{display:flex;flex-direction:column;gap:11px;margin-top:10px}
+  .carte{position:relative;border:2px solid var(--trait);border-radius:14px;
+    padding:15px 46px 15px 21px;cursor:pointer;background:#fff;
+    transition:border-color .15s,box-shadow .15s,background .15s;overflow:hidden}
+  .carte::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;
+    background:var(--c,var(--bleu-vif))}
+  .carte:hover{border-color:var(--c,var(--bleu-vif));box-shadow:0 4px 14px -6px rgba(30,34,53,.25)}
+  .carte.pris{border-color:var(--c,var(--bleu-vif));background:var(--fond,#f6f9ff);
+    box-shadow:0 4px 16px -6px rgba(30,34,53,.25)}
+  .carte.complet{opacity:.92}
+  .carte-titre{font-size:16px;font-weight:650;letter-spacing:-.01em;line-height:1.3;
+    overflow-wrap:anywhere}
+  .carte-date{font-size:13.5px;color:var(--encre2);margin-top:3px}
+  .carte-faits{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  .carte-coche{position:absolute;right:15px;top:50%;transform:translateY(-50%);
+    width:26px;height:26px;border-radius:50%;border:2px solid #d3dae9;background:#fff;
+    display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;
+    font-weight:700;transition:background .15s,border-color .15s}
+  .carte.pris .carte-coche{background:var(--c,var(--bleu-vif));border-color:var(--c,var(--bleu-vif))}
+  /* Une seule session ouverte : ce n'est plus un choix, c'est un fait. On
+     l'annonce au lieu de faire semblant de demander. */
+  .unique{border:2px solid var(--c,var(--bleu-vif));border-radius:14px;
+    padding:16px 20px;background:var(--fond,#f6f9ff);position:relative;overflow:hidden;margin-top:10px}
+  .unique::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;
+    background:var(--c,var(--bleu-vif))}
+
+  /* --- la session choisie --- */
+  .resume{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+  .fait{font-size:12px;background:#f2f5fb;border:1px solid var(--trait);border-radius:20px;
+    padding:5px 12px;color:var(--encre2);overflow-wrap:anywhere}
+  .fait b{color:var(--encre);font-weight:650}
+  .fait.plein{background:#fdf3e3;border-color:#f0dcb0;color:var(--ambre)}
+  .fait.places{background:#eaf7f1;border-color:#c3e6d5;color:var(--vert)}
+
+  /* --- choix --- */
+  .choix{display:flex;flex-direction:column;gap:7px;margin-top:8px}
+  .choix label{display:flex;align-items:flex-start;gap:10px;margin:0;padding:12px 14px;
+    border:1px solid #d3dae9;border-radius:10px;font-size:14px;font-weight:400;
+    color:var(--encre);cursor:pointer;transition:border-color .12s,background .12s}
+  .choix label:hover{border-color:#a9bdea;background:#fafbff}
+  .choix input{margin-top:2.5px;accent-color:var(--bleu-vif);flex:none;width:16px;height:16px}
+  .choix label.pris{border-color:var(--bleu-vif);background:var(--bleu-pale);
+    box-shadow:0 0 0 1px var(--bleu-vif) inset}
+
+  .bloc{border:1px solid var(--trait);border-radius:13px;padding:4px 18px 20px;margin:26px 0 0}
+  .bloc-titre{font-size:10.5px;font-weight:700;color:var(--bleu);text-transform:uppercase;
+    letter-spacing:.8px;background:#fff;display:inline-block;padding:0 8px;
+    transform:translate(-8px,-8px)}
+
+  button{width:100%;padding:15px;border:none;border-radius:11px;font-size:15.5px;
+    font-weight:600;cursor:pointer;background:var(--vert);color:#fff;margin-top:26px;
+    font-family:inherit;transition:opacity .15s}
+  button:hover{opacity:.92}
+  button:disabled{opacity:.55;cursor:default}
+
+  .msg{border-radius:10px;padding:13px 15px;font-size:13.5px;margin-top:14px}
+  .msg-err{background:#fbecea;color:#a63a35;border:1px solid #f3cdc9}
+  .msg-info{background:#fdf6ec;color:var(--ambre);border:1px solid #f5dda6}
+
+  #confirmation{display:none;text-align:center;padding:14px 6px}
+  #confirmation .check{width:70px;height:70px;border-radius:50%;background:#e7f7f0;
+    color:var(--vert);font-size:35px;line-height:70px;margin:0 auto 20px}
+  #confirmation h2{font-size:20px;margin-bottom:13px;font-weight:600}
+  #confirmation p{font-size:14px;color:var(--encre2);margin-bottom:10px}
+
+  .rgpd{font-size:11.5px;color:var(--gris);margin-top:18px;line-height:1.55}
+  .pied{text-align:center;font-size:12px;color:var(--gris);margin-top:22px;
+    padding-top:18px;border-top:1px solid var(--trait);line-height:1.7}
+  @media (max-width:520px){
+    .entete{padding:24px 18px 22px} .corps{padding:22px 18px 26px}
+    /* La coche remonte en haut a droite : sur un telephone, les 46 px qu'elle
+       reservait au milieu de la carte manquaient au titre et a l'adresse. */
+    .carte{padding:14px 16px 14px 18px}
+    .carte-coche{top:14px;right:13px;transform:none;width:23px;height:23px;font-size:12px}
+    .carte-titre{padding-right:30px}
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+
+    <div id="formulaire">
+      <div class="entete">
+        <img id="logo" class="logo" alt="" style="display:none">
+        <div class="marque" id="of_marque">&nbsp;</div>
+        <div class="accroche" id="of_accroche"></div>
+      </div>
+
+      <div class="corps">
+        <h1>Inscription à une formation</h1>
+        <p class="sub" id="intro">Chargement des sessions disponibles…</p>
+        <div id="erreur_haut"></div>
+
+        <div id="zone" style="display:none">
+          <label id="titre_choix">La formation qui vous intéresse <span class="oblig">*</span></label>
+          <div class="cartes" id="cartes"></div>
+          <!-- Le select reste, cache : tout le reste de la page lit sa valeur.
+               Changer l'apparence sans changer la mecanique, c'est pouvoir dire
+               lequel des deux a faute si quelque chose bouge.
+               ATTENTION : cette page est un fichier STATIQUE servi par Netlify,
+               pas un gabarit de DFM. Un commentaire Jinja s'y afficherait en
+               clair au milieu du formulaire — c'est arrive le 17/08/2026. -->
+          <select id="session" style="display:none"></select>
+
+          <div class="descriptif" id="descriptif">
+            <h2 id="descriptif_titre">Cette formation</h2>
+            <div class="descriptif-corps" id="descriptif_texte"></div>
+            <button type="button" class="plus" id="descriptif_plus"
+                    aria-expanded="false" aria-controls="descriptif_texte"></button>
+          </div>
+
+          <label for="nom">Nom <span class="oblig">*</span></label>
+          <input type="text" id="nom" autocomplete="family-name" placeholder="En majuscules">
+
+          <label for="prenom">Prénom <span class="oblig">*</span></label>
+          <input type="text" id="prenom" autocomplete="given-name">
+
+          <label for="mail">Adresse mail <span class="oblig">*</span></label>
+          <input type="email" id="mail" autocomplete="email" inputmode="email">
+          <p class="aide">C'est à cette adresse que partiront votre convention, votre
+            facture et votre attestation.</p>
+
+          <label for="telephone">Téléphone <span class="oblig">*</span></label>
+          <input type="tel" id="telephone" autocomplete="tel" inputmode="tel">
+
+          <label for="ville">Ville d'exercice <span class="oblig">*</span></label>
+          <input type="text" id="ville" autocomplete="address-level2">
+
+          <label>Vous êtes <span class="oblig">*</span></label>
+          <div class="choix" id="fonction"></div>
+
+          <label>Votre demande <span class="oblig">*</span></label>
+          <div class="choix" id="demande"></div>
+
+          <label for="connu_par">Comment avez-vous connu cette formation ?</label>
+          <select id="connu_par"></select>
+
+          <div class="bloc">
+            <div class="bloc-titre">Organisation de la journée</div>
+            <label style="margin-top:6px">Déjeuner</label>
+            <div class="choix" id="dejeuner"></div>
+
+            <label for="restrictions">Restrictions alimentaires</label>
+            <input type="text" id="restrictions" placeholder="Facultatif">
+
+            <label>Photos et vidéos pendant la formation</label>
+            <div class="choix" id="image"></div>
+
+            <label>Avez-vous besoin d'une adaptation particulière&nbsp;?</label>
+            <div class="choix" id="pmr"></div>
+            <p class="aide">Situation de handicap, mobilité, audition, vision : dites-le-nous,
+              nous vous rappellerons pour organiser votre accueil.</p>
+          </div>
+
+          <button id="valider" type="button">Envoyer ma demande d'inscription</button>
+          <div id="erreur"></div>
+
+          <p class="rgpd" id="rgpd"></p>
+          <p class="pied" id="pied"></p>
+        </div>
+      </div>
+    </div>
+
+    <div id="confirmation">
+      <div class="entete">
+        <img id="logo2" class="logo" alt="" style="display:none">
+        <div class="marque" id="of_marque2">&nbsp;</div>
+      </div>
+      <div class="corps">
+        <div class="check">&#10003;</div>
+        <h2 id="conf_titre">Votre demande est enregistrée</h2>
+        <p id="conf_texte"></p>
+        <p id="conf_suite"></p>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+(function(){
+  "use strict";
+  var P = new URLSearchParams(location.search);
+  // L'ORGANISME EST DANS L'ADRESSE. Une seule page sert tous les organismes de
+  // DFM : le jour ou un onzieme est cree, son lien existe sans rien deployer.
+  var OF = (P.get("of") || "").trim();
+  // La session peut etre PRESELECTIONNEE sans etre imposee : le lien vient
+  // d'une session precise, mais quelqu'un qui decouvre une autre date doit
+  // pouvoir la prendre plutot que de repartir.
+  var SESSION_VOULUE = (P.get("s") || "").trim();
+  var SESSIONS = [], INFO = {};
+
+  var CHOIX = {
+    // DEUX CHOIX, ET DEUX SEULEMENT — decide par Franck le 22/08/2026.
+    // « Étudiant(e) en chirurgie dentaire » a ete retire : il n'entre pas dans
+    // les dossiers OPCO, et DFM n'a pas de categorie socio-professionnelle a lui
+    // attribuer. La valeur reste RECONNUE cote DFM pour que les conventions deja
+    // produites continuent de se relire ; elle n'est simplement plus proposee.
+    fonction: ["Chirurgien-dentiste", "Assistant(e) dentaire"],
+    demande: ["Je confirme ma demande d'inscription",
+              "Je souhaite être recontacté(e) avant de m'inscrire"],
+    dejeuner: ["Oui sans restrictions", "Oui avec restrictions", "Non merci"],
+    image: ["J'accepte d'apparaître sur les photos et vidéos",
+            "Je ne souhaite pas apparaître"],
+    pmr: ["Non", "Oui, je vous contacte pour en parler"]
+  };
+  var CONNU = ["", "Par recommandation", "Sur les réseaux sociaux", "Par un mail",
+               "Lors d'un congrès", "Par une recherche internet", "Autrement"];
+
+  function el(id){ return document.getElementById(id); }
+  function txt(s){ var d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+  function erreur(zone, t){ el(zone).innerHTML = '<div class="msg msg-err">' + txt(t) + '</div>'; }
+
+  // LES MEMES MARQUES QUE LES MODELES DE MAIL. DFM enregistre le descriptif en
+  // marques — **gras**, *italique*, __souligne__, [texte](adresse) — et non en
+  // HTML : un seul chemin de rendu, donc un seul resultat possible, et rien de
+  // ce qui est saisi ne peut injecter de balise dans cette page.
+  //
+  // L'ECHAPPEMENT VIENT EN PREMIER, toujours. Convertir avant d'echapper
+  // laisserait passer le HTML de celui qui a redige le descriptif.
+  function enrichir(t){
+    var h = String(t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    h = h.replace(/\[\[(#[0-9a-fA-F]{3,6})\|([\s\S]*?)\]\]/g,
+                  '<span style="color:$1">$2</span>');
+    h = h.replace(/\[([^\[\]]+)\]\((https?:\/\/[^\s()]+|mailto:[^\s()]+)\)/g,
+                  '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    h = h.replace(/\*\*([\s\S]+?)\*\*/g, "<b>$1</b>");
+    h = h.replace(/__([\s\S]+?)__/g, "<u>$1</u>");
+    h = h.replace(/(^|[^*])\*(?!\*)([\s\S]+?)\*(?!\*)/g, "$1<i>$2</i>");
+    // Une ligne vide separe deux paragraphes ; un simple retour reste un retour.
+    return h.split(/\n{2,}/).map(function(bloc){
+      return "<p>" + bloc.replace(/\n/g, "<br>") + "</p>";
+    }).join("");
+  }
+
+  function poserChoix(id, liste){
+    var z = el(id), h = "";
+    for (var i = 0; i < liste.length; i++){
+      h += '<label><input type="radio" name="' + id + '" value="' + txt(liste[i]) +
+           '"><span>' + txt(liste[i]) + '</span></label>';
+    }
+    z.innerHTML = h;
+    // Le cadre se colore sur le choix retenu : sur telephone, un point coche
+    // au milieu d'une liste se voit mal.
+    z.addEventListener("change", function(){
+      var l = z.querySelectorAll("label");
+      for (var i = 0; i < l.length; i++)
+        l[i].classList.toggle("pris", l[i].querySelector("input").checked);
+    });
+  }
+  function valeurChoix(id){
+    var c = document.querySelector('input[name="' + id + '"]:checked');
+    return c ? c.value : "";
+  }
+
+  // Une couleur claire tiree de celle de la formation, pour le fond de la
+  // carte retenue. On eclaircit plutot que d'ajouter une seconde couleur au
+  // reglage : une seule teinte a choisir dans DFM, deux usages ici.
+  function eclaircir(hex){
+    var h = String(hex || "").replace("#", "");
+    if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    if (h.length !== 6) return "#f6f9ff";
+    var r = parseInt(h.slice(0,2),16), v = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+    var m = function(x){ return Math.round(x + (255 - x) * 0.90); };
+    return "rgb(" + m(r) + "," + m(v) + "," + m(b) + ")";
+  }
+
+  function faits(s){
+    var h = "";
+    if (s.lieu) h += '<span class="fait">' + txt(s.lieu) + '</span>';
+    if (s.tarif) h += '<span class="fait"><b>' + txt(s.tarif) + ' € TTC</b></span>';
+    if (s.complet) h += '<span class="fait plein">Complet — liste d\'attente</span>';
+    else if (s.restantes > 0 && s.restantes <= 4)
+      h += '<span class="fait places">Il reste ' + s.restantes +
+           (s.restantes > 1 ? ' places' : ' place') + '</span>';
+    return h;
+  }
+
+  function choisir(code){
+    el("session").value = code;
+    var c = document.querySelectorAll("#cartes .carte");
+    for (var i = 0; i < c.length; i++)
+      c[i].classList.toggle("pris", c[i].getAttribute("data-code") === code);
+    majSession();
+  }
+
+  function dessinerCartes(){
+    var z = el("cartes");
+    // UNE SEULE SESSION : ce n'est plus un choix. Faire cliquer sur une carte
+    // unique, c'est demander une decision qui n'existe pas.
+    if (SESSIONS.length === 1){
+      var s = SESSIONS[0];
+      el("titre_choix").innerHTML = "Votre formation";
+      z.innerHTML = '<div class="unique" style="--c:' + txt(s.couleur || "#4f7ef8") +
+        ';--fond:' + eclaircir(s.couleur) + '">' +
+        '<div class="carte-titre">' + txt(s.titre || s.formation) + '</div>' +
+        (s.date_texte ? '<div class="carte-date">' + txt(s.date_texte) + '</div>' : '') +
+        '<div class="carte-faits">' + faits(s) + '</div></div>';
+      el("session").value = s.code;
+      return;
+    }
+    var h = "";
+    for (var i = 0; i < SESSIONS.length; i++){
+      var s = SESSIONS[i];
+      h += '<div class="carte' + (s.complet ? ' complet' : '') + '" data-code="' + txt(s.code) +
+           '" style="--c:' + txt(s.couleur || "#4f7ef8") + ';--fond:' + eclaircir(s.couleur) + '"' +
+           ' role="button" tabindex="0">' +
+           '<div class="carte-titre">' + txt(s.titre || s.formation) + '</div>' +
+           (s.date_texte ? '<div class="carte-date">' + txt(s.date_texte) + '</div>' : '') +
+           '<div class="carte-faits">' + faits(s) + '</div>' +
+           '<div class="carte-coche">&#10003;</div></div>';
+    }
+    z.innerHTML = h;
+    var cartes = z.querySelectorAll(".carte");
+    for (var k = 0; k < cartes.length; k++){
+      (function(c){
+        c.addEventListener("click", function(){ choisir(c.getAttribute("data-code")); });
+        // Au clavier aussi : la page doit rester utilisable sans souris.
+        c.addEventListener("keydown", function(e){
+          if (e.key === "Enter" || e.key === " "){ e.preventDefault(); c.click(); }
+        });
+      })(cartes[k]);
+    }
+  }
+
+  // LE REPLI SE DECIDE A LA MESURE, pas au nombre de caracteres. Un descriptif
+  // de trois lignes tres longues et un de dix lignes courtes occupent la meme
+  // hauteur ; c'est elle qui gene, pas le comptage.
+  var REPLI_HAUTEUR = 250;   // doit valoir le max-height du style
+  var REPLI_MARGE = 70;      // en dessous, replier ferait gagner trop peu
+
+  function reglerRepli(){
+    var d = el("descriptif"), corps = el("descriptif_texte"), b = el("descriptif_plus");
+    // On repart d'un etat connu : cette fonction est rappelee a chaque
+    // changement de carte, et un descriptif court apres un long doit se
+    // reafficher entier.
+    d.classList.remove("replie");
+    b.classList.remove("visible");
+    b.setAttribute("aria-expanded", "true");
+    if (corps.scrollHeight <= REPLI_HAUTEUR + REPLI_MARGE) return;
+    d.classList.add("replie");
+    b.classList.add("visible");
+    b.setAttribute("aria-expanded", "false");
+    majBouton();
+  }
+
+  function majBouton(){
+    var d = el("descriptif"), b = el("descriptif_plus");
+    var replie = d.classList.contains("replie");
+    b.innerHTML = (replie ? "Lire le programme complet" : "Réduire") +
+                  ' <span class="fleche">&#9660;</span>';
+  }
+
+  function basculerRepli(){
+    var d = el("descriptif"), b = el("descriptif_plus"), corps = el("descriptif_texte");
+    var replie = d.classList.contains("replie");
+    if (replie){
+      // On donne une hauteur CHIFFREE avant de deplier : « max-height:none »
+      // ne s'anime pas, et le texte apparaitrait d'un coup.
+      corps.style.maxHeight = corps.scrollHeight + "px";
+      d.classList.remove("replie");
+      setTimeout(function(){ corps.style.maxHeight = "none"; }, 320);
+    } else {
+      corps.style.maxHeight = corps.scrollHeight + "px";
+      void corps.offsetHeight;
+      corps.style.maxHeight = "";
+      d.classList.add("replie");
+      // On ramene le haut du bloc a l'ecran : sans cela, replier depuis le bas
+      // laisse le lecteur devant un formulaire dont il ne reconnait rien.
+      var y = d.getBoundingClientRect().top;
+      if (y < 0) d.scrollIntoView({block: "start",
+        behavior: (window.matchMedia &&
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+          ? "auto" : "smooth"});
+    }
+    b.setAttribute("aria-expanded", replie ? "true" : "false");
+    majBouton();
+  }
+
+  function majSession(){
+    var code = el("session").value;
+    var s = SESSIONS.filter(function(x){ return x.code === code; })[0];
+    if (!s) return;
+
+    var d = el("descriptif");
+    if (s.descriptif){
+      el("descriptif_titre").textContent = s.titre || s.formation || "Cette formation";
+      el("descriptif_texte").innerHTML = enrichir(s.descriptif);
+      d.style.display = "block";
+      reglerRepli();
+    } else { d.style.display = "none"; }
+
+    // Le bouton dit ce qui va se passer. « S'inscrire » sur une session
+    // complete serait un mensonge poli.
+    el("valider").textContent = s.complet
+      ? "Me placer en liste d'attente"
+      : "Envoyer ma demande d'inscription";
+  }
+
+  function demarrer(){
+    if (!OF){
+      erreur("erreur_haut", "Ce lien est incomplet : l'organisme n'est pas précisé. " +
+             "Demandez-nous un nouveau lien.");
+      el("intro").style.display = "none";
+      return;
+    }
+    fetch("/.netlify/functions/inscrire", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({action: "sessions", of: OF})
+    }).then(function(r){ return r.json(); }).then(function(j){
+      if (!j.ok){
+        erreur("erreur_haut", j.message || "Les sessions n'ont pas pu être chargées.");
+        el("intro").style.display = "none";
+        return;
+      }
+      INFO = j.organisme || {};
+      SESSIONS = j.sessions || [];
+
+      el("of_marque").textContent = INFO.marque || "Formation";
+      el("of_marque2").textContent = INFO.marque || "";
+      el("of_accroche").textContent = INFO.accroche || "";
+      document.title = "Inscription — " + (INFO.marque || "formation");
+      if (INFO.logo){
+        el("logo").src = INFO.logo; el("logo").style.display = "block";
+        el("logo").alt = INFO.marque || "";
+        el("logo2").src = INFO.logo; el("logo2").style.display = "block";
+      }
+
+      if (!SESSIONS.length){
+        el("intro").innerHTML = '<div class="msg msg-info">Aucune session n\'est ouverte ' +
+          'aux inscriptions en ce moment. Écrivez-nous' +
+          (INFO.mail_contact ? ' à ' + txt(INFO.mail_contact) : '') +
+          ', nous vous préviendrons de la prochaine.</div>';
+        return;
+      }
+
+      var sel = el("session"), h = "";
+      for (var i = 0; i < SESSIONS.length; i++)
+        h += '<option value="' + txt(SESSIONS[i].code) + '"></option>';
+      sel.innerHTML = h;
+      dessinerCartes();
+      // La session du lien est RETENUE D'EMBLEE, mais elle reste changeable :
+      // quelqu'un qui decouvre une autre date doit pouvoir la prendre.
+      //
+      // LE LIEN QUI DESIGNE UNE SESSION FERMEE LE DIT — 04/10/2026. Jusqu'ici la
+      // page basculait EN SILENCE sur la premiere session ouverte : un visiteur
+      // arrive par le lien de la Masterclass se retrouvait devant Usures sans
+      // qu'un seul mot l'avertisse, et pouvait s'inscrire a la mauvaise
+      // formation en croyant suivre le lien qu'on lui avait envoye.
+      var VOULUE_ABSENTE = !!SESSION_VOULUE &&
+        !SESSIONS.some(function(x){ return x.code === SESSION_VOULUE; });
+      var depart = VOULUE_ABSENTE ? SESSIONS[0].code
+                                  : (SESSION_VOULUE || SESSIONS[0].code);
+      if (SESSIONS.length > 1) choisir(depart); else sel.value = SESSIONS[0].code;
+
+      poserChoix("fonction", CHOIX.fonction);
+      poserChoix("demande", CHOIX.demande);
+      poserChoix("dejeuner", CHOIX.dejeuner);
+      poserChoix("image", CHOIX.image);
+      poserChoix("pmr", CHOIX.pmr);
+      var cs = "";
+      for (var k = 0; k < CONNU.length; k++)
+        cs += '<option value="' + txt(CONNU[k]) + '">' + (txt(CONNU[k]) || "—") + '</option>';
+      el("connu_par").innerHTML = cs;
+
+      el("intro").textContent = "Remplissez ce formulaire : nous vous enverrons votre " +
+        "convention de formation à signer en ligne.";
+      if (VOULUE_ABSENTE){
+        el("intro").innerHTML = '<div class="msg msg-info">' +
+          '<b>Les inscriptions pour la formation de ce lien sont closes.</b><br>' +
+          (SESSIONS.length > 1
+             ? 'Les sessions proposées ci-dessous sont celles encore ouvertes : vérifiez la date avant de valider.'
+             : 'La session proposée ci-dessous est la seule encore ouverte : vérifiez la date avant de valider.') +
+          (INFO.mail_contact
+             ? '<br>Pour la formation que vous cherchiez, écrivez-nous à ' + txt(INFO.mail_contact) + '.'
+             : '') +
+          '</div>';
+      }
+      el("rgpd").textContent = "Vos réponses servent à traiter votre inscription et à " +
+        "établir vos documents de formation. Elles sont conservées par " +
+        (INFO.marque || "l'organisme") + " et ne sont transmises à personne d'autre. " +
+        "Pour y accéder, les corriger ou les faire supprimer" +
+        (INFO.mail_contact ? " : " + INFO.mail_contact : ", écrivez-nous") + ".";
+      el("pied").innerHTML = txt(INFO.marque || "") +
+        (INFO.mail_contact ? "<br>" + txt(INFO.mail_contact) : "") +
+        (INFO.telephone_contact ? " · " + txt(INFO.telephone_contact) : "");
+      el("zone").style.display = "block";
+      majSession();
+    }).catch(function(e){
+      erreur("erreur_haut", "Impossible de joindre le serveur : " + e.message);
+      el("intro").style.display = "none";
+    });
+  }
+
+  el("descriptif_plus").addEventListener("click", basculerRepli);
+
+  el("valider").addEventListener("click", function(){
+    var d = {
+      session: el("session").value,
+      nom: el("nom").value.trim().toUpperCase(),
+      prenom: el("prenom").value.trim(),
+      mail: el("mail").value.trim(),
+      telephone: el("telephone").value.trim(),
+      ville: el("ville").value.trim(),
+      fonction: valeurChoix("fonction"),
+      demande: valeurChoix("demande"),
+      connu_par: el("connu_par").value,
+      dejeuner: valeurChoix("dejeuner"),
+      restrictions: el("restrictions").value.trim(),
+      image: valeurChoix("image"),
+      pmr: valeurChoix("pmr")
+    };
+    // ON NOMME LE CHAMP QUI MANQUE. « Formulaire incomplet » oblige a chercher ;
+    // ceci se corrige d'un coup.
+    var requis = [["session","la formation"],["nom","votre nom"],["prenom","votre prénom"],
+                  ["mail","votre adresse mail"],["telephone","votre téléphone"],
+                  ["ville","votre ville"],["fonction","votre profession"],
+                  ["demande","votre demande"]];
+    for (var i = 0; i < requis.length; i++){
+      if (!d[requis[i][0]]){ erreur("erreur", "Il manque " + requis[i][1] + "."); return; }
+    }
+    if (d.mail.indexOf("@") < 0 || d.mail.lastIndexOf(".") < d.mail.indexOf("@")){
+      erreur("erreur", "Cette adresse mail ne semble pas valide."); return;
+    }
+    var b = el("valider"), avant = b.textContent;
+    b.disabled = true; b.textContent = "Envoi en cours…";
+    el("erreur").innerHTML = "";
+    fetch("/.netlify/functions/inscrire", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({action: "inscrire", of: OF, donnees: d})
+    }).then(function(r){ return r.json(); }).then(function(j){
+      if (!j.ok){
+        erreur("erreur", j.message || "L'enregistrement a échoué.");
+        b.disabled = false; b.textContent = avant;
+        return;
+      }
+      var s = SESSIONS.filter(function(x){ return x.code === d.session; })[0];
+      var quoi = (s && (s.titre || s.formation)) || "la formation";
+      if (s && s.complet){
+        el("conf_titre").textContent = "Vous êtes en liste d'attente";
+        el("conf_texte").textContent = "« " + quoi + " » est complète" +
+          (s.date_texte ? " le " + s.date_texte : "") + ", votre demande est enregistrée.";
+        el("conf_suite").textContent = "Nous vous préviendrons dès qu'une place se libère, " +
+          "ou nous vous proposerons la prochaine date.";
+      } else {
+        el("conf_titre").textContent = "Votre demande est enregistrée";
+        el("conf_texte").textContent = "Nous avons bien reçu votre demande pour « " + quoi +
+          " »" + (s && s.date_texte ? ", le " + s.date_texte : "") + ".";
+        el("conf_suite").textContent = "Vous allez recevoir un message avec votre convention " +
+          "de formation à signer en ligne.";
+      }
+      el("formulaire").style.display = "none";
+      el("confirmation").style.display = "block";
+      window.scrollTo(0, 0);
+    }).catch(function(e){
+      erreur("erreur", "Envoi impossible : " + e.message);
+      b.disabled = false; b.textContent = avant;
+    });
+  });
+
+  demarrer();
+})();
+</script>
+</body>
+</html>

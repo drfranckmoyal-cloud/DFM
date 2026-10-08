@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block titre %}Questionnaires{% endblock %}
+{% block entete %}Questionnaires et résultats{% endblock %}
+{% block sous_entete %}Évaluation des acquis et satisfaction · toutes formations confondues{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" title="Export detaille ligne par participant" href="/questionnaires/export.csv"><i class="ti ti-download"></i>Export CSV</a>
+{% endblock %}
+{% block corps %}
+<style>
+.qq-sectitre{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 12px;flex-wrap:wrap}
+.qq-sectitre h3{font-size:15px;font-weight:600;margin:0}
+.qq-sectitre .d{font-size:12px;color:var(--muted);margin-top:2px}
+.qq-pdf{background:var(--danger);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:7px;text-decoration:none;white-space:nowrap}
+.qq-pdf:hover{filter:brightness(.94)}
+.qq-pdf-s{background:var(--carte);color:var(--danger);border:1px solid #f0b8b8;border-radius:7px;padding:5px 11px;font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:5px;text-decoration:none;white-space:nowrap}
+.qq-pdf-s:hover{background:#fdeaea}
+.qq-periode{border:1px solid var(--border2);border-radius:8px;padding:8px 11px;font-size:12.5px;background:var(--carte);color:var(--text);font-family:inherit}
+.qq-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.qq-kpi{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden}
+.qq-acc{position:absolute;left:0;top:0;bottom:0;width:3px}
+.qq-lab{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+.qq-val{font-size:26px;font-weight:500;line-height:1;font-variant-numeric:tabular-nums}
+.qq-sub{font-size:11px;color:var(--muted);margin-top:6px}
+.qq-duo{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.qq-carte{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
+.qq-titre{font-size:13px;font-weight:500;margin-bottom:16px;display:flex;align-items:center;gap:8px;padding-bottom:11px;border-bottom:1px solid var(--border)}
+.qq-titre i{color:var(--accent);font-size:16px}
+.qq-bar{margin-bottom:13px}
+.qq-bar-h{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px}
+.qq-bar-n{font-weight:500;font-variant-numeric:tabular-nums}
+.qq-piste{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.qq-piste div{height:100%;border-radius:4px}
+.qq-flux{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+.qq-flux-b{flex:1}
+.qq-fleche{font-size:20px;color:var(--success);flex:none}
+.qq-vide{padding:34px;text-align:center;color:var(--muted);font-size:13px}
+.qq-prog{font-weight:500;font-variant-numeric:tabular-nums}
+.qq-plus{color:var(--success)}
+.qq-moins{color:var(--danger)}
+.qq-btn-d{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;color:var(--accent);cursor:pointer;font-family:inherit;white-space:nowrap;text-decoration:none;display:inline-block}
+.qq-btn-d:hover{border-color:var(--accent);background:#eef3fe}
+.qq-voile{position:fixed;inset:0;background:rgba(16,18,30,.6);display:none;align-items:flex-start;justify-content:center;z-index:70;padding:30px 20px;overflow:auto}
+.qq-modale{background:var(--carte);border-radius:14px;padding:26px 28px;max-width:720px;width:100%}
+.qq-mt{font-size:18px;font-weight:500;margin-bottom:3px}
+.qq-ms{font-size:13px;color:var(--muted);margin-bottom:20px}
+.qq-sect{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:22px 0 12px}
+.qq-obj{border:1px solid var(--border);border-radius:9px;padding:13px 15px;margin-bottom:9px}
+.qq-obj-t{font-size:13px;font-weight:500;margin-bottom:9px}
+.qq-mini{display:flex;gap:16px;font-size:12px;color:var(--muted)}
+.qq-verb{background:var(--bg);border-radius:9px;padding:12px 14px;margin-bottom:9px;font-size:12.5px}
+.qq-verb-q{font-size:11px;color:var(--muted);margin-bottom:4px}
+.qq-faible{background:#fdf3e3;border:1px solid #f0cf94;border-radius:9px;padding:12px 14px;font-size:12px;color:#8a5a06;margin-bottom:12px}
+</style>
+<div class="qq-sectitre">
+  <div><h3>Global</h3><div class="d">Tous programmes et toutes sessions confondus</div></div>
+  <div style="display:flex;align-items:center;gap:9px">
+    <select class="qq-periode" id="qq_per">
+      <option value="tout"{{ " selected" if periode_defaut == "tout" }}>Depuis le début</option>
+      <option value="m12"{{ " selected" if periode_defaut == "m12" }}>12 derniers mois</option>
+      <option value="m6"{{ " selected" if periode_defaut == "m6" }}>6 derniers mois</option>
+      <option value="m3"{{ " selected" if periode_defaut == "m3" }}>3 derniers mois</option>
+    </select>
+    <a class="qq-pdf" href="#" onclick="return qqPdfGlobal()"><i class="ti ti-file-type-pdf" style="font-size:16px"></i>PDF Bilan global</a>
+  </div>
+</div>
+<div class="qq-kpis">
+  <div class="qq-kpi"><div class="qq-acc" style="background:var(--accent)"></div>
+    <div class="qq-lab">Progression moyenne</div>
+    <div class="qq-val" style="color:var(--accent)">{% if g.progression is not none %}+{{ g.progression }} pts{% else %}—{% endif %}</div>
+    <div class="qq-sub">entrée {{ g.moy_init or '—' }} % → sortie {{ g.moy_fin or '—' }} %</div>
+  </div>
+  <div class="qq-kpi"><div class="qq-acc" style="background:var(--success)"></div>
+    <div class="qq-lab">Objectifs atteints</div>
+    <div class="qq-val" style="color:var(--success)">{% if g.taux_atteinte is not none %}{{ g.taux_atteinte }} %{% else %}—{% endif %}</div>
+    <div class="qq-sub">des participants évalués</div>
+  </div>
+  <div class="qq-kpi"><div class="qq-acc" style="background:var(--accent2)"></div>
+    <div class="qq-lab">Satisfaction</div>
+    <div class="qq-val" style="color:var(--accent2)">{% if g.moy_satis is not none %}{{ g.moy_satis }}/5{% else %}—{% endif %}</div>
+    <div class="qq-sub">{{ g.nb_satis }} réponse{{ 's' if g.nb_satis > 1 }}</div>
+  </div>
+  <div class="qq-kpi"><div class="qq-acc" style="background:var(--warn)"></div>
+    <div class="qq-lab">Recommandation</div>
+    <div class="qq-val" style="color:var(--warn)">{% if g.reco is not none %}{{ g.reco }}/10{% else %}—{% endif %}</div>
+    <div class="qq-sub">{% if g.nps is not none %}indice net {{ g.nps }}{% else %}pas encore mesuré{% endif %}</div>
+  </div>
+  <div class="qq-kpi"><div class="qq-acc" style="background:var(--muted)"></div>
+    <div class="qq-lab">Taux de réponse</div>
+    <div class="qq-val">{% if g.participants %}{{ (100 * g.nb_fin / g.participants)|round|int }} %{% else %}—{% endif %}</div>
+    <div class="qq-sub">{{ g.nb_fin }} évaluations sur {{ g.participants }} inscrits</div>
+  </div>
+</div>
+<div class="qq-duo">
+  <div class="qq-carte">
+    <div class="qq-titre"><i class="ti ti-school"></i>Acquis : avant et après</div>
+    {% if g.moy_init is not none %}
+    <div class="qq-bar"><div class="qq-bar-h"><span>Score moyen à l'entrée</span><span class="qq-bar-n">{{ g.moy_init }} %</span></div>
+      <div class="qq-piste"><div style="width:{{ g.moy_init }}%;background:var(--border2)"></div></div></div>
+    <div class="qq-bar"><div class="qq-bar-h"><span>Score moyen en sortie</span><span class="qq-bar-n">{{ g.moy_fin }} %</span></div>
+      <div class="qq-piste"><div style="width:{{ g.moy_fin or 0 }}%;background:var(--success)"></div></div></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:14px;line-height:1.6">
+      Cette comparaison entre le niveau initial et le niveau atteint constitue la preuve de progression attendue par les indicateurs 8 et 11 du référentiel.
+    </div>
+    {% else %}
+    <div class="qq-vide">Aucune évaluation relevée pour l'instant</div>
+    {% endif %}
+  </div>
+  <div class="qq-carte">
+    <div class="qq-titre"><i class="ti ti-star"></i>Satisfaction par axe</div>
+    {% if g.moy_satis is not none %}
+    {% for a in g.axes %}
+      {% if a.note is not none %}
+      <div class="qq-bar"><div class="qq-bar-h"><span>{{ a.libelle }}</span><span class="qq-bar-n">{{ a.note }}/5</span></div>
+        <div class="qq-piste"><div style="width:{{ (100 * a.note / 5)|round|int }}%;background:{{ 'var(--success)' if a.note >= 4 else ('var(--warn)' if a.note >= 3 else 'var(--danger)') }}"></div></div></div>
+      {% endif %}
+    {% endfor %}
+    {% else %}
+    <div class="qq-vide">Aucun questionnaire de satisfaction reçu</div>
+    {% endif %}
+  </div>
+</div>
+<div class="qq-carte" style="margin-bottom:16px">
+  <div class="qq-titre"><i class="ti ti-books"></i>Par formation</div>
+  <div class="table-wrap" style="border:none"><div class="table-scroll">
+  <table style="min-width:700px">
+    <thead><tr><th>Formation</th><th style="width:80px">Sessions</th><th style="width:90px">Inscrits</th>
+      <th style="width:80px">Entrée</th><th style="width:80px">Sortie</th><th style="width:110px">Progression</th>
+      <th style="width:100px">Objectifs</th><th style="width:100px">Satisfaction</th><th style="width:120px"></th></tr></thead>
+    <tbody>
+    {% for f in formations %}
+      <tr>
+        <td><strong style="font-size:12.5px">{{ f.formation }}</strong></td>
+        <td>{{ f.sessions }}</td>
+        <td>{{ f.participants }}</td>
+        <td>{{ f.moy_init if f.moy_init is not none else '—' }}{% if f.moy_init is not none %} %{% endif %}</td>
+        <td>{{ f.moy_fin if f.moy_fin is not none else '—' }}{% if f.moy_fin is not none %} %{% endif %}</td>
+        <td>{% if f.progression is not none %}<span class="qq-prog {{ 'qq-plus' if f.progression >= 0 else 'qq-moins' }}">{{ '+' if f.progression >= 0 }}{{ f.progression }} pts</span>{% else %}—{% endif %}</td>
+        <td>{% if f.taux_atteinte is not none %}<span class="chip {{ 'chip-g' if f.taux_atteinte >= 80 else 'chip-w' }}">{{ f.taux_atteinte }} %</span>{% else %}—{% endif %}</td>
+        <td>{% if f.moy_satis is not none %}{{ f.moy_satis }}/5{% else %}—{% endif %}</td>
+        <td><a class="qq-pdf-s" href="/questionnaires/bilan/formation/{{ f.formation }}" target="_blank"><i class="ti ti-file-type-pdf" style="font-size:13px"></i>PDF Bilan</a></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="9" class="qq-vide">Aucune formation</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div></div>
+</div>
+<div class="qq-carte">
+  <div class="qq-titre"><i class="ti ti-calendar-stats"></i>Par session</div>
+  <div class="table-wrap" style="border:none"><div class="table-scroll">
+  <table style="min-width:860px">
+    <thead><tr><th>Session</th><th style="width:80px">Inscrits</th><th style="width:100px">Répondants</th>
+      <th style="width:75px">Entrée</th><th style="width:75px">Sortie</th><th style="width:105px">Progression</th>
+      <th style="width:95px">Objectifs</th><th style="width:95px">Satisfaction</th><th style="width:150px"></th></tr></thead>
+    <tbody>
+    {% for s in sessions %}
+      <tr>
+        <td><strong style="font-size:12.5px">{{ s.formation }}</strong>
+          <div style="color:var(--muted);font-size:10.5px;margin-top:2px">{{ s.date_texte }}</div></td>
+        <td>{{ s.participants }}</td>
+        <td style="font-size:11.5px">{{ s.nb_init }} / {{ s.nb_fin }} / {{ s.nb_satis }}</td>
+        <td>{{ s.moy_init if s.moy_init is not none else '—' }}{% if s.moy_init is not none %} %{% endif %}</td>
+        <td>{{ s.moy_fin if s.moy_fin is not none else '—' }}{% if s.moy_fin is not none %} %{% endif %}</td>
+        <td>{% if s.progression is not none %}<span class="qq-prog {{ 'qq-plus' if s.progression >= 0 else 'qq-moins' }}">{{ '+' if s.progression >= 0 }}{{ s.progression }} pts</span>{% else %}—{% endif %}</td>
+        <td>{% if s.taux_atteinte is not none %}<span class="chip {{ 'chip-g' if s.taux_atteinte >= 80 else 'chip-w' }}">{{ s.taux_atteinte }} %</span>{% else %}—{% endif %}</td>
+        <td>{% if s.moy_satis is not none %}{{ s.moy_satis }}/5{% else %}—{% endif %}</td>
+        <td style="white-space:nowrap">
+          <button class="qq-btn-d" title="Voir le detail des resultats de cette session" onclick="qqDetail('{{ s.code }}')"><i class="ti ti-eye" style="font-size:11px"></i> Détail</button>
+          <a class="qq-pdf-s" href="/questionnaires/{{ s.code }}/bilan" target="_blank" title="Bilan imprimable pour l audit"><i class="ti ti-file-type-pdf" style="font-size:13px"></i>PDF Bilan</a>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="9" class="qq-vide">Aucune session</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div></div>
+  <div style="font-size:11px;color:var(--muted);margin-top:12px">La colonne Répondants indique le nombre de réponses aux trois questionnaires : entrée / sortie / satisfaction.</div>
+</div>
+<div class="qq-voile" id="qq_voile"><div class="qq-modale" id="qq_modale"></div></div>
+<script>
+function qqPdfGlobal(){
+  var p = document.getElementById("qq_per").value;
+  window.open("/questionnaires/bilan" + (p ? "?periode=" + p : ""), "_blank");
+  return false;
+}
+function qqFermer(){ document.getElementById("qq_voile").style.display = "none"; }
+function qqNb(v, suffixe){ return (v === null || v === undefined) ? "—" : (v + (suffixe || "")); }
+function qqDetail(code){
+  document.getElementById("qq_modale").innerHTML = '<div class="qq-mt">Chargement…</div>';
+  document.getElementById("qq_voile").style.display = "flex";
+  fetch("/questionnaires/" + code + "/detail").then(function(r){return r.json()}).then(function(j){
+    if(!j.ok){ document.getElementById("qq_modale").innerHTML = '<div class="qq-mt">' + (j.message || "Erreur") + '</div>'; return; }
+    var s = j.session, a = j.acquis, sa = j.satisfaction;
+    var h = '<div class="qq-mt">' + s.formation + '</div><div class="qq-ms">' + s.date_texte + ' · ' + s.participants + ' inscrit(s) · seuil de réussite ' + s.seuil + ' %</div>';
+    if(a && a.objectifs && a.objectifs.length){
+      h += '<div class="qq-sect">Progression par objectif pédagogique</div>';
+      a.objectifs.forEach(function(o){
+        h += '<div class="qq-obj"><div class="qq-obj-t">' + o.libelle + '</div>';
+        if(o.init !== null && o.fin !== null){
+          h += '<div class="qq-flux"><div class="qq-flux-b"><div class="qq-bar-h"><span style="font-size:11px;color:var(--muted)">entrée</span><span class="qq-bar-n">' + o.init + ' %</span></div><div class="qq-piste"><div style="width:' + o.init + '%;background:var(--border2)"></div></div></div>';
+          h += '<i class="ti ti-arrow-right qq-fleche"></i>';
+          h += '<div class="qq-flux-b"><div class="qq-bar-h"><span style="font-size:11px;color:var(--muted)">sortie</span><span class="qq-bar-n">' + o.fin + ' %</span></div><div class="qq-piste"><div style="width:' + o.fin + '%;background:var(--success)"></div></div></div></div>';
+          h += '<div class="qq-mini"><span>Progression : <b class="' + (o.progression >= 0 ? "qq-plus" : "qq-moins") + '">' + (o.progression >= 0 ? "+" : "") + o.progression + ' points</b></span></div>';
+        } else {
+          h += '<div class="qq-mini">Pas encore de donnée complète</div>';
+        }
+        h += '</div>';
+      });
+    }
+    if(a && a.questions && a.questions.length){
+      var faibles = a.questions.filter(function(q){ return q.fin !== null && q.fin < 60; });
+      if(faibles.length){
+        h += '<div class="qq-sect">Points à retravailler</div>';
+        h += '<div class="qq-faible">Ces questions restent mal maîtrisées en fin de formation. C\'est la matière de votre plan d\'amélioration.</div>';
+        faibles.forEach(function(q){
+          h += '<div class="qq-obj"><div style="font-size:12.5px">' + q.enonce + '</div>';
+          h += '<div class="qq-mini" style="margin-top:6px"><span>entrée ' + qqNb(q.init, " %") + '</span><span>sortie <b>' + qqNb(q.fin, " %") + '</b></span><span>objectif ' + q.objectif + '</span></div></div>';
+        });
+      }
+    }
+    if(sa && sa.note_globale !== null){
+      h += '<div class="qq-sect">Satisfaction · ' + sa.note_globale + '/5 · recommandation ' + qqNb(sa.reco_moyenne, "/10") + '</div>';
+      (sa.questions || []).forEach(function(q){
+        if(q.note === null) return;
+        h += '<div class="qq-bar"><div class="qq-bar-h"><span>' + q.libelle + '</span><span class="qq-bar-n">' + q.note + '/5</span></div>';
+        h += '<div class="qq-piste"><div style="width:' + Math.round(100 * q.note / 5) + '%;background:' + (q.note >= 4 ? "var(--success)" : (q.note >= 3 ? "var(--warn)" : "var(--danger)")) + '"></div></div></div>';
+      });
+      if(sa.adaptation && sa.adaptation.concernes){
+        h += '<div class="qq-mini" style="margin-top:10px"><span>' + sa.adaptation.concernes + ' participant(s) avaient un besoin d\'adaptation, ' + sa.adaptation.pris + ' pris en compte</span></div>';
+      }
+    }
+    if(sa && sa.verbatims && sa.verbatims.length){
+      h += '<div class="qq-sect">Ce qu\'ils ont écrit</div>';
+      sa.verbatims.forEach(function(v){
+        h += '<div class="qq-verb"><div class="qq-verb-q">' + v.question + '</div>' + v.texte + '</div>';
+      });
+    }
+    h += '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px">';
+    h += '<a class="btn btn-ghost" href="/questionnaires/' + code + '/bilan" target="_blank"><i class="ti ti-file-text"></i>Bilan imprimable</a>';
+    h += '<button class="btn btn-primary" onclick="qqFermer()">Fermer</button></div>';
+    document.getElementById("qq_modale").innerHTML = h;
+  }).catch(function(e){ document.getElementById("qq_modale").innerHTML = '<div class="qq-mt">Erreur : ' + e + '</div>'; });
+}
+document.addEventListener("click", function(e){ if(e.target && e.target.id === "qq_voile") qqFermer(); });
+document.addEventListener("keydown", function(e){ if(e.key === "Escape") qqFermer(); });
+</script>
+{% endblock %}

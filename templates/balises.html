@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block titre %}Balises des mails{% endblock %}
+{% block entete %}Balises disponibles dans les mails{% endblock %}
+{% block sous_entete %}Les mots entre doubles accolades, remplacés à l'envoi par les valeurs réelles{% endblock %}
+{% block actions %}
+<input class="ba-rech" id="ba_q" type="search" placeholder="Rechercher une balise…"
+       oninput="baFiltrer()" autocomplete="off">
+{% endblock %}
+{% block corps %}
+<style>
+.ba-rech{border:1px solid var(--border);background:var(--card);color:var(--texte);
+  border-radius:9px;padding:7px 12px;font-size:13px;min-width:220px}
+.ba-chapeau{display:flex;gap:11px;align-items:flex-start;background:var(--bg2);
+  border:1px solid var(--border);border-radius:11px;padding:13px 15px;
+  font-size:12.5px;line-height:1.65;color:var(--muted);margin-bottom:18px}
+.ba-fam{margin-bottom:22px}
+.ba-fam-t{font-size:12px;letter-spacing:.7px;text-transform:uppercase;
+  color:var(--muted);margin:0 0 9px 2px;font-weight:600}
+.ba-liste{border:1px solid var(--border);border-radius:11px;overflow:hidden;background:var(--card)}
+.ba-l{display:grid;grid-template-columns:210px 1fr 1fr;gap:14px;align-items:center;
+  padding:9px 14px;border-bottom:1px solid var(--border);font-size:13px}
+.ba-l:last-child{border-bottom:none}
+.ba-l:hover{background:var(--bg2)}
+.ba-c{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;
+  padding:3px 7px;cursor:pointer;color:var(--accent);justify-self:start;
+  white-space:nowrap;transition:background .12s}
+.ba-c:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.ba-d{color:var(--texte)}
+.ba-e{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ba-u{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:22px}
+.ba-uc{border:1px solid var(--border);border-radius:11px;padding:13px 15px;background:var(--card)}
+.ba-uc-t{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13.5px;margin-bottom:5px}
+.ba-uc-q{font-size:12px;color:var(--muted);line-height:1.55}
+.ba-vide{padding:22px;text-align:center;color:var(--muted);font-size:13px}
+@media(max-width:820px){.ba-l{grid-template-columns:1fr;gap:5px}.ba-e{white-space:normal}}
+</style>
+
+<div class="ba-chapeau">
+  <i class="ti ti-info-circle" style="font-size:16px;flex:none"></i>
+  <span>Écrivez une balise dans le corps ou l'objet d'un modèle de mail : elle est remplacée à l'envoi
+  par la valeur du praticien et de la session concernés. <b>Cliquez sur une balise pour la copier.</b>
+  Une balise inconnue reste affichée telle quelle dans le mail reçu — vérifiez l'orthographe.
+  Les balises des documents Word et Slides (conventions, factures, attestations) sont différentes :
+  elles figurent dans le document <b>BALISES-MODELES.md</b>.</span>
+</div>
+
+{% if usages %}
+<div class="ba-fam-t">Mails concernés</div>
+<div class="ba-u">
+  {% for cle, u in usages.items() %}
+  <div class="ba-uc">
+    <div class="ba-uc-t"><i class="ti {{ u.icone }}" style="color:{{ u.couleur }}"></i>{{ u.nom }}</div>
+    <div class="ba-uc-q">{{ u.quand }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div id="ba_zone">
+{% for famille, liste in balises %}
+<div class="ba-fam" data-fam="1">
+  <div class="ba-fam-t">{{ famille }}</div>
+  <div class="ba-liste">
+    {% for cle, description, apercu in liste %}
+    <div class="ba-l" data-t="{{ (cle ~ ' ' ~ description)|lower }}">
+      <span class="ba-c" onclick="baCopier(this)" data-b="{% raw %}{{{% endraw %}{{ cle }}{% raw %}}}{% endraw %}"
+            title="Cliquer pour copier">{% raw %}{{{% endraw %}{{ cle }}{% raw %}}}{% endraw %}</span>
+      <span class="ba-d">{{ description }}</span>
+      <span class="ba-e" title="{{ exemple.get(cle, apercu)|striptags }}">{{ exemple.get(cle, apercu)|striptags }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+</div>
+<div class="ba-vide" id="ba_vide" style="display:none">Aucune balise ne correspond à cette recherche.</div>
+
+<script>
+function baCopier(el){
+  var b = el.dataset.b || el.textContent;
+  var fini = function(){
+    var avant = el.textContent;
+    el.textContent = "copié";
+    setTimeout(function(){ el.textContent = avant; }, 900);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(b).then(fini).catch(function(){});
+  } else {
+    var z = document.createElement("textarea");
+    z.value = b; document.body.appendChild(z); z.select();
+    try{ document.execCommand("copy"); fini(); }catch(e){}
+    document.body.removeChild(z);
+  }
+}
+function baFiltrer(){
+  var q = (document.getElementById("ba_q").value || "").trim().toLowerCase();
+  var total = 0;
+  document.querySelectorAll(".ba-fam").forEach(function(fam){
+    var visibles = 0;
+    fam.querySelectorAll(".ba-l").forEach(function(l){
+      var ok = !q || (l.dataset.t || "").indexOf(q) >= 0;
+      l.style.display = ok ? "" : "none";
+      if(ok) visibles++;
+    });
+    fam.style.display = visibles ? "" : "none";
+    total += visibles;
+  });
+  document.getElementById("ba_vide").style.display = total ? "none" : "";
+}
+</script>
+{% endblock %}

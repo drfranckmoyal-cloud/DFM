@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block titre %}Sessions{% endblock %}
+{% block entete %}Sessions{% endblock %}
+{% block sous_entete %}{{ g.en_cours|length }} à venir · {{ g.passees|length }} passée{{ 's' if g.passees|length > 1 }}{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" href="/sessions/supprimees" title="Retrouver les pieces des sessions retirees de DFM : rien n a ete detruit"><i class="ti ti-archive"></i>Sessions supprimées</a>
+<button class="btn btn-secondary" title="Aller chercher les nouveautes : inscriptions, signatures, annulations, puis envoyer ce qui doit partir" onclick="lancer(this)"><i class="ti ti-player-play"></i>Synchroniser</button>
+{% endblock %}
+{% block corps %}
+{% include "_relief.html" %}
+<style>
+/* DES LIGNES QUI RESPIRENT — 04/10/2026. Onze pixels de hauteur collaient les
+   sessions les unes aux autres : sur une liste ou chaque ligne porte un titre, une
+   adresse et sept chiffres, l'oeil ne savait plus ou commencait la suivante. Le
+   remede n'est pas un trait plus fort, c'est de la hauteur : 15 pixels, et un
+   survol qui designe la ligne entiere. */
+tbody tr td{padding-top:15px;padding-bottom:15px}
+tbody tr:hover td{background:var(--card2)}
+html[data-sombre] tbody tr:hover td{background:#262b38}
+/* Les titres de groupe gagnent en presence : ce sont les seules respirations de
+   la liste, et ils marquaient a peine. */
+.ss-sep td{padding-top:14px !important;padding-bottom:12px !important}
+tbody tr.ss-sep:hover td{background:#f4f5f8 !important}
+html[data-sombre] tbody tr.ss-sep:hover td{background:#191d26 !important}
+</style>
+
+<style>
+.cta-s{display:flex;align-items:center;gap:16px;background:var(--carte);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:12px;padding:18px 22px;margin-bottom:16px;text-decoration:none;color:inherit;transition:box-shadow .15s,border-color .15s}
+.cta-s:hover{box-shadow:0 3px 14px rgba(79,126,248,.16);border-color:var(--accent)}
+.cta-i{width:44px;height:44px;border-radius:10px;background:#eef3fe;color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:24px;flex:none}
+.cta-x{flex:1;min-width:0}
+.cta-t{font-size:15px;font-weight:500}
+.cta-d{font-size:12px;color:var(--muted);margin-top:2px}
+.cta-b{background:var(--accent);color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:6px;flex:none}
+</style>
+<a class="cta-s" href="/sessions/nouvelle" title="Creer une nouvelle session">
+  <div class="cta-i"><i class="ti ti-calendar-plus"></i></div>
+  <div class="cta-x">
+    <div class="cta-t">Créer une nouvelle session</div>
+    <div class="cta-d">Choisis une formation, donne les dates — DFM prépare l'onglet de suivi et la fiche</div>
+  </div>
+  <span class="cta-b"><i class="ti ti-plus"></i>Créer une nouvelle session</span>
+</a>
+<style>
+.auto-box{display:flex;align-items:center;gap:12px;background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:12px 18px;margin-bottom:16px;flex-wrap:wrap}
+.auto-ic{width:34px;height:34px;border-radius:9px;background:var(--bg);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:18px;flex:none}
+.auto-box.on .auto-ic{background:#eafaf3;color:var(--success)}
+.auto-x{flex:1;min-width:180px}
+.auto-t{font-size:13px;font-weight:500}
+.auto-d{font-size:11.5px;color:var(--muted);margin-top:2px}
+.auto-sel{padding:6px 10px;border:1px solid var(--border2);border-radius:8px;font-size:12px;font-family:inherit;background:var(--carte);color:var(--text)}
+.auto-sw{position:relative;display:inline-block;width:42px;height:23px;flex:none}
+.auto-sw input{opacity:0;width:0;height:0}
+.auto-cur{position:absolute;inset:0;background:var(--border2);border-radius:23px;cursor:pointer;transition:background .18s}
+.auto-cur:before{content:"";position:absolute;height:17px;width:17px;left:3px;top:3px;background:var(--carte);border-radius:50%;transition:transform .18s}
+.auto-sw input:checked + .auto-cur{background:var(--success)}
+.auto-sw input:checked + .auto-cur:before{transform:translateX(19px)}
+</style>
+<div class="auto-box" id="auto_box">
+  <div class="auto-ic"><i class="ti ti-refresh"></i></div>
+  <div class="auto-x">
+    <div class="auto-t">Synchronisation automatique</div>
+    <div class="auto-d" id="auto_d">Chargement...</div>
+  </div>
+  <select class="auto-sel" id="auto_min" onchange="autoEnvoyer()" title="Intervalle entre deux synchronisations">
+    <option value="15">toutes les 15 min</option>
+    <option value="30">toutes les 30 min</option>
+    <option value="60">toutes les heures</option>
+    <option value="180">toutes les 3 heures</option>
+  </select>
+  <label class="auto-sw" title="Activer ou desactiver la synchronisation automatique">
+    <input type="checkbox" id="auto_chk" onchange="autoEnvoyer()"><span class="auto-cur"></span>
+  </label>
+</div>
+<script>
+function autoAffiche(j){
+  var box = document.getElementById("auto_box");
+  var d = document.getElementById("auto_d");
+  document.getElementById("auto_chk").checked = !!j.actif;
+  document.getElementById("auto_min").value = String(j.minutes);
+  if(j.actif){ box.classList.add("on"); } else { box.classList.remove("on"); }
+  var t = "";
+  if(j.en_cours){
+    t = "Synchronisation en cours...";
+  } else if(!j.actif){
+    t = "Éteinte — DFM ne synchronise que si tu cliques sur Synchroniser";
+  } else {
+    var m = Math.ceil((j.reste || 0) / 60);
+    t = "Active — prochaine synchronisation dans " + (m > 0 ? m + " min" : "moins d'une minute");
+  }
+  if(j.dernier){ t += " · dernière : " + j.dernier + (j.resultat === "erreur" ? " (erreur)" : ""); }
+  d.textContent = t;
+}
+function autoEtat(){
+  fetch("/auto/etat").then(function(r){return r.json()}).then(autoAffiche).catch(function(){});
+}
+function autoEnvoyer(){
+  var fd = new FormData();
+  fd.append("actif", document.getElementById("auto_chk").checked ? "1" : "0");
+  fd.append("minutes", document.getElementById("auto_min").value);
+  fetch("/auto/basculer", {method:"POST", body:fd})
+  .then(function(r){return r.json()}).then(function(){ autoEtat(); }).catch(function(){});
+}
+autoEtat();
+setInterval(autoEtat, 20000);
+</script>
+<div class="table-wrap">
+  <div class="table-scroll">
+  <table style="min-width:860px">
+    <thead><tr>
+      <th>Session</th>
+      <th style="width:96px">Dates</th>
+      <th style="width:92px">Places</th>
+      <th style="width:96px">Conventions</th>
+      <th style="width:96px">Règlements</th>
+      <th style="width:92px">Encaissé</th>
+      <th style="width:112px">Statut</th>
+      <th style="width:64px">Échéance</th>
+      <th style="width:44px"></th>
+    <th style="width:170px">Statut</th></tr></thead>
+    <tbody>
+{% set titres = {'active': 'Sessions actives', 'cloturee': 'Inscriptions clôturées', 'archivee': 'Sessions archivées'} %}
+{% for s in g.sessions %}
+{% if loop.first or s.etat.groupe != g.sessions[loop.index0 - 1].etat.groupe %}
+<tr class="ss-sep"><td colspan="10">{{ titres.get(s.etat.groupe, '') }}
+  <span>{{ g.sessions|selectattr('etat.groupe', 'equalto', s.etat.groupe)|list|length }}</span></td></tr>
+{% endif %}
+      <tr onclick="location.href='/session/{{ s.code }}'" style="cursor:pointer">
+        <td>
+          <div style="display:flex;align-items:flex-start;gap:9px">
+            <span style="width:7px;height:7px;border-radius:2px;background:var(--accent);flex:none;margin-top:5px"></span>
+            <div style="min-width:0">
+              <div style="font-weight:500;font-size:12.5px">{{ s.session.titre_complet }}
+                {% if s.mode == 'client' %}<span style="font-size:9.5px;padding:2px 7px;border-radius:20px;
+                  background:#f0eeff;color:#4b3fb8;border:1px solid #ddd8fb;font-weight:600;
+                  margin-left:5px;white-space:nowrap"><i class="ti ti-building" style="font-size:10px"></i>
+                  {{ s.client_nom or 'Client' }}</span>
+                {% else %}<span style="font-size:9.5px;padding:2px 7px;border-radius:20px;
+                  background:#eef0f5;color:#5b6172;border:1px solid #e0e3ea;font-weight:600;
+                  margin-left:5px;white-space:nowrap"><i class="ti ti-user" style="font-size:10px"></i>
+                  Individuelle</span>{% endif %}</div>
+              <div style="color:var(--muted);font-size:10.5px;margin-top:2px">{{ s.session.adresse }} · {{ s.code }}</div>
+            </div>
+          </div>
+        </td>
+        <td style="font-size:11.5px">{{ s.debut|jour }}</td>
+        <td>
+          <div style="font-weight:500">{{ s.places_occupees }}<span style="color:var(--muted);font-weight:400">/{{ s.places_max }}</span></div>
+          <div class="progress-bar" style="margin-top:5px;width:56px"><div class="progress-fill" style="width:{{ s.remplissage }}%;background:{{ 'var(--danger)' if s.complet else 'var(--accent)' }}"></div></div>
+        </td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="progress-bar" style="margin:0;width:34px"><div class="progress-fill" style="width:{{ (100*s.signees/s.places_occupees)|round|int if s.places_occupees else 0 }}%;background:var(--success)"></div></div>
+            <span style="font-size:11px;color:var(--muted)">{{ s.signees }}/{{ s.places_occupees }}</span>
+          </div>
+        </td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="progress-bar" style="margin:0;width:34px"><div class="progress-fill" style="width:{{ (100*s.regles/s.places_occupees)|round|int if s.places_occupees else 0 }}%;background:var(--success)"></div></div>
+            <span style="font-size:11px;color:var(--muted)">{{ s.regles }}/{{ s.places_occupees }}</span>
+          </div>
+        </td>
+        <td style="font-size:12px;font-weight:500">{{ s.encaisse|euros }}</td>
+        <td>
+          {% if s.passee %}<span class="chip chip-gray">Passée</span>
+          {% elif s.sheet.statut == 'cloturee' %}<span class="chip chip-w"><span class="dot dot-w"></span>Close</span>
+          {% elif s.complet %}<span class="chip chip-r"><span class="dot dot-r"></span>Complète</span>
+          {% else %}<span class="chip chip-g"><span class="dot dot-g"></span>Ouverte</span>{% endif %}
+          {% if s.demandes_annulation %}<span class="chip chip-r" style="margin-left:4px" title="annulations à valider"><i class="ti ti-alert-triangle" style="font-size:11px"></i>{{ s.demandes_annulation|length }}</span>{% endif %}
+        </td>
+        <td>{% if not s.passee %}<span class="chip chip-b">J-{{ s.jours_avant }}</span>{% else %}<span style="color:var(--border2)">—</span>{% endif %}</td>
+        <td><button type="button" class="sup-mini" title="Supprimer cette session" onclick="event.stopPropagation();demanderSuppression('{{ s.code }}')"><i class="ti ti-trash"></i></button></td>
+      
+      <td style="white-space:nowrap">
+        {% if s.etat.groupe == 'archivee' %}
+          <span class="chip chip-gray"><i class="ti ti-archive" style="font-size:11px"></i> Archivée</span>
+          <a class="ss-bilan" href="/questionnaires/{{ s.code }}/bilan" target="_blank" title="Bilan complet de la session" onclick="event.stopPropagation()"><i class="ti ti-file-type-pdf"></i>Bilan</a>
+        {% elif s.etat.groupe == 'cloturee' %}
+          <span class="chip chip-w"><span class="dot dot-w"></span>Clôturée</span>
+        {% else %}
+          <span class="chip chip-g"><span class="dot dot-g"></span>Active</span>
+        {% endif %}
+      </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="10" class="vide"><i class="ti ti-calendar-plus"></i>Aucune session</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+<style>
+.sup-voile{position:fixed;inset:0;background:rgba(16,18,30,.6);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
+.sup-modale{background:var(--carte);border-radius:14px;padding:26px 28px;max-width:520px;width:100%;max-height:90vh;overflow:auto}
+.sup-t{font-size:17px;font-weight:500;margin-bottom:6px}
+.sup-st{font-size:13px;color:var(--muted);margin-bottom:18px}
+.sup-bloc{border-radius:8px;padding:12px 14px;font-size:12px;margin-bottom:14px}
+.sup-rouge{background:#fdeaea;border:1px solid #f0b8b8;color:#8a2020}
+.sup-vert{background:#eafaf3;border:1px solid #9fe1cb;color:#0f6e56}
+.sup-l{display:flex;align-items:flex-start;gap:7px;padding:3px 0}
+.sup-l i{flex-shrink:0;margin-top:1px}
+.sup-champ{width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;margin-top:6px}
+.sup-champ:focus{outline:none;border-color:var(--danger);box-shadow:0 0 0 3px rgba(208,59,59,.1)}
+.sup-lab{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.sup-pied{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+.sup-rge{background:var(--danger);color:#fff}
+.sup-rge[disabled]{opacity:.4;cursor:not-allowed}
+.sup-mini{background:none;border:1px solid var(--border);border-radius:6px;width:30px;height:26px;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:14px}
+.sup-mini:hover{border-color:var(--danger);color:var(--danger);background:#fdeaea}
+</style>
+<div class="sup-voile" id="sup_voile"><div class="sup-modale" id="sup_modale"></div></div>
+<script>
+var SUP_CODE = "";
+function supFermer(){ document.getElementById("sup_voile").style.display = "none"; }
+function supOuvrir(h){ document.getElementById("sup_modale").innerHTML = h; document.getElementById("sup_voile").style.display = "flex"; }
+function supVerifier(){
+  var c = document.getElementById("sup_saisie");
+  var b = document.getElementById("sup_bouton");
+  if(c && b) b.disabled = (c.value.trim() !== SUP_CODE);
+}
+function demanderSuppression(code){
+  SUP_CODE = code;
+  supOuvrir("<div class=\"sup-t\">Verification...</div>");
+  fetch("/session/" + SUP_CODE + "/impact").then(function(r){return r.json()}).then(function(j){
+    if(!j.ok){ supOuvrir("<div class=\"sup-t\">" + (j.message || "Erreur") + "</div><div class=\"sup-pied\"><button class=\"btn btn-ghost\" onclick=\"supFermer()\">Fermer</button></div>"); return; }
+    if(j.active){
+      supOuvrir("<div class=\"sup-t\">Suppression impossible</div><div class=\"sup-st\">" + j.code + "</div><div class=\"sup-bloc sup-rouge\">Cette session est la session active de DFM. Les scripts automatiques travaillent dessus. Change la session active dans sessions.py avant de la supprimer.</div><div class=\"sup-pied\"><button class=\"btn btn-ghost\" onclick=\"supFermer()\">Fermer</button></div>");
+      return;
+    }
+    var h = "<div class=\"sup-t\">Supprimer cette session</div><div class=\"sup-st\">" + j.nom + " \u2014 " + j.code + "</div>";
+    h += "<div class=\"sup-bloc sup-rouge\">";
+    if(j.inscrits > 0){
+      h += "<div class=\"sup-l\"><i class=\"ti ti-alert-triangle\"></i><span><b>" + j.inscrits + " praticien(s) inscrit(s).</b> L'onglet de suivi ne sera pas detruit : il sera renomme et mis de cote dans le Sheet, tes donnees restent recuperables.</span></div>";
+    } else {
+      h += "<div class=\"sup-l\"><i class=\"ti ti-trash\"></i><span>Aucun inscrit. L'onglet de suivi \u00ab " + j.onglet + " \u00bb sera supprime du Sheet.</span></div>";
+    }
+    h += "<div class=\"sup-l\"><i class=\"ti ti-minus\"></i><span>La ligne de la session sera retiree de l'onglet Sessions.</span></div>";
+    h += "<div class=\"sup-l\"><i class=\"ti ti-minus\"></i><span>La session disparaitra de DFM. Action irreversible.</span></div></div>";
+    h += "<div class=\"sup-bloc sup-vert\"><div class=\"sup-l\"><i class=\"ti ti-shield-check\"></i><span>Le Drive n'est pas touche : conventions, factures et attestations restent en place.</span></div><div class=\"sup-l\"><i class=\"ti ti-shield-check\"></i><span>Le journal d'activites est conserve.</span></div></div>";
+    h += "<div><span class=\"sup-lab\">Recopie le code pour confirmer</span><input class=\"sup-champ\" id=\"sup_saisie\" placeholder=\"" + j.code + "\" oninput=\"supVerifier()\" autocomplete=\"off\"></div>";
+    h += "<div class=\"sup-pied\"><button class=\"btn btn-ghost\" onclick=\"supFermer()\">Annuler</button><button class=\"btn sup-rge\" id=\"sup_bouton\" disabled onclick=\"supExecuter(this)\"><i class=\"ti ti-trash\"></i>Je confirme, supprimer</button></div>";
+    supOuvrir(h);
+  }).catch(function(e){ supOuvrir("<div class=\"sup-t\">Erreur : " + e + "</div><div class=\"sup-pied\"><button class=\"btn btn-ghost\" onclick=\"supFermer()\">Fermer</button></div>"); });
+}
+function supExecuter(bouton){
+  bouton.disabled = true;
+  bouton.innerHTML = "Suppression...";
+  var fd = new FormData();
+  fd.append("confirmation", document.getElementById("sup_saisie").value.trim());
+  fetch("/session/" + SUP_CODE + "/supprimer", {method:"POST", body:fd})
+  .then(function(r){return r.json()}).then(function(j){
+    var h = "";
+    if(!j.ok){
+      h = "<div class=\"sup-t\">Suppression refusee</div><div class=\"sup-bloc sup-rouge\">" + (j.message || "Erreur") + "</div><div class=\"sup-pied\"><button class=\"btn btn-ghost\" onclick=\"supFermer()\">Fermer</button></div>";
+      supOuvrir(h); return;
+    }
+    h = "<div class=\"sup-t\">Session supprimee</div><div class=\"sup-st\">" + SUP_CODE + "</div>";
+    (j.etapes || []).forEach(function(e){
+      h += "<div class=\"sup-l\" style=\"font-size:13px\"><i class=\"ti " + (e.ok ? "ti-circle-check" : "ti-alert-circle") + "\" style=\"color:" + (e.ok ? "var(--success)" : "var(--danger)") + "\"></i><span>" + e.texte + "</span></div>";
+    });
+    if(j.revient){
+      h += "<div class=\"sup-bloc sup-rouge\" style=\"margin-top:14px\">Attention : cette session est ecrite en dur dans sessions.py. Elle reapparaitra au prochain redemarrage de DFM tant qu'elle n'aura pas ete retiree du fichier a la main.</div>";
+    }
+    h += "<div class=\"sup-pied\"><button class=\"btn btn-primary\" onclick=\"window.location.href=window.location.pathname\">Fermer</button></div>";
+    supOuvrir(h);
+  }).catch(function(e){ supOuvrir("<div class=\"sup-t\">Erreur : " + e + "</div><div class=\"sup-pied\"><button class=\"btn btn-ghost\" onclick=\"supFermer()\">Fermer</button></div>"); });
+}
+</script>
+<script>
+document.addEventListener("click", function(e){
+  if(e.target && e.target.className && String(e.target.className).indexOf("-voile") > -1){ e.target.style.display = "none"; }
+});
+document.addEventListener("keydown", function(e){
+  if(e.key !== "Escape") return;
+  var v = document.querySelectorAll("[id$=_voile]");
+  for(var i = 0; i < v.length; i++){ v[i].style.display = "none"; }
+});
+</script>
+<style>
+.ss-sep td{background:#f4f5f8 !important;font-size:10.5px;font-weight:700;letter-spacing:1.1px;
+text-transform:uppercase;color:var(--muted);padding:9px 14px !important;border-top:1px solid var(--border2);
+border-bottom:1px solid var(--border) !important;cursor:default}
+.ss-sep td span{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;
+border-radius:9px;background:var(--border);color:var(--muted);font-size:10px;font-weight:600;
+margin-left:7px;padding:0 5px;letter-spacing:0}
+.ss-bilan{display:inline-flex;align-items:center;gap:4px;border:1px solid #f0b8b8;border-radius:7px;
+padding:3px 9px;font-size:10.5px;font-weight:600;color:var(--danger);background:var(--carte);
+text-decoration:none;margin-left:5px;white-space:nowrap}
+.ss-bilan:hover{background:#fdeaea;border-color:var(--danger)}
+tr:has(.chip-gray) td{opacity:.72}
+tr.ss-sep td{opacity:1 !important}
+</style>
+{% endblock %}

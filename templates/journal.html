@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block titre %}Journal{% endblock %}
+{% block entete %}<i class="ti ti-history" style="color:var(--accent);vertical-align:-3px;margin-right:6px"></i>Journal d'activité{% endblock %}
+{% block sous_entete %}Toutes les actions réalisées dans DFM, de la plus récente à la plus ancienne{% endblock %}
+{% block actions %}
+<button class="btn btn-ghost" title="Recalculer les scelles et verifier qu aucune ligne n a ete modifiee, ajoutee ou supprimee" onclick="verifierScelles(this)"><i class="ti ti-shield-check"></i>Vérifier l'intégrité</button>
+<button class="btn btn-ghost" title="Telecharger le journal au format CSV" onclick="exporterJournal()"><i class="ti ti-download"></i>Exporter</button>
+{% endblock %}
+{% block corps %}
+
+<style>
+.sc-p{border-radius:12px;padding:14px 16px;margin-bottom:12px;font-size:12.5px;line-height:1.65;
+  border:1px solid var(--border);background:var(--carte)}
+.sc-p.ok{border-left:3px solid var(--success)}
+.sc-p.ko{border-left:3px solid var(--danger)}
+.sc-t{font-weight:600;font-size:13px;margin-bottom:3px;display:flex;align-items:center;gap:7px}
+.sc-l{color:var(--muted);margin-top:6px}
+</style>
+<div id="scelles"></div>
+<script>
+function verifierScelles(b){
+  var z=document.getElementById('scelles');
+  b.disabled=true; z.innerHTML='<div class="sc-p">Recalcul des scellés en cours…</div>';
+  fetch('/journal/verifier').then(r=>r.json()).then(function(d){
+    b.disabled=false;
+    if(!d.ok){ z.innerHTML='<div class="sc-p ko">Vérification impossible : '+(d.message||'')+'</div>'; return; }
+    var h='';
+    d.feuilles.forEach(function(f){
+      if(!f.lisible){
+        h+='<div class="sc-p ko"><div class="sc-t"><i class="ti ti-alert-triangle"></i>'+f.marque+
+           '</div>Journal illisible : '+(f.souci||'')+'</div>'; return;
+      }
+      if(f.intacte){
+        h+='<div class="sc-p ok"><div class="sc-t"><i class="ti ti-shield-check" style="color:var(--success)"></i>'+
+           f.marque+' — chaîne intacte</div>'+
+           f.entrees+' entrée'+(f.entrees>1?'s':'')+', '+f.scellees+' scellée'+(f.scellees>1?'s':'')+
+           '. Aucune ligne modifiée, ajoutée ni supprimée depuis son écriture par DFM.';
+        if(f.non_scellees) h+='<div class="sc-l"><b>'+f.non_scellees+' entrée'+
+           (f.non_scellees>1?'s ne portent':' ne porte')+' pas de scellé</b> — écrite'+
+           (f.non_scellees>1?'s':'')+' par une version de DFM antérieure au scellement, '+
+           'ou pendant une panne d\'écriture. '+(f.non_scellees>1?'Elles n\'attestent':'Elle n\'atteste')+
+           ' de rien et ne rompt'+(f.non_scellees>1?'ent':'')+' rien.</div>';
+        if(f.pose_le) h+='<div class="sc-l">Le scellé a été apposé le '+f.pose_le+
+           ' sur les entrées déjà présentes (jusqu\'à la ligne '+f.retroactif_jusqu_a+
+           ') : pour celles-là, il atteste de leur état à cette date, pas de ce qui a précédé. '+
+           'Les entrées suivantes sont scellées au moment même de leur écriture.</div>';
+        h+='<div class="sc-l">La clé du scellé est sur cette machine : il détecte une altération '+
+           'accidentelle ou faite par un tiers, il ne prétend pas vous en empêcher.</div></div>';
+      } else if(f.rupture){
+        h+='<div class="sc-p ko"><div class="sc-t"><i class="ti ti-alert-triangle" style="color:var(--danger)"></i>'+
+           f.marque+' — la chaîne est rompue</div>La rupture commence à la ligne '+f.rupture.rang+
+           ' du classeur ('+(f.rupture.quand||'')+' — '+(f.rupture.quoi||'')+
+           (f.rupture.qui?' — '+f.rupture.qui:'')+'). Une ligne a été modifiée, ajoutée ou supprimée '+
+           'à cet endroit. <a href="'+f.lien+'" target="_blank" rel="noopener">Ouvrir le classeur</a>.</div>';
+      } else {
+        h+='<div class="sc-p"><div class="sc-t">'+f.marque+'</div>'+f.entrees+
+           ' entrée'+(f.entrees>1?'s':'')+', aucune scellée. Lancez <code>python3 sceller_journal.py --ecrire</code>.</div>';
+      }
+    });
+    z.innerHTML=h;
+  }).catch(function(e){ b.disabled=false;
+    z.innerHTML='<div class="sc-p ko">Vérification impossible : '+e+'</div>'; });
+}
+</script>
+
+<form class="filter-bar" method="get" action="/journal" style="margin-bottom:8px">
+  <input type="hidden" name="cat" value="{{ categorie }}">
+  <div class="fsel" style="padding:0">
+    <select name="session" onchange="this.form.submit()" style="border:none;background:transparent;font-family:inherit;font-size:12px;padding:8px 12px;outline:none;cursor:pointer;color:var(--text)">
+      <option value="">Toutes les formations</option>
+      {% for code, c in sessions_dispo.items() %}
+      <option value="{{ code }}" {{ 'selected' if filtre_session == code }}>{{ c.libelle }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="search-box" style="border-radius:9px;padding:8px 12px">
+    <i class="ti ti-search" style="font-size:14px"></i>
+    <input type="text" name="q" value="{{ recherche }}" placeholder="Rechercher un praticien, une action..." style="width:100%">
+  </div>
+  {% if recherche or filtre_session %}
+  <a class="btn btn-ghost" href="/journal"><i class="ti ti-x"></i>Réinitialiser</a>
+  {% endif %}
+</form>
+
+<div class="type-chips">
+  {% for cle, libelle, icone in categories %}
+  <a class="tchip {{ 'active' if categorie == cle }}" href="/journal?cat={{ cle }}{{ '&session=' ~ filtre_session if filtre_session }}{{ '&q=' ~ recherche|urlencode if recherche }}">
+    <i class="ti {{ icone }}"></i>{{ libelle }}
+  </a>
+  {% endfor %}
+</div>
+
+{% for j in jours %}
+<div class="day-group">
+  <div class="day-label">{{ j.libelle }} <span class="day-count">· {{ j.entrees|length }} action{{ 's' if j.entrees|length > 1 }}</span></div>
+  <div class="log-list">
+    {% for e in j.entrees %}
+    <div class="log-row">
+      <span class="log-time">{{ e.heure_fr }}</span>
+      <div class="log-ico" style="background:{{ e.style.fond }}"><i class="ti {{ e.style.icone }}" style="color:{{ e.style.couleur }}"></i></div>
+      <div class="log-content">
+        <div class="log-action">
+          {{ e.phrase }}</div>
+        <div class="log-meta">
+          <span class="ftag" style="background:{{ e.tag.fond }};color:{{ e.tag.texte }}"><span class="fdot" style="background:{{ e.tag.texte }}"></span>{{ e.tag.libelle }}</span>
+          {% if e.montant %}<span class="amount-tag">+ {{ e.montant }} €</span>{% endif %}
+        </div>
+      </div>
+      {% if e.details %}<button type="button" class="log-plus" aria-expanded="false"
+        title="Voir le détail" onclick="jDeplier(this)"><i class="ti ti-chevron-down"></i></button>{% endif %}
+      {% if e.ouvrable %}<a href="/session/{{ e.session }}" class="log-arrow" title="Ouvrir la session {{ e.session }}" aria-label="Ouvrir la session {{ e.session }}"><i class="ti ti-chevron-right"></i></a>{% else %}<span class="log-vide" aria-hidden="true"></span>{% endif %}
+    </div>
+    {% if e.details %}<div class="log-detail" hidden>{{ e.details }}</div>{% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="log-list">
+  <div class="vide" style="padding:50px 16px">
+    <i class="ti ti-history"></i>
+    {% if categorie != 'tout' or recherche or filtre_session %}Aucune action ne correspond à ces filtres{% else %}Aucune action enregistrée pour l'instant{% endif %}
+  </div>
+</div>
+{% endfor %}
+
+<script>
+function exporterJournal(){
+  const lignes = [["Date","Heure","Action","Praticien","Session","Detail","Montant"]];
+  document.querySelectorAll('.day-group').forEach(g=>{
+    const jour = g.querySelector('.day-label').childNodes[0].textContent.trim();
+    g.querySelectorAll('.log-row').forEach(r=>{
+      const act = r.querySelector('.log-action');
+      lignes.push([
+        jour,
+        r.querySelector('.log-time').textContent.trim(),
+        act.querySelector('strong').textContent.trim(),
+        (act.querySelector('.log-prat')||{textContent:''}).textContent.trim(),
+        (r.querySelector('.ftag')||{textContent:''}).textContent.trim(),
+        (act.querySelector('span[style*="muted"]')||{textContent:''}).textContent.trim(),
+        (r.querySelector('.amount-tag')||{textContent:''}).textContent.trim()
+      ]);
+    });
+  });
+  const csv = lignes.map(l=>l.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(";")).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\ufeff"+csv], {type:"text/csv;charset=utf-8"}));
+  a.download = "journal-dfm.csv";
+  a.click();
+}
+
+function jDeplier(bouton){
+  var ligne = bouton.closest(".log-row");
+  var bloc = ligne ? ligne.nextElementSibling : null;
+  if(!bloc || !bloc.classList.contains("log-detail")) return;
+  var ouvert = bouton.getAttribute("aria-expanded") === "true";
+  bloc.hidden = ouvert;
+  bouton.setAttribute("aria-expanded", ouvert ? "false" : "true");
+}
+</script>
+<style>
+.log-row{display:flex;align-items:center;gap:11px;padding:7px 14px;border-bottom:1px solid var(--border);font-size:12.5px;line-height:1.4}
+.log-row:last-child{border-bottom:none}
+.log-row:hover{background:#fafbfd}
+.log-time{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;flex:none;width:38px}
+.log-ico{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:none}
+.log-ico i{font-size:14px}
+.log-content{flex:1;min-width:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.log-action{flex:1;min-width:200px}
+.log-meta{font-size:10.5px;color:var(--muted);display:flex;gap:9px;flex-wrap:wrap;flex:none}
+.log-plus{background:none;border:1px solid var(--border);border-radius:7px;width:24px;height:24px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);flex:none;
+  transition:transform .15s,border-color .12s;font-size:13px}
+.log-plus:hover{border-color:var(--border2);color:var(--text)}
+.log-plus[aria-expanded="true"]{transform:rotate(180deg)}
+.log-detail{padding:9px 14px 12px 66px;font-size:12px;line-height:1.65;color:var(--muted);
+  border-bottom:1px solid var(--border);white-space:pre-wrap;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+/* Une fleche n'apparait que si elle mene quelque part. Sinon, une cale de meme
+   largeur garde l'alignement des colonnes. */
+.log-vide{width:40px;flex:none}
+.log-arrow{color:var(--muted);flex:none}
+.log-arrow:hover{color:var(--accent)}
+.log-list{background:var(--carte);border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:14px}
+</style>
+{% endblock %}

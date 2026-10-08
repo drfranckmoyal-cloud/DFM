@@ -1,0 +1,191 @@
+{#
+  UN questionnaire, tel qu'une personne l'a rempli.
+
+  POURQUOI CETTE PAGE EXISTE. Le dossier de preuves montrait le score de
+  l'evaluation, jamais les reponses. Devant un auditeur qui demande a voir le
+  questionnaire d'un apprenant, il n'y avait rien a ouvrir.
+
+  ELLE NE CORRIGE RIEN ET NE CALCULE RIEN de plus que le reste de DFM : elle
+  restitue le modele qui a servi et les reponses enregistrees, cote a cote.
+#}<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>{{ f.libelle }} — {{ f.nom }}</title>
+<style>
+@page{size:A4;margin:14mm}
+*{box-sizing:border-box}
+body{margin:0;background:#f4f5f8;color:#1a1d2e;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.55;font-size:13px}
+.page{max-width:780px;margin:0 auto;background:#fff;padding:36px 42px 50px}
+.entete{border-bottom:2px solid #1a1d2e;padding-bottom:15px;margin-bottom:22px}
+.org{font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:#6b7280}
+h1{font-size:22px;margin:9px 0 3px;font-weight:600}
+.sous{font-size:13.5px;color:#3d4250}
+.meta{display:flex;gap:22px;margin-top:12px;font-size:11.5px;color:#5b6172;flex-wrap:wrap}
+h2{font-size:11.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:#6b7280;margin:26px 0 12px;padding-bottom:5px;border-bottom:1px solid #e5e8f0}
+.note{background:#f7f8fb;border-left:3px solid #d1d5e0;padding:11px 14px;font-size:11.5px;color:#5b6172;margin-bottom:14px}
+.manque{background:#fff8ec;border-left:3px solid #e08a1e;padding:11px 14px;font-size:12px;color:#8a5a12;margin-bottom:14px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+td{padding:7px 0;border-bottom:1px solid #eef0f5;vertical-align:top}
+tr:last-child td{border-bottom:none}
+.droite{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;color:#5b6172}
+a{color:#2a5fd6}
+.vide{color:#8a90a2;font-style:italic}
+.libre{background:#f7f8fb;border-radius:6px;padding:9px 12px;font-size:12.5px;margin-top:5px;white-space:pre-wrap}
+.axe{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:#8a90a2;padding-top:14px}
+.q-d{font-size:11.5px;color:#6b7280}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 14px}
+.bloc{border:1px solid #e5e8f0;border-radius:8px;padding:13px 12px;text-align:center}
+.bloc-l{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px}
+.bloc-v{font-size:26px;font-weight:600;line-height:1.2;margin-top:3px;font-variant-numeric:tabular-nums}
+.vert{color:#0f9e6a}.gris{color:#6b7280}
+.pied{margin-top:30px;padding-top:13px;border-top:1px solid #e5e8f0;font-size:10px;color:#8a90a2;line-height:1.7}
+.imprimer{position:fixed;top:16px;right:16px;background:#4f7ef8;color:#fff;border:none;border-radius:8px;padding:11px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 3px 12px rgba(0,0,0,.18)}
+.retour{position:fixed;top:16px;right:250px;background:#fff;color:#3d4250;border:1px solid #d1d5e0;border-radius:8px;padding:11px 16px;font-size:13px;font-weight:600;text-decoration:none;box-shadow:0 3px 12px rgba(0,0,0,.10)}
+
+/* Une question, avec toutes ses propositions. La barre de gauche dit d'un
+   coup d'oeil si la reponse etait juste, fausse, ou absente. */
+.qn{border-left:3px solid #d1d5e0;padding:2px 0 2px 14px;margin-bottom:20px;page-break-inside:avoid}
+.qn.juste{border-color:#0f9e6a}
+.qn.faux{border-color:#d64545}
+.qn-h{font-size:10px;color:#8a90a2;text-transform:uppercase;letter-spacing:.5px}
+.qn-e{font-size:14px;font-weight:600;margin:3px 0 8px}
+.props{list-style:none;padding:0;margin:0}
+.props li{display:flex;gap:9px;align-items:flex-start;padding:4px 0;font-size:12.5px;color:#5b6172}
+.case{flex:none;width:13px;height:13px;border:1.5px solid #b9bfcc;border-radius:3px;margin-top:3px}
+.props li.cochee{color:#1a1d2e;font-weight:600}
+.props li.cochee .case{background:#1a1d2e;border-color:#1a1d2e;box-shadow:inset 0 0 0 2px #fff}
+.props li.attendue .case{border-color:#0f9e6a}
+.props li.cochee.attendue .case{background:#0f9e6a;border-color:#0f9e6a}
+.marque{font-size:10px;font-weight:600;padding:1px 7px;border-radius:20px;margin-left:5px;white-space:nowrap}
+.m-att{background:#eafaf3;color:#0f9e6a}
+.m-vous{background:#eef2fd;color:#2a5fd6}
+.expl{font-size:11.5px;color:#5b6172;background:#f7f8fb;border-radius:6px;padding:8px 11px;margin-top:8px}
+@media print{.imprimer,.retour{display:none}body{background:#fff}.page{padding:0;max-width:none}h2{page-break-after:avoid}a{color:#1a1d2e;text-decoration:none}}
+</style>
+</head>
+<body>
+<a class="retour" href="/session/{{ f.code }}/dossier/{{ f.mail }}">Dossier de preuves</a>
+<button class="imprimer" onclick="window.print()">Imprimer ou enregistrer en PDF</button>
+<div class="page">
+
+  <div class="entete">
+    <div class="org">{{ marque }}{% if organisme %} · {{ organisme }}{% endif %}</div>
+    <h1>{{ f.libelle }}</h1>
+    <div class="sous">{{ f.nom }} — {{ f.session.titre_complet or f.session.nom_formation }}</div>
+    <div class="meta">
+      <span>{{ f.mail }}</span>
+      {% if f.fonction %}<span>{{ f.fonction }}</span>{% endif %}
+      <span>Rempli le {{ f.quand }}</span>
+      {% if f.modele_titre %}<span>{{ f.modele_titre }}</span>{% endif %}
+    </div>
+  </div>
+
+  {% if f.quoi == 'evaluation' %}
+    {% if f.score is not none %}
+    <div class="trio">
+      <div class="bloc"><div class="bloc-l">Score</div>
+        <div class="bloc-v {{ 'vert' if f.seuil and f.score >= f.seuil else 'gris' }}">{{ f.score }}<span style="font-size:15px">%</span></div></div>
+      <div class="bloc"><div class="bloc-l">Points obtenus</div>
+        <div class="bloc-v gris">{{ f.obtenu }}<span style="font-size:15px">/{{ f.total }}</span></div></div>
+      <div class="bloc"><div class="bloc-l">Seuil d'acquisition</div>
+        <div class="bloc-v gris">{{ f.seuil or '—' }}<span style="font-size:15px">{% if f.seuil %}%{% endif %}</span></div></div>
+    </div>
+    {% endif %}
+
+    {% if f.objectifs %}
+    <h2>Résultat par objectif</h2>
+    <table>
+      {% for cle, texte in f.objectifs|dictsort %}
+      <tr><td><b>{{ cle }}</b> — {{ texte }}</td>
+        <td class="droite">{{ f.par_objectif.get(cle, '—') }}{% if f.par_objectif.get(cle) is not none %}%{% endif %}</td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+
+    <h2>Le questionnaire, question par question</h2>
+    <div class="note">La case pleine est celle que la personne a cochée&nbsp;; le contour vert
+      signale la réponse attendue. Le modèle restitué est celui qui a servi le jour de la
+      session.</div>
+    {% for q in f.questions %}
+    <div class="qn {{ 'juste' if q.juste else ('faux' if q.juste is not none and not q.sans_reponse else '') }}">
+      <div class="qn-h">Question {{ q.rang }}{% if q.objectif %} · objectif {{ q.objectif }}{% endif %}{% if q.poids and q.poids != 1 %} · {{ q.poids }} points{% endif %}</div>
+      <div class="qn-e">{{ q.enonce }}</div>
+      <ul class="props">
+        {% for p in q.propositions %}
+        <li class="{{ 'cochee' if p.cochee }} {{ 'attendue' if p.attendue }}">
+          <span class="case"></span>
+          <span>{{ p.texte }}{% if p.attendue %}<span class="marque m-att">réponse attendue</span>{% endif %}{% if p.cochee and not p.attendue %}<span class="marque m-vous">réponse donnée</span>{% endif %}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% if q.sans_reponse %}<div class="rep vide" style="margin-top:6px">Aucune réponse enregistrée pour cette question.</div>{% endif %}
+      {% if q.explication %}<div class="expl">{{ q.explication }}</div>{% endif %}
+    </div>
+    {% endfor %}
+
+  {% elif f.appreciation %}
+    {% set a = f.appreciation %}
+    <div class="note">Ce questionnaire n'a pas de bonne réponse&nbsp;: tout y est restitué,
+      y compris les questions restées sans réponse.
+      {% if a.moyenne is not none %}Moyenne des notes&nbsp;: <b>{{ a.moyenne }}/{{ a.sur }}</b>.{% endif %}</div>
+    <h2>Appréciations chiffrées</h2>
+    <table>
+      {% set ns = namespace(axe='') %}
+      {% for n in a.notes %}
+        {% if n.axe and n.axe != ns.axe %}
+        <tr><td colspan="2" class="axe" style="border-bottom:none">{{ n.axe }}</td></tr>
+        {% set ns.axe = n.axe %}
+        {% endif %}
+      <tr><td>{{ n.libelle }}</td>
+        <td class="droite">{% if n.sans_reponse %}<span class="vide">sans réponse</span>
+          {% else %}<b>{{ n.note }}</b>/{{ a.sur }}{% endif %}</td></tr>
+      {% endfor %}
+      {% if a.recommandation %}
+      <tr><td>{{ a.recommandation.libelle }}</td>
+        <td class="droite">{% if a.recommandation.sans_reponse %}<span class="vide">sans réponse</span>
+          {% else %}<b>{{ a.recommandation.note }}</b>/10{% endif %}</td></tr>
+      {% endif %}
+    </table>
+
+    {% if a.adaptation %}
+    <h2>Accessibilité — indicateur 26</h2>
+    <div class="qn"><div class="qn-e" style="font-size:13px">{{ a.adaptation.libelle }}</div>
+      <div class="rep">{% if a.adaptation.sans_reponse %}<span class="vide">Sans réponse</span>
+        {% else %}<b>{{ a.adaptation.repondu }}</b>{% endif %}</div></div>
+    {% endif %}
+
+    {% if a.ouvertes %}
+    <h2>Réponses libres</h2>
+    {% for o in a.ouvertes %}
+    <div style="margin-bottom:14px;page-break-inside:avoid">
+      <div class="q-d">{{ o.libelle }}</div>
+      {% if o.sans_reponse %}<div class="libre vide">Sans réponse</div>
+      {% else %}<div class="libre">{{ o.repondu }}</div>{% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+  {% else %}
+    <div class="manque"><b>Modèle introuvable.</b> Le questionnaire qui a servi n'a pas pu
+      être retrouvé&nbsp;: les réponses sont restituées telles qu'elles ont été
+      enregistrées, sans les énoncés.</div>
+    <table>
+      {% for k, v in (f.brut or {})|dictsort %}
+      <tr><td>{{ k }}</td><td class="droite">{{ v }}</td></tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+
+  <div class="pied">
+    Restitution éditée le {{ edite }} depuis DFM. Elle affiche le modèle de questionnaire
+    et les réponses enregistrées&nbsp;; elle ne les modifie pas.<br>
+    {% if f.fige %}Les questionnaires ont été figés à la préparation de la session&nbsp;:
+    le modèle restitué ici est celui qui a réellement servi.
+    {% else %}Aucun instantané n'a été figé pour cette session&nbsp;: le modèle restitué
+    est celui de la bibliothèque, susceptible d'avoir évolué depuis.{% endif %}<br>
+    Session {{ f.code }} · {{ marque }}
+  </div>
+</div>
+</body>
+</html>

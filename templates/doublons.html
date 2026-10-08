@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block titre %}Doublons{% endblock %}
+{% block entete %}Recherche de doublons{% endblock %}
+{% block sous_entete %}Toute la base — apprenants et prospects{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" href="/contacts"><i class="ti ti-arrow-left"></i>Bases de données</a>
+{% endblock %}
+{% block corps %}
+<style>
+.db-chapeau{display:flex;gap:11px;align-items:flex-start;background:var(--bg2);border:1px solid var(--border);
+  border-radius:11px;padding:12px 15px;font-size:12.5px;line-height:1.6;color:var(--muted);margin-bottom:16px}
+.db-bloc{background:var(--carte);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden}
+.db-tete{padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px}
+.db-tete-t{font-size:14px;font-weight:600}
+.db-tete-n{font-size:12px;color:var(--muted)}
+.db-cas{padding:13px 16px;border-bottom:1px solid var(--border)}
+.db-cas:last-child{border-bottom:none}
+.db-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.db-nom{font-size:13.5px;font-weight:600}
+.db-eti{font-size:10.5px;padding:2px 8px;border-radius:20px;font-weight:600;letter-spacing:.2px}
+.db-sur{background:#fdeaea;color:#a33333;border:1px solid #f2cccc}
+.db-verif{background:#fdf3e3;color:#8a5606;border:1px solid #f0dcb4}
+.db-pourquoi{font-size:11.5px;color:var(--muted);margin-bottom:9px;line-height:1.55}
+.db-cote{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px}
+.db-f{border:1px solid var(--border);border-radius:9px;padding:9px 11px;font-size:12px;background:var(--bg)}
+.db-f-m{font-weight:600;font-size:12.5px;word-break:break-all}
+.db-f-d{color:var(--muted);font-size:11.5px;margin-top:3px;line-height:1.5}
+.db-diff{font-size:11.5px;border-top:1px solid var(--border);padding-top:8px;margin-top:6px}
+.db-diff-l{display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;padding:3px 0}
+.db-diff-l b{font-weight:500;color:var(--muted)}
+.db-actes{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+.db-b{border:1px solid var(--border);background:var(--carte);color:var(--text);border-radius:8px;
+  padding:6px 12px;font-size:12.5px;font-family:inherit;cursor:pointer;text-decoration:none;
+  display:inline-flex;align-items:center;gap:6px}
+.db-b:hover{border-color:var(--border2)}
+html[data-sombre] a.db-b{color:var(--text)}
+html[data-sombre] a.db-b.db-b-p{color:#fff}
+.db-b-p{background:var(--accent);color:#fff;border-color:transparent}
+.db-vide{padding:28px 16px;text-align:center;color:var(--muted);font-size:13px}
+@media(max-width:760px){.db-cote{grid-template-columns:1fr}.db-diff-l{grid-template-columns:1fr}}
+</style>
+
+{% if erreur %}
+<div class="dfm-bloc dfm-b-dan">Lecture impossible : {{ erreur }}</div>
+{% else %}
+
+<div class="db-chapeau">
+  <i class="ti ti-info-circle" style="font-size:16px;flex:none"></i>
+  <span><b>{{ nb_fiches }} fiches</b> analysées, <b>{{ r.paires|length }}</b> rapprochement(s) signalé(s).
+  Rien n'est fusionné automatiquement : chaque cas attend votre décision, et un rapprochement écarté
+  ne vous est plus jamais resignalé.
+  {% if r.ecartes %}<br>{{ r.ecartes }} déjà écarté(s) et masqué(s).{% endif %}</span>
+</div>
+
+<div class="db-bloc">
+  <div class="db-tete">
+    <i class="ti ti-users" style="color:var(--accent);font-size:17px"></i>
+    <span class="db-tete-t">Fiches qui désignent probablement la même personne</span>
+    <span class="db-tete-n">· {{ r.paires|length }}</span>
+  </div>
+  {% for p in r.paires %}
+  <div class="db-cas" id="cas-{{ loop.index }}">
+    <div class="db-h">
+      <span class="db-nom">{{ p.a.prenom }} {{ p.a.nom }}</span>
+      <span class="db-eti {{ 'db-sur' if p.force >= 2 else 'db-verif' }}">{{ p.certitude }}</span>
+    </div>
+    <div class="db-pourquoi">{{ p.explication }}</div>
+    <div class="db-cote">
+      {% for f in (p.a, p.b) %}
+      <div class="db-f">
+        <div class="db-f-m">{{ f.prenom }} {{ f.nom }}</div>
+        <div class="db-f-d">{{ f.mail or "sans adresse" }}
+          {% if f.telephone %}<br>{{ f.telephone }}{% endif %}
+          {% if f.ville %}<br>{{ f.ville }}{% endif %}
+          {% if f.marqueurs %}<br>{% for c in f.marqueurs %}{% if not c.startswith('_') %}{{ libelles.get(c, c) }} {% endif %}{% endfor %}{% endif %}
+        </div>
+        <div class="db-actes" style="margin-top:8px">
+          <a class="db-b" href="/contact/{{ f.id }}"><i class="ti ti-user-circle"></i>Ouvrir</a>
+          <button type="button" class="db-b db-b-p"
+                  onclick="dbFusionner({{ f.id }}, {{ (p.b if f.id == p.a.id else p.a).id }}, '{{ (f.prenom ~ ' ' ~ f.nom)|trim|e }}', '{{ ((p.b if f.id == p.a.id else p.a).prenom ~ ' ' ~ (p.b if f.id == p.a.id else p.a).nom)|trim|e }}', 'cas-{{ loop.index }}')">
+            <i class="ti ti-arrows-join"></i>Garder celle-ci</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% if p.ecarts %}
+    <div class="db-diff">
+      {% for e in p.ecarts %}
+      <div class="db-diff-l"><b>{{ e.libelle }}</b><span>{{ e.a }}</span><span>{{ e.b }}</span></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div class="db-actes">
+      <button type="button" class="db-b"
+              onclick="dbEcarter('{{ p.a.mail or p.a.id }}','{{ p.b.mail or p.b.id }}','cas-{{ loop.index }}')">
+        <i class="ti ti-x"></i>Ce ne sont pas les mêmes</button>
+    </div>
+  </div>
+  {% else %}
+  <div class="db-vide"><i class="ti ti-mood-smile"></i> Aucun rapprochement à signaler sur {{ nb_fiches }} fiches.</div>
+  {% endfor %}
+</div>
+
+<script>
+function dbFusionner(garde, cede, nomGarde, nomCede, id){
+  dfmConfirmer({ton: "attention", titre: "Fusionner ces deux fiches ?",
+    sous: "La fiche gardée : " + nomGarde,
+    corps: "<p><b>" + nomGarde + "</b> reprendra de <b>" + nomCede + "</b> tout ce qui lui manque — "
+         + "adresse, téléphone, ville, marqueurs.</p>"
+         + "<p style=\"font-size:12.5px;color:var(--muted)\">Rien n'est écrasé : une information déjà "
+         + "renseignée sur la fiche gardée reste telle quelle. Puis <b>" + nomCede
+         + "</b> est supprimée — c'est la seule perte.</p>",
+    valider: "Fusionner", styleValider: "attention", action: function(){
+      var fd = new FormData();
+      fd.append("garde", garde); fd.append("cede", cede);
+      fetch("/contacts/fusionner", {method:"POST", body:fd}).then(function(r){return r.json()})
+      .then(function(j){
+        if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+        var e = document.getElementById(id); if(e) e.remove();
+      });
+    }});
+}
+function dbEcarter(a, b, id){
+  dfmConfirmer({ton: "attention", titre: "Écarter ce rapprochement",
+    sous: "Il ne vous sera plus jamais signalé",
+    corps: "<p>Vous indiquez que ces deux fiches désignent <b>deux personnes différentes</b>.</p>"
+         + "<p style=\"color:var(--muted);font-size:12px\">Aucune fiche n'est modifiée. "
+         + "La décision est enregistrée localement et reste réversible.</p>",
+    valider: "Écarter", styleValider: "attention", annuler: "Annuler",
+    action: function(){
+      var fd = new FormData(); fd.append("a", a); fd.append("b", b);
+      fetch("/apprenants/doublons/ecarter", {method:"POST", body:fd})
+      .then(function(r){return r.json()}).then(function(j){
+        if(j.ok){ var e = document.getElementById(id); if(e) e.remove(); }
+        else { dfmInfo("Erreur", "<p>" + (j.message || "") + "</p>", "danger"); }
+      });
+    }});
+}
+</script>
+{% endif %}
+{% endblock %}

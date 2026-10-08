@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block titre %}{{ nom_affiche }}{% endblock %}
+{% block entete %}{{ nom_affiche }}{% endblock %}
+{% block sous_entete %}{% if apprenant %}Apprenant{% else %}Prospect{% endif %}{% if not joignable %} · aucune coordonnée{% endif %}{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" href="/contacts"><i class="ti ti-arrow-left"></i>Bases de données</a>
+{% endblock %}
+{% block corps %}
+<style>
+.ct-g{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:900px){.ct-g{grid-template-columns:1.15fr .85fr}}
+.ct-e{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+.ct-t{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:12px;font-weight:600}
+.ct-l{display:grid;grid-template-columns:112px 1fr;gap:9px;align-items:center;margin-bottom:9px}
+.ct-l label{font-size:12.5px;color:var(--muted)}
+.ct-l input{width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:8px;
+  background:var(--bg);color:var(--text);font-size:13px;font-family:inherit}
+.ct-m{border:1px solid var(--border);background:var(--bg);color:var(--muted);border-radius:20px;
+  padding:6px 14px;font-size:12.5px;cursor:pointer;font-family:inherit;margin:0 6px 7px 0}
+.ct-m.on{background:var(--accent);border-color:transparent;color:#fff}
+.ct-q{font-size:10.5px;padding:3px 9px;border-radius:20px;font-weight:600;margin-right:6px}
+.ct-q-a{background:#e7f0ff;color:#1b4fa8;border:1px solid #cfe0ff}
+.ct-q-p{background:#eef0f5;color:#5b6172;border:1px solid #e0e3ea}
+.ct-q-x{background:#fdeaea;color:#a33333;border:1px solid #f2cccc}
+.ct-p{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--border);font-size:12.5px}
+.ct-p:first-of-type{border-top:none}
+.ct-r{font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:10px}
+.ct-npc{display:flex;align-items:center;gap:9px;font-size:12.5px;margin-top:4px;cursor:pointer}
+</style>
+
+<div class="ct-g">
+  <div>
+    <div class="ct-e">
+      <div class="ct-t">Coordonnées</div>
+      <div class="ct-l"><label for="ct_nom">Nom</label><input id="ct_nom" type="text" value="{{ f.nom }}"></div>
+      <div class="ct-l"><label for="ct_prenom">Prénom</label><input id="ct_prenom" type="text" value="{{ f.prenom }}"></div>
+      <div class="ct-l"><label for="ct_mail">Adresse mail</label><input id="ct_mail" type="text" value="{{ f.mail }}"></div>
+      <div class="ct-l"><label for="ct_tel">Téléphone</label><input id="ct_tel" type="text" value="{{ f.telephone }}"></div>
+      <div class="ct-l"><label for="ct_ville">Ville</label><input id="ct_ville" type="text" value="{{ f.ville }}"></div>
+      <div class="ct-r">Le nom est conservé tel qu'il a été saisi : DFM ne cherche pas à deviner
+        ce qui est le nom et ce qui est le prénom.</div>
+      <label class="ct-npc"><input type="checkbox" id="ct_npc" {% if f.ne_plus_contacter %}checked{% endif %}>
+        Ne plus contacter cette personne</label>
+      <div style="display:flex;gap:9px;margin-top:15px">
+        <button class="btn" onclick="ctEnregistrer(this)"><i class="ti ti-check"></i>Enregistrer</button>
+        <button class="btn btn-ghost" onclick="ctSupprimer()"><i class="ti ti-trash"></i>Supprimer</button>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="ct-e" style="margin-bottom:14px">
+      <div class="ct-t">Marqueurs</div>
+      <div id="ct_marq">
+        {% for m in catalogue %}
+        <button class="ct-m {% if m.cle in poses %}on{% endif %}" data-cle="{{ m.cle }}"
+                onclick="this.classList.toggle('on'); ctMarqueurs(this)">{{ m.libelle }}</button>
+        {% else %}
+        <div class="ct-r" style="margin-top:0">Aucun marqueur défini pour l'instant.</div>
+        {% endfor %}
+      </div>
+      <button class="ct-m" onclick="ctNouveau()"><i class="ti ti-plus"></i> Nouveau marqueur</button>
+      <div class="ct-r" id="ct_etat">Un clic pose ou retire le marqueur, immédiatement.</div>
+    </div>
+
+    <div class="ct-e">
+      <div class="ct-t">Qualités</div>
+      {% if apprenant %}<span class="ct-q ct-q-a">Apprenant</span>
+      {% else %}<span class="ct-q ct-q-p">Prospect</span>{% endif %}
+      {% if not joignable %}<span class="ct-q ct-q-x">Injoignable</span>{% endif %}
+      {% if f.ne_plus_contacter %}<span class="ct-q ct-q-x">Ne plus contacter</span>{% endif %}
+      <div class="ct-r">
+        {% if apprenant %}Calculée : cette personne figure au classeur de suivi. Elle ne se pose ni ne se retire à la main.
+        {% else %}Aucune inscription au classeur de suivi.{% endif %}
+      </div>
+    </div>
+
+    {% if parcours %}
+    <div class="ct-e" style="margin-top:14px">
+      <div class="ct-t">Parcours · {{ parcours|length }} inscription(s)</div>
+      {% for p in parcours %}
+      <div class="ct-p">
+        <a href="/session/{{ p.code }}" style="color:var(--text);text-decoration:none">{{ p.formation }}</a>
+        <span style="color:var(--muted)">{{ p.statut }}</span>
+      </div>
+      {% endfor %}
+      <div class="ct-r">Lu dans le classeur de suivi, jamais recopié ici.</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+var CT_ID = {{ f.id }};
+function ctVal(id){ var e = document.getElementById(id); return e ? e.value : ""; }
+function ctCles(){
+  return Array.prototype.slice.call(document.querySelectorAll("#ct_marq .ct-m.on"))
+    .map(function(b){ return b.getAttribute("data-cle"); }).filter(Boolean);
+}
+function ctEnvoyer(donnees, apres){
+  var fd = new FormData();
+  for(var k in donnees){ fd.append(k, donnees[k]); }
+  fetch("/contact/" + CT_ID + "/modifier", {method:"POST", body:fd})
+  .then(function(r){return r.json()}).then(function(j){
+    if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+    if(apres) apres(j);
+  }).catch(function(e){ dfmInfo("Erreur", "<p>" + e.message + "</p>", "danger"); });
+}
+function ctMarqueurs(bouton){
+  var etat = document.getElementById("ct_etat");
+  etat.textContent = "Enregistrement…";
+  ctEnvoyer({marqueurs: ctCles().join(",")}, function(){
+    etat.textContent = "Marqueurs enregistrés.";
+    setTimeout(function(){ etat.textContent = "Un clic pose ou retire le marqueur, immédiatement."; }, 2200);
+  });
+}
+function ctEnregistrer(bouton){
+  bouton.disabled = true;
+  var avant = bouton.innerHTML;
+  bouton.innerHTML = "Enregistrement…";
+  ctEnvoyer({nom: ctVal("ct_nom"), prenom: ctVal("ct_prenom"), mail: ctVal("ct_mail"),
+             telephone: ctVal("ct_tel"), ville: ctVal("ct_ville"),
+             ne_plus_contacter: document.getElementById("ct_npc").checked ? "1" : "0"},
+    function(){ location.reload(); });
+  setTimeout(function(){ bouton.disabled = false; bouton.innerHTML = avant; }, 2500);
+}
+function ctNouveau(){
+  dfmFenetre({titre: "Nouveau marqueur", sous: "Il sera posé sur cette fiche",
+    corps: '<input id="ct_lib" type="text" placeholder="Congrès ADF 2026" '
+         + 'style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;'
+         + 'background:var(--bg);color:var(--text);font-size:13px;font-family:inherit">',
+    boutons: [{libelle: "Annuler", style: "neutre"},
+              {libelle: "Créer et poser", style: "primaire", action: function(){
+      var v = (document.getElementById("ct_lib") || {}).value || "";
+      if(!v.trim()) return;
+      var fd = new FormData(); fd.append("action", "creer"); fd.append("libelle", v);
+      fetch("/contacts/marqueur", {method:"POST", body:fd}).then(function(r){return r.json()})
+      .then(function(j){
+        if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+        ctEnvoyer({marqueurs: ctCles().concat([j.cle]).join(",")}, function(){ location.reload(); });
+      });
+    }}]});
+}
+function ctSupprimer(){
+  dfmConfirmer({titre: "Supprimer cette fiche ?", sous: "{{ nom_affiche }}",
+    corps: "<p>La fiche sera retirée de la base de contacts.</p>"
+      {% if apprenant %}
+      + "<p style=\"color:var(--muted);font-size:12.5px\">Cette personne est inscrite à une formation : "
+      + "son inscription et ses documents ne sont <b>pas</b> touchés, ils vivent dans le classeur de suivi. "
+      + "Elle réapparaîtra ici à la prochaine synchronisation.</p>"
+      {% endif %}
+      ,
+    valider: "Supprimer", styleValider: "danger", action: function(){
+      fetch("/contact/" + CT_ID + "/supprimer", {method:"POST"})
+      .then(function(r){return r.json()}).then(function(j){
+        if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+        location.href = "/contacts";
+      });
+    }});
+}
+</script>
+{% endblock %}

@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block titre %}Profils formateurs{% endblock %}
+{% block entete %}<i class="ti ti-users" style="color:var(--accent);vertical-align:-3px;margin-right:6px"></i>Profils formateurs{% endblock %}
+{% block sous_entete %}Qui intervient pour cet organisme, et ce qui le prouve — indicateur 21{% endblock %}
+{% block actions %}
+<button class="btn btn-ghost" id="pf_reprendre" style="display:none" onclick="pfReprendre()">
+  <i class="ti ti-users-plus"></i><span id="pf_reprendre_n"></span></button>
+<button class="btn btn-primary" onclick="pfAjouter()"><i class="ti ti-user-plus"></i>Ajouter un formateur</button>
+{% endblock %}
+{% block corps %}
+<style>
+/* UNE FICHE PAR PERSONNE, en deux colonnes : a gauche qui elle est, a droite
+   ce qui le prouve. L'ecran precedent listait une ligne par formateur et
+   annoncait « CV manquant » — on lisait le manque sans jamais voir la piece.
+   L'indicateur 21 se joue sur les pieces : elles passent donc au premier plan. */
+.pf-al{background:var(--carte);border:1px solid #f0cf94;border-left:3px solid var(--warn);
+  border-radius:12px;padding:14px 18px;margin-bottom:16px;font-size:13px;line-height:1.7}
+.pf-al b{display:block;margin-bottom:5px}
+.pf-al ul{margin:0;padding-left:19px;color:var(--muted)}
+
+.pf-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:16px}
+.pf-c{background:var(--carte);border:1px solid var(--border);border-radius:14px;overflow:hidden;
+  display:flex;flex-direction:column}
+.pf-c.manque{border-left:3px solid var(--warn)}
+.pf-c.complet{border-left:3px solid var(--success)}
+
+.pf-t{display:flex;gap:14px;padding:17px 19px 15px;align-items:flex-start}
+.pf-av{width:56px;height:56px;border-radius:14px;flex:none;object-fit:cover;display:flex;
+  align-items:center;justify-content:center;font-size:19px;font-weight:600;letter-spacing:.5px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+.pf-id{flex:1;min-width:0}
+.pf-n{font-size:16.5px;font-weight:600;line-height:1.25}
+.pf-f{font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.5}
+.pf-f.vide{font-style:italic}
+.pf-e{font-size:10.5px;font-weight:600;padding:3px 10px;border-radius:20px;white-space:nowrap;flex:none}
+.pf-e.ok{background:rgba(15,158,106,.14);color:var(--success)}
+.pf-e.ko{background:rgba(212,137,10,.16);color:#a06a14}
+
+.pf-fo{display:flex;flex-wrap:wrap;gap:6px;padding:0 19px 14px}
+.pf-tag{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--card2);
+  color:var(--muted);border:1px solid var(--border)}
+.pf-tag.rien{border-style:dashed}
+
+/* L'APERCU. Un CV se juge en le regardant : le navigateur sait afficher un PDF,
+   on lui laisse la premiere page. Une image s'affiche telle quelle. Tout autre
+   format n'a pas d'apercu — on le dit plutot que de montrer un cadre vide. */
+.pf-p{border-top:1px solid var(--border);background:var(--card2);padding:14px 19px 16px;margin-top:auto}
+.pf-pl{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:9px}
+.pf-pr{display:flex;gap:12px;align-items:stretch}
+.pf-ap{width:142px;height:184px;flex:none;border:1px solid var(--border);border-radius:9px;
+  overflow:hidden;background:var(--carte);position:relative}
+.pf-ap object,.pf-ap embed,.pf-ap iframe,.pf-ap img{width:100%;height:100%;border:0;display:block}
+.pf-ap img{object-fit:cover}
+.pf-ap.vide{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  border-style:dashed;color:var(--muted);font-size:11px;text-align:center;padding:8px}
+.pf-ap.vide i{font-size:22px}
+/* Le secours ne se montre QUE si la vignette a echoue : autrement il occuperait
+   la place derriere l'image, et une image transparente laisserait voir les deux. */
+.pf-secours{display:none}
+.pf-ap.sans .pf-secours{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;gap:6px;color:var(--muted);font-size:11px;text-align:center;padding:8px}
+.pf-ap.sans .pf-secours i{font-size:22px}
+.pf-ap img{object-fit:cover;object-position:top center}
+.pf-ap a.pf-loupe{position:absolute;inset:0;display:block}
+.pf-d{flex:1;min-width:0;display:flex;flex-direction:column;gap:9px;justify-content:flex-start}
+.pf-li{display:flex;align-items:center;gap:9px;font-size:12.5px;min-width:0}
+.pf-li i{font-size:16px;flex:none}
+.pf-li .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pf-li .m{font-size:11px;color:var(--muted);flex:none}
+.pf-li.absent{color:var(--muted)}
+.pf-li.absent i{color:var(--warn)}
+.pf-li i.present{color:var(--success)}
+.pf-li a{color:inherit;text-decoration:none;border-bottom:1px solid transparent}
+.pf-li a:hover{border-bottom-color:currentColor}
+.pf-li.absent a{color:var(--warn)}
+.pf-a{display:flex;gap:8px;padding:13px 19px;border-top:1px solid var(--border)}
+
+.pf-vide{background:var(--carte);border:1px dashed var(--border2);border-radius:14px;
+  padding:44px 24px;text-align:center;color:var(--muted);font-size:13.5px;line-height:1.75}
+.pf-vide i{font-size:34px;display:block;margin-bottom:12px;color:var(--border2)}
+@media(max-width:560px){ .pf-g{grid-template-columns:1fr} .pf-pr{flex-direction:column} .pf-ap{width:100%;height:210px} }
+</style>
+
+{% if alertes %}
+<div class="pf-al"><b>À compléter avant un contrôle :</b>
+  <ul>{% for a in alertes %}<li>{{ a }}</li>{% endfor %}</ul></div>
+{% endif %}
+
+{% if gens %}
+<div class="pf-g">
+  {% for f in gens %}
+  <div class="pf-c {{ 'complet' if not f.manques else 'manque' }}">
+    <div class="pf-t">
+      {% if f.pieces.photo %}
+      <img class="pf-av" src="/formateur/{{ f.id }}/photo?v={{ f.pieces.photo.quand }}" alt="">
+      {% else %}
+      <span class="pf-av">{{ f.initiales or "?" }}</span>
+      {% endif %}
+      <div class="pf-id">
+        <div class="pf-n">{{ f.nom_complet }}</div>
+        <div class="pf-f {{ 'vide' if not f.fonction }}">{{ f.fonction or "Fonction non renseignée" }}</div>
+      </div>
+      {% if f.manques %}
+      <span class="pf-e ko">{{ f.manques|join(" et ") }} manquant{{ "s" if f.manques|length > 1 }}</span>
+      {% else %}
+      <span class="pf-e ok">Dossier complet</span>
+      {% endif %}
+    </div>
+
+    <div class="pf-fo">
+      {% for nom in f.formations_nommees %}<span class="pf-tag">{{ nom }}</span>{% else %}
+      <span class="pf-tag rien">Rattaché à aucune formation</span>{% endfor %}
+    </div>
+
+    <div class="pf-p">
+      <div class="pf-pl">Pièces justificatives</div>
+      <div class="pf-pr">
+        <div class="pf-ap {{ '' if f.pieces.cv else 'vide' }}">
+          {% if f.pieces.cv %}
+            {# L'image est une VIGNETTE fabriquee par DFM, pas la visionneuse PDF
+               du navigateur : celle-ci, dans un cadre de 120 px, n'affiche que
+               son propre fond sombre. onerror couvre le cas ou la vignette n'a
+               pas pu etre fabriquee — on retombe sur l'icone du format. #}
+            <img src="/formateur/{{ f.id }}/vignette?ref={{ f.pieces.cv.ref|urlencode }}"
+                 alt="Première page du CV de {{ f.nom_complet }}"
+                 onerror="this.parentNode.classList.add('sans');this.remove()">
+            <div class="pf-secours"><i class="ti ti-file-text"></i>Pas d'aperçu<br>pour ce format</div>
+            <a class="pf-loupe" href="{{ f.pieces.cv.lien }}" target="_blank" rel="noopener"
+               title="Ouvrir le CV en grand"></a>
+          {% else %}
+          <i class="ti ti-file-off"></i>Aucun CV
+          {% endif %}
+        </div>
+        <div class="pf-d">
+          <div class="pf-li {{ '' if f.pieces.cv else 'absent' }}">
+            <i class="ti {{ 'ti-file-check present' if f.pieces.cv else 'ti-alert-triangle' }}"></i>
+            {% if f.pieces.cv %}
+            <a class="n" href="{{ f.pieces.cv.lien }}" target="_blank" rel="noopener">{{ f.pieces.cv.nom }}</a>
+            <span class="m">{{ f.pieces.cv.poids }}</span>
+            {% else %}<a class="n" href="/formateur/{{ f.id }}?de=formateurs">CV manquant — le déposer</a>{% endif %}
+          </div>
+          <div class="pf-li {{ '' if f.pieces.diplome else 'absent' }}">
+            <i class="ti {{ 'ti-certificate present' if f.pieces.diplome else 'ti-alert-triangle' }}"></i>
+            {% if f.pieces.diplome %}
+            <a class="n" href="{{ f.pieces.diplome.lien }}" target="_blank" rel="noopener">{{ f.pieces.diplome.nom }}</a>
+            <span class="m">{{ f.pieces.diplome.poids }}</span>
+            {% else %}<a class="n" href="/formateur/{{ f.id }}?de=formateurs">Diplôme manquant — le déposer</a>{% endif %}
+          </div>
+          {% for p in f.pieces.autres %}
+          <div class="pf-li"><i class="ti ti-paperclip"></i>
+            <a class="n" href="{{ p.lien }}" target="_blank" rel="noopener">{{ p.nom }}</a>
+            <span class="m">{{ p.poids }}</span></div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="pf-a">
+      <a class="btn btn-secondary" style="flex:1;justify-content:center" href="/formateur/{{ f.id }}?de=formateurs">
+        <i class="ti ti-edit"></i>Ouvrir la fiche</a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="pf-vide"><i class="ti ti-users"></i>
+  Aucun formateur enregistré pour cet organisme.<br>
+  L'indicateur 21 demande de prouver la compétence de ceux qui interviennent :<br>
+  un nom sur une convention n'y suffit pas.</div>
+{% endif %}
+
+{% if orphelines %}
+<div class="pf-al" style="margin-top:16px;border-color:#f0cf94">
+  <b>Formations sans formateur désigné :</b>
+  <ul>{% for o in orphelines %}<li>{{ o.nom }}</li>{% endfor %}</ul></div>
+{% endif %}
+
+<script>
+/* REPRENDRE UNE PERSONNE DEJA CONNUE. Le registre est partage entre organismes
+   depuis le 19/08/2026 : une personne enregistree pour DSF garde son CV et son
+   diplome quand Smileclub la declare a son tour. La recreer a la main
+   repartirait d'un dossier vide — le defaut qu'on vient justement de corriger. */
+var PF_DISPO = [];
+function pfCharger(){
+  fetch("/formateurs/disponibles").then(function(r){ return r.json(); }).then(function(d){
+    if(!d.ok) return;
+    PF_DISPO = d.formateurs || [];
+    if(!PF_DISPO.length) return;
+    var b = document.getElementById("pf_reprendre");
+    document.getElementById("pf_reprendre_n").textContent =
+      PF_DISPO.length === 1 ? "Reprendre " + PF_DISPO[0].nom_complet
+                            : "Reprendre un formateur (" + PF_DISPO.length + ")";
+    b.style.display = "";
+  });
+}
+function pfEch(t){ var d = document.createElement("div"); d.textContent = t || ""; return d.innerHTML; }
+function pfReprendre(){
+  if(!PF_DISPO.length) return;
+  var corps = '<div class="dfm-bloc dfm-b-info">Ces personnes sont déjà enregistrées pour un '
+    + 'autre de vos organismes. Les reprendre ici garde leur CV, leur diplôme et leurs '
+    + 'pièces : rien n\'est à redéposer.</div><div class="dfm-liste">';
+  PF_DISPO.forEach(function(g, i){
+    var manq = (g.manques || []).length
+      ? '<span style="color:var(--warn)">' + g.manques.join(" et ") + ' manquant</span>'
+      : '<span style="color:var(--success)">dossier complet</span>';
+    corps += '<label class="dfm-liste-l" style="cursor:pointer">'
+      + '<input type="radio" name="pfq" value="' + pfEch(g.id) + '"' + (i ? '' : ' checked') + '>'
+      + '<span><b>' + pfEch(g.nom_complet) + '</b><br>'
+      + '<span style="font-size:11.5px;color:var(--muted)">'
+      + (pfEch(g.fonction) || "Fonction non renseignée") + ' · ' + manq
+      + ' · déjà chez ' + pfEch((g.autres_organismes || []).join(", ")) + '</span></span></label>';
+  });
+  corps += '</div>';
+  dfmFenetre({ton: "info", titre: "Reprendre un formateur",
+    sous: "Son dossier le suit", corps: corps,
+    boutons: [{libelle: "Annuler", style: "neutre"},
+              {libelle: "Reprendre", style: "primaire", icone: "ti-check", action: function(){
+      var c = document.querySelector('input[name="pfq"]:checked');
+      if(!c) return;
+      fetch("/formateur/" + encodeURIComponent(c.value) + "/rattacher", {method: "POST"})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if(!d.ok){ alert(d.message || "Impossible."); return; }
+          window.location.href = "/formateur/" + encodeURIComponent(c.value) + "?de=formateurs";
+        });
+    }}]});
+}
+pfCharger();
+
+function pfAjouter(){
+  var nom = prompt("NOM de famille du formateur :");
+  if(nom === null) return;
+  var prenom = prompt("Prénom :") || "";
+  if(!nom.trim() && !prenom.trim()) return;
+  var fd = new FormData();
+  fd.append("nom", nom); fd.append("prenom", prenom);
+  fetch("/formateur/ajouter", {method:"POST", body:fd}).then(r=>r.json()).then(function(d){
+    if(!d.ok){ alert(d.message||"Ajout impossible."); return; }
+    // On entre directement dans la fiche : civilite, fonction, formations et
+    // pieces s'y renseignent, et le dossier ne vaut rien sans elles.
+    window.location.href = "/formateur/"+d.formateur.id+"?de=formateurs";
+  });
+}
+</script>
+{% endblock %}

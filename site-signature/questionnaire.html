@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Questionnaire</title>
+<style>
+:root{--bg:#f8f9fc;--card:#fff;--accent:#4f7ef8;--success:#0f9e6a;--warn:#d4890a;
+--danger:#d03b3b;--text:#1a1d2e;--muted:#6b7280;--border:#e5e8f0;--border2:#d1d5e0}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.55}
+.enveloppe{max-width:640px;margin:0 auto;padding:20px 16px 60px}
+.entete{text-align:center;padding:26px 0 20px}
+.marque{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+h1{font-size:21px;font-weight:600;margin:12px 0 6px;line-height:1.3}
+.sous{font-size:13px;color:var(--muted)}
+.carte{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:14px}
+.msg{border-radius:10px;padding:14px 16px;font-size:13.5px;margin-bottom:16px}
+.msg-info{background:#f0f4ff;border:1px solid #c5d4fb;color:#185fa5}
+.msg-warn{background:#fdf3e3;border:1px solid #f0cf94;color:#8a5a06}
+.msg-err{background:#fdeaea;border:1px solid #f0b8b8;color:#8a2020}
+.rech{width:100%;padding:13px 15px;border:1px solid var(--border2);border-radius:10px;font-size:16px;font-family:inherit;margin-bottom:12px}
+.rech:focus{outline:none;border-color:var(--accent)}
+.pers{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:8px;font-size:15px;font-family:inherit;cursor:pointer;color:var(--text)}
+.pers:hover,.pers:active{border-color:var(--accent);background:#f5f8ff}
+.pers span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.avance{position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5}
+.barre{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.barre div{height:100%;background:var(--accent);border-radius:3px;transition:width .25s}
+.compte{font-size:12px;color:var(--muted);margin-top:6px;text-align:center}
+.q{margin-bottom:8px}
+.q-num{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+.q-txt{font-size:16px;font-weight:500;margin-bottom:16px}
+.opt{display:flex;align-items:flex-start;gap:12px;border:1px solid var(--border);border-radius:10px;padding:14px 15px;margin-bottom:8px;cursor:pointer;transition:border-color .12s,background .12s}
+.opt:hover{border-color:var(--border2)}
+.opt.on{border-color:var(--accent);background:#f5f8ff}
+.opt input{margin:0;flex:none;width:19px;height:19px;accent-color:var(--accent)}
+.opt-txt{font-size:14.5px}
+.axe{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:22px 0 10px}
+.note-l{font-size:14.5px;margin-bottom:10px}
+.notes{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.note{border:1px solid var(--border);border-radius:9px;padding:12px 0;text-align:center;font-size:15px;font-weight:500;cursor:pointer;background:#fff;font-family:inherit;color:var(--text)}
+.note.on{border-color:var(--accent);background:var(--accent);color:#fff}
+.echelle{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:5px}
+.reco{display:grid;grid-template-columns:repeat(11,1fr);gap:4px}
+.reco button{border:1px solid var(--border);border-radius:7px;padding:11px 0;font-size:13px;cursor:pointer;background:#fff;font-family:inherit;color:var(--text)}
+.reco button.on{border-color:var(--accent);background:var(--accent);color:#fff}
+select,textarea{width:100%;padding:12px 14px;border:1px solid var(--border2);border-radius:10px;font-size:15px;font-family:inherit;background:#fff;color:var(--text)}
+select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+textarea{min-height:88px;resize:vertical}
+.envoi{width:100%;padding:16px;border:none;border-radius:12px;background:var(--accent);color:#fff;font-size:16px;font-weight:600;font-family:inherit;cursor:pointer;margin-top:8px}
+.envoi:disabled{opacity:.45;cursor:not-allowed}
+.fini{text-align:center;padding:40px 20px}
+.fini-ic{width:64px;height:64px;border-radius:50%;background:#eafaf3;color:var(--success);display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 20px}
+.fini h2{font-size:20px;margin:0 0 10px}
+.fini p{color:var(--muted);font-size:14px;margin:0}
+.pied{text-align:center;font-size:11.5px;color:var(--muted);margin-top:24px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="enveloppe">
+  <div class="entete">
+    <div class="marque" id="marque">Formation</div>
+    <h1 id="titre">Chargement…</h1>
+    <div class="sous" id="sous"></div>
+  </div>
+  <div id="zone"></div>
+  <div class="pied" id="pied"></div>
+</div>
+<script>
+var P = new URLSearchParams(location.search);
+var CODE = P.get("s") || "";
+var TYPE = P.get("type") || "init";
+var MAIL = (P.get("m") || "").trim().toLowerCase();
+var SESSION = null, MOI = null, REPONSES = {};
+var LIBELLES = {
+  init: {titre: "Évaluation initiale des connaissances",
+         intro: "Ce questionnaire mesure vos connaissances avant la formation. Il n'est pas noté et ne conditionne rien : il sert à mesurer votre progression.",
+         fin: "Merci. Vos réponses sont enregistrées.",
+         suite: "Vous recevrez votre progression par mail après la formation."},
+  fin: {titre: "Évaluation des connaissances en fin de formation",
+        intro: "Les mêmes questions qu'en début de formation, pour mesurer ce que la journée vous a apporté.",
+        fin: "Merci. Vos réponses sont enregistrées.",
+        suite: "Vous recevrez par mail votre score, votre progression et le corrigé commenté."},
+  froid: {titre: "Trois mois après : et dans votre pratique ?",
+        intro: "Vous avez suivi cette formation il y a trois mois. Ces quelques questions mesurent ce qui a réellement changé dans votre pratique — c'est ce retour qui nous permet de faire évoluer nos programmes.",
+        fin: "Merci beaucoup.",
+        suite: "Votre retour à distance est le plus précieux : il dit ce que la formation a vraiment produit."},
+  satisfaction: {titre: "Questionnaire de satisfaction",
+        intro: "Votre avis nous aide à améliorer nos formations. Les réponses ne sont exploitées que de façon globale, jamais nominativement.",
+        fin: "Merci pour votre retour.",
+        suite: "Chaque remarque est lue et prise en compte."}
+};
+function el(html){ var d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstChild; }
+function afficher(html){ document.getElementById("zone").innerHTML = html; }
+function erreur(txt){ afficher('<div class="msg msg-err">' + txt + '</div>'); }
+function appel(corps){
+  return fetch("/.netlify/functions/questionnaire", {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(corps)
+  }).then(function(r){ return r.json(); });
+}
+function demarrer(){
+  var L = LIBELLES[TYPE] || LIBELLES.init;
+  document.getElementById("titre").textContent = L.titre;
+  if(!CODE){ erreur("Lien incomplet : la session n'est pas précisée."); return; }
+  appel({action: "charger", session: CODE}).then(function(j){
+    if(!j.ok){ erreur(j.message || "Session introuvable."); return; }
+    SESSION = j.session;
+    document.getElementById("marque").textContent = SESSION.formation || "Formation";
+    document.getElementById("sous").textContent = SESSION.date_texte || "";
+    var ouvert = SESSION.ouvert || {};
+    if(ouvert[TYPE] === false){
+      afficher('<div class="msg msg-warn">Ce questionnaire n\'est pas encore ouvert, ou il est déjà clôturé. Rapprochez-vous du formateur.</div>');
+      return;
+    }
+    var gens = SESSION.participants || [];
+    if(MAIL){
+      for(var i = 0; i < gens.length; i++){
+        if((gens[i].mail || "").toLowerCase() === MAIL){ MOI = gens[i]; }
+      }
+      if(!MOI){ MOI = {nom: "", mail: MAIL}; }
+      formulaire();
+    } else {
+      choisir(gens);
+    }
+  }).catch(function(e){ erreur("Connexion impossible : " + e.message); });
+}
+function choisir(gens){
+  var L = LIBELLES[TYPE] || LIBELLES.init;
+  var h = '<div class="msg msg-info">' + L.intro + '</div><div class="carte">';
+  h += '<div class="q-txt">Qui êtes-vous ?</div>';
+  if(!gens.length){
+    h += '<div class="msg msg-warn">Aucun participant publié pour cette session.</div></div>';
+    afficher(h); return;
+  }
+  h += '<input class="rech" id="rech" placeholder="Tapez les premières lettres de votre nom" oninput="filtrer()" autocomplete="off">';
+  h += '<div id="liste">';
+  for(var i = 0; i < gens.length; i++){
+    h += '<button type="button" class="pers" data-i="' + i + '" data-c="' + ((gens[i].nom || "") + " " + (gens[i].mail || "")).toLowerCase() + '" onclick="prendre(' + i + ')">' + (gens[i].nom || gens[i].mail) + '<span>' + (gens[i].mail || "") + '</span></button>';
+  }
+  h += '</div></div>';
+  afficher(h);
+}
+function filtrer(){
+  var q = (document.getElementById("rech").value || "").toLowerCase().trim();
+  var b = document.querySelectorAll("#liste .pers");
+  for(var i = 0; i < b.length; i++){
+    b[i].style.display = (!q || (b[i].dataset.c || "").indexOf(q) > -1) ? "" : "none";
+  }
+}
+function prendre(i){
+  MOI = (SESSION.participants || [])[i];
+  window.scrollTo(0, 0);
+  formulaire();
+}
+function formulaire(){
+  REPONSES = {};
+  if(TYPE === "satisfaction" || TYPE === "froid"){ formSatisfaction(); } else { formEvaluation(); }
+}
+function edModele(){
+  if(TYPE === "froid"){ return SESSION.froid || SESSION.satisfaction || {}; }
+  return SESSION.satisfaction || {};
+}
+function formEvaluation(){
+  var L = LIBELLES[TYPE];
+  var qs = SESSION.questions || [];
+  if(!qs.length){ erreur("Aucune question publiée pour cette session."); return; }
+  var h = '<div class="msg msg-info">' + L.intro + '</div>';
+  h += '<div class="avance"><div class="barre"><div id="jauge" style="width:0%"></div></div><div class="compte" id="compte">0 / ' + qs.length + '</div></div>';
+  for(var i = 0; i < qs.length; i++){
+    var q = qs[i];
+    h += '<div class="carte q" data-q="' + q.id + '">';
+    h += '<div class="q-num">Question ' + (i + 1) + ' sur ' + qs.length + '</div>';
+    h += '<div class="q-txt">' + q.enonce + '</div>';
+    var props = q.propositions || [];
+    for(var j = 0; j < props.length; j++){
+      h += '<label class="opt" onclick="cocher(this)"><input type="radio" name="' + q.id + '" value="' + j + '" onchange="noter(\'' + q.id + '\',' + j + ')"><span class="opt-txt">' + props[j] + '</span></label>';
+    }
+    h += '</div>';
+  }
+  h += '<button class="envoi" id="btn" disabled onclick="envoyer(this)">Envoyer mes réponses</button>';
+  h += '<div class="pied">' + (MOI.nom || MOI.mail) + '</div>';
+  afficher(h);
+  majAvance(qs.length);
+}
+function formSatisfaction(){
+  var L = LIBELLES[TYPE] || LIBELLES.satisfaction;
+  var S = edModele();
+  var notes = S.notes || [], axes = S.axes || {};
+  var h = '<div class="msg msg-info">' + L.intro + '</div>';
+  h += '<div class="avance"><div class="barre"><div id="jauge" style="width:0%"></div></div><div class="compte" id="compte">0 / ' + (notes.length + 2) + '</div></div>';
+  var axeCourant = "";
+  h += '<div class="carte">';
+  for(var i = 0; i < notes.length; i++){
+    var n = notes[i];
+    if(n.axe !== axeCourant){
+      axeCourant = n.axe;
+      h += '<div class="axe">' + (axes[axeCourant] || axeCourant) + '</div>';
+    }
+    h += '<div style="margin-bottom:18px"><div class="note-l">' + n.libelle + '</div><div class="notes" data-n="' + n.id + '">';
+    for(var v = 1; v <= 5; v++){
+      h += '<button type="button" class="note" onclick="noterEchelle(\'' + n.id + '\',' + v + ',this)">' + v + '</button>';
+    }
+    h += '</div><div class="echelle"><span>Pas du tout</span><span>Tout à fait</span></div></div>';
+  }
+  h += '</div>';
+  var reco = S.recommandation || {id: "s09", libelle: "Recommanderiez-vous cette formation ?"};
+  h += '<div class="carte"><div class="note-l">' + reco.libelle + '</div><div class="reco" data-n="' + reco.id + '">';
+  for(var k = 0; k <= 10; k++){
+    h += '<button type="button" onclick="noterEchelle(\'' + reco.id + '\',' + k + ',this)">' + k + '</button>';
+  }
+  h += '</div><div class="echelle"><span>Jamais</span><span>Sans hésiter</span></div></div>';
+  var ad = S.adaptation;
+  if(ad && ad.id){
+    h += '<div class="carte"><div class="note-l">' + ad.libelle + '</div><select onchange="noter(\'' + ad.id + '\', this.value)"><option value="">Choisir…</option>';
+    var ps = ad.propositions || [];
+    for(var a = 0; a < ps.length; a++){ h += '<option value="' + a + '">' + ps[a] + '</option>'; }
+    h += '</select></div>';
+  }
+  var ouv = S.ouvertes || [];
+  for(var o = 0; o < ouv.length; o++){
+    h += '<div class="carte"><div class="note-l">' + ouv[o].libelle + '</div><textarea placeholder="Votre réponse, libre" oninput="noterTexte(\'' + ouv[o].id + '\', this.value)"></textarea></div>';
+  }
+  h += '<button class="envoi" id="btn" disabled onclick="envoyer(this)">Envoyer mon avis</button>';
+  h += '<div class="pied">Vos notes ne seront exploitées que de façon globale.</div>';
+  afficher(h);
+  majAvance(notes.length + 2);
+}
+function cocher(lab){
+  var groupe = lab.parentNode.querySelectorAll(".opt");
+  for(var i = 0; i < groupe.length; i++){ groupe[i].classList.remove("on"); }
+  lab.classList.add("on");
+}
+function noter(id, valeur){
+  if(valeur === "" || valeur === null){ delete REPONSES[id]; } else { REPONSES[id] = valeur; }
+  majAvance();
+}
+function noterEchelle(id, valeur, bouton){
+  REPONSES[id] = valeur;
+  var freres = bouton.parentNode.children;
+  for(var i = 0; i < freres.length; i++){ freres[i].classList.remove("on"); }
+  bouton.classList.add("on");
+  majAvance();
+}
+function noterTexte(id, valeur){
+  if((valeur || "").trim()){ REPONSES[id] = valeur.trim(); } else { delete REPONSES[id]; }
+}
+function attendus(){
+  if(TYPE === "satisfaction" || TYPE === "froid"){
+    var S = edModele();
+    var ids = (S.notes || []).map(function(n){ return n.id; });
+    if(S.recommandation) ids.push(S.recommandation.id);
+    if(S.adaptation && S.adaptation.id) ids.push(S.adaptation.id);
+    return ids;
+  }
+  return (SESSION.questions || []).map(function(q){ return q.id; });
+}
+function majAvance(total){
+  var ids = attendus();
+  var n = 0;
+  for(var i = 0; i < ids.length; i++){ if(REPONSES[ids[i]] !== undefined) n++; }
+  var t = total || ids.length;
+  var jauge = document.getElementById("jauge");
+  var compte = document.getElementById("compte");
+  var btn = document.getElementById("btn");
+  if(jauge) jauge.style.width = Math.round(100 * n / ids.length) + "%";
+  if(compte) compte.textContent = n + " / " + ids.length + (n === ids.length ? " — complet" : "");
+  if(btn) btn.disabled = (n < ids.length);
+}
+function envoyer(bouton){
+  bouton.disabled = true;
+  bouton.textContent = "Envoi…";
+  appel({action: "repondre", session: CODE, type: TYPE,
+         formation: SESSION.formation || "", mail: MOI.mail, nom: MOI.nom || "",
+         reponses: REPONSES}).then(function(j){
+    if(!j.ok){
+      bouton.disabled = false;
+      bouton.textContent = "Réessayer";
+      afficher('<div class="msg msg-err">' + (j.message || "Envoi impossible") + '</div>' + document.getElementById("zone").innerHTML);
+      return;
+    }
+    var L = LIBELLES[TYPE] || LIBELLES.init;
+    window.scrollTo(0, 0);
+    afficher('<div class="carte fini"><div class="fini-ic">&#10003;</div><h2>' + L.fin + '</h2><p>' + L.suite + '</p></div>');
+    document.getElementById("pied").textContent = "Vous pouvez fermer cette page.";
+  }).catch(function(e){
+    bouton.disabled = false;
+    bouton.textContent = "Réessayer";
+  });
+}
+demarrer();
+</script>
+</body>
+</html>

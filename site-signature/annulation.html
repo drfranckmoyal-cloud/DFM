@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Annulation d'inscription</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: #eceff6; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(30,34,53,.1); padding: 28px; max-width: 480px; width: 100%; }
+  .brand { text-align: center; font-size: 20px; font-weight: 600; color: #1e2235; margin-bottom: 4px; }
+  .brand em { color: #4f7ef8; font-style: normal; }
+  .tag { text-align: center; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 22px; }
+  h1 { font-size: 17px; color: #1a1d2e; margin-bottom: 6px; }
+  .sub { font-size: 13px; color: #6b7280; margin-bottom: 18px; }
+  .recap { background: #f5f8ff; border: 1px solid #e0e8fb; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+  .ligne { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eaeef8; font-size: 13px; }
+  .ligne:last-child { border-bottom: none; }
+  .ligne span { color: #6b7280; }
+  .ligne b { color: #1a1d2e; }
+  label { display:block; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #6b7280; font-weight: 600; margin-bottom: 8px; }
+  textarea { width: 100%; border: 1px solid #d1d5e0; border-radius: 10px; padding: 12px; font-family: inherit; font-size: 14px; resize: vertical; min-height: 90px; }
+  .buttons { display: flex; gap: 10px; margin-top: 16px; }
+  button { flex: 1; padding: 13px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn-retour { background: #fff; color: #6b7280; border: 1px solid #d1d5e0; }
+  .btn-annuler { background: #d03b3b; color: #fff; }
+  .btn-annuler:disabled { opacity: .6; cursor: default; }
+  .ecran { display: none; text-align: center; padding: 16px 8px; }
+  .ecran .rond { width: 68px; height: 68px; border-radius: 50%; font-size: 32px; line-height: 68px; margin: 0 auto 18px; }
+  .ecran h2 { font-size: 18px; color: #1a1d2e; margin-bottom: 12px; }
+  .ecran p { font-size: 14px; color: #5b6172; line-height: 1.6; margin-bottom: 10px; }
+  .contact { background:#fdf6ec; border:1px solid #f5dda6; border-radius:10px; padding:14px; font-size:13.5px; color:#633806; margin-top:16px; text-align:left; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div id="formulaire">
+      <div class="brand" id="of_marque">&nbsp;</div>
+      <div class="tag" id="of_accroche"></div>
+      <h1>Annulation de votre inscription</h1>
+      <p class="sub">Nous sommes d&eacute;sol&eacute;s que vous ne puissiez pas participer.</p>
+      <div class="recap">
+        <div class="ligne"><span>Praticien</span><b id="c-praticien">-</b></div>
+        <div class="ligne"><span>Formation</span><b id="c-formation">-</b></div>
+      </div>
+      <label for="motif">Motif (facultatif)</label>
+      <textarea id="motif" placeholder="Emp&ecirc;chement, report souhait&eacute;, autre..."></textarea>
+      <div class="buttons">
+        <button class="btn-retour" onclick="window.close()">Retour</button>
+        <button class="btn-annuler" id="btn" onclick="annuler()">Confirmer l'annulation</button>
+      </div>
+    </div>
+    <div class="ecran" id="confirme">
+      <div class="rond" style="background:#e7f7f0; color:#0f9e6a;">&#10003;</div>
+      <h2>Votre demande est enregistr&eacute;e</h2>
+      <p>Nous avons bien re&ccedil;u votre demande d'annulation.</p>
+      <p>Nous revenons vers vous rapidement pour confirmer et, le cas &eacute;ch&eacute;ant, organiser le remboursement.</p>
+      <p style="margin-top:14px; color:#8a90a2;">Vous pouvez fermer cette page.</p>
+    </div>
+    <div class="ecran" id="bloque">
+      <div class="rond" style="background:#fdf6ec; color:#d4890a;">!</div>
+      <h2>D&eacute;lai d&eacute;pass&eacute;</h2>
+      <p>Votre convention pr&eacute;voit un d&eacute;lai de d&eacute;dit de <b>20 jours francs</b> avant le d&eacute;but de la formation.</p>
+      <p>Ce d&eacute;lai &eacute;tant d&eacute;pass&eacute;, votre annulation ne peut pas &ecirc;tre enregistr&eacute;e automatiquement.</p>
+      <div class="contact">
+        Merci de contacter directement l'organisateur :<br>
+        <b id="of_contact"></b><br><span id="of_tel"></span>
+      </div>
+      <p style="margin-top:14px; color:#8a90a2;">Vous pouvez fermer cette page.</p>
+    </div>
+  </div>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const praticien = params.get("praticien") || "Inconnu";
+  const formation = params.get("formation") || "Inconnue";
+  const dateDebut = params.get("debut") || "";
+  document.getElementById("c-praticien").textContent = praticien;
+  document.getElementById("c-formation").textContent = formation;
+  function joursRestants() {
+    if (!dateDebut) return null;
+    const d = new Date(dateDebut + "T00:00:00");
+    if (isNaN(d)) return null;
+    const auj = new Date();
+    auj.setHours(0, 0, 0, 0);
+    return Math.round((d - auj) / 86400000);
+  }
+  const restants = joursRestants();
+  if (restants !== null && restants < 20) {
+    document.getElementById("formulaire").style.display = "none";
+    document.getElementById("bloque").style.display = "block";
+  }
+  async function annuler() {
+    const bouton = document.getElementById("btn");
+    bouton.disabled = true;
+    bouton.textContent = "Envoi en cours...";
+    try {
+      const reponse = await fetch("/.netlify/functions/annuler", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          praticien: praticien,
+          formation: formation,
+          motif: document.getElementById("motif").value,
+          session: new URLSearchParams(window.location.search).get("session") || "",
+        }),
+      });
+      const resultat = await reponse.json();
+      if (reponse.ok) {
+        document.getElementById("formulaire").style.display = "none";
+        document.getElementById("confirme").style.display = "block";
+      } else {
+        alert("Erreur : " + resultat.message);
+        bouton.disabled = false;
+        bouton.textContent = "Confirmer l'annulation";
+      }
+    } catch (e) {
+      alert("Erreur d'envoi : " + e.message);
+      bouton.disabled = false;
+      bouton.textContent = "Confirmer l'annulation";
+    }
+  }
+</script>
+
+<script>
+(function(){
+  var p = new URLSearchParams(window.location.search);
+  var m = p.get("marque"), a = p.get("accroche"), c = p.get("contact");
+  if(m){
+    var mots = m.trim().split(/\s+/);
+    var el = document.getElementById("of_marque");
+    if(el){
+      el.textContent = "";
+      el.appendChild(document.createTextNode(mots[0]));
+      if(mots.length > 1){
+        var em = document.createElement("em");
+        em.textContent = " " + mots.slice(1).join(" ");
+        el.appendChild(em);
+      }
+    }
+  }
+  if(a){ var t = document.getElementById("of_accroche"); if(t){ t.textContent = a; } }
+  if(c){ var e = document.getElementById("of_contact"); if(e){ e.textContent = c; } }
+  var t = p.get("tel");
+  if(t){ var y = document.getElementById("of_tel"); if(y){ y.textContent = t; } }
+  // Sans contact ni telephone, le bloc entier disparait. Le repli du HTML
+  // portait l'adresse et le NUMERO DE TELEPHONE d'un organisme reel : un lien
+  // au profil incomplet renvoyait le public vers le mauvais interlocuteur.
+  if(!c && !t){
+    var b = document.querySelector("#bloque .contact");
+    if(b){ b.style.display = "none"; }
+  }
+})();
+</script>
+</body>
+</html>

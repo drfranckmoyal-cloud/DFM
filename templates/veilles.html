@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block titre %}Veilles{% endblock %}
+{% block entete %}<i class="ti ti-radar" style="color:var(--accent);vertical-align:-3px;margin-right:6px"></i>Veilles et formation continue{% endblock %}
+{% block sous_entete %}Critère 6 du référentiel — indicateurs 22 à 25{% endblock %}
+{% block corps %}
+{#
+  L'ECRAN D'ENSEMBLE DES QUATRE AXES.
+
+  Il ne montre pas un score : il montre CE QUI MANQUE. Ces quatre indicateurs
+  sont les seuls que DFM ne peut pas remplir a la place de l'utilisateur, et
+  trois d'entre eux comptaient parmi les sept « absents » au 06/08/2026 — non
+  parce qu'ils sont difficiles, mais parce que rien ne rappelait de les tenir.
+#}
+<style>
+.ve-i{background:var(--carte);border:1px solid var(--border);border-left:3px solid var(--accent);
+  border-radius:12px;padding:15px 18px;margin-bottom:16px;font-size:12.5px;color:var(--muted);line-height:1.7}
+.ve-i b{color:var(--text)}
+.ve-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:13px}
+.ve-c{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:16px 18px;
+  display:flex;flex-direction:column;gap:11px;text-decoration:none;color:inherit;transition:border-color .15s}
+.ve-c:hover{border-color:var(--accent)}
+.ve-h{display:flex;align-items:flex-start;gap:12px}
+.ve-ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:19px;flex:none}
+.ve-n{font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+.ve-t{font-size:14.5px;font-weight:600;line-height:1.35;margin-top:2px}
+.ve-st{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.45}
+.ve-ch{display:flex;gap:20px;padding:10px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.ve-ch div{font-size:11px;color:var(--muted)}
+.ve-ch b{display:block;font-size:19px;font-weight:600;color:var(--text);line-height:1.2;font-variant-numeric:tabular-nums}
+.ve-a{font-size:11.5px;line-height:1.5;padding:8px 11px;border-radius:8px}
+.a-rouge{background:rgba(208,59,59,.09);color:#b03030;border:1px solid rgba(208,59,59,.22)}
+.a-orange{background:rgba(212,137,10,.10);color:#8a5a06;border:1px solid rgba(212,137,10,.24)}
+.a-vert{background:rgba(15,158,106,.09);color:#0f6e56;border:1px solid rgba(15,158,106,.22)}
+html[data-sombre] .a-rouge{color:#ff9b9b}
+html[data-sombre] .a-orange{color:#ffc978}
+html[data-sombre] .a-vert{color:#6ee7b7}
+.ve-plus{font-size:12px;color:var(--accent);font-weight:500;margin-top:auto}
+</style>
+
+<div class="ve-i">
+  <b>Ces quatre indicateurs sont les seuls que DFM ne peut pas remplir à votre place.</b>
+  Ils ne demandent aucun développement : des sources nommées, des relevés datés, et
+  surtout <b>ce que vous en avez fait</b>. Le guide est explicite pour 23, 24 et 25 —
+  « <i>Mineure : absence d'exploitation de la veille mise en place</i> » : c'est
+  l'exploitation qui est vérifiée, pas l'abonnement.
+</div>
+
+<div class="ve-g">
+  {% for e in axes %}
+  {% set a = e.axe %}
+  <a class="ve-c" href="/veille/{{ e.cle }}">
+    <div class="ve-h">
+      <div class="ve-ic" style="background:{{ a.couleur }}1f;color:{{ a.couleur }}"><i class="ti {{ a.icone }}"></i></div>
+      <div style="flex:1;min-width:0">
+        <div class="ve-n">Indicateur {{ a.indicateur }}</div>
+        <div class="ve-t">{{ a.titre }}</div>
+        <div class="ve-st">{{ a.sous_titre }}</div>
+      </div>
+    </div>
+    <div class="ve-ch">
+      <div><b>{{ e.nb_sources }}</b>{{ 'axe' if a.champs == 'formation' else 'source' }}{{ 's' if e.nb_sources > 1 }} déclarée{{ 's' if e.nb_sources > 1 }}</div>
+      <div><b>{{ e.nb_entrees }}</b>{{ 'formation' if a.champs == 'formation' else 'relevé' }}{{ 's' if e.nb_entrees > 1 }}</div>
+      <div><b>{{ e.dernier or '—' }}</b>{{ 'dernière' if a.champs == 'formation' else 'dernier' }}</div>
+    </div>
+    {% if e.alertes %}
+      {% for al in e.alertes[:2] %}
+      <div class="ve-a a-{{ al.ton }}">{{ al.texte }}</div>
+      {% endfor %}
+    {% else %}
+    <div class="ve-a a-vert">Rien à signaler : sources déclarées, relevés réguliers, exploitation renseignée partout.</div>
+    {% endif %}
+    <div class="ve-plus">Ouvrir <i class="ti ti-arrow-right" style="font-size:13px;vertical-align:-2px"></i></div>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

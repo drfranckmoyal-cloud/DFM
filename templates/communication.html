@@ -1,0 +1,587 @@
+{% extends "base.html" %}
+{% block titre %}{{ m.titre if m else "Nouveau message" }}{% endblock %}
+{% block entete %}{{ m.titre if m else "Nouveau message" }}{% endblock %}
+{% block sous_entete %}Message de communication — indépendant de toute session{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" href="/templates"><i class="ti ti-arrow-left"></i>Templates</a>
+{% endblock %}
+{% block corps %}
+{% include "_texte_riche.html" %}
+<style>
+.cm-g{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:1080px){.cm-g{grid-template-columns:minmax(0,1fr) 420px;align-items:start}}
+.cm-b{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.cm-l{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600;margin-bottom:7px}
+.cm-c{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;
+  background:var(--bg);color:var(--text);font-size:13.5px;font-family:inherit}
+.cm-n{font-size:12px;color:var(--muted);line-height:1.7;margin-top:8px}
+/* UN BLOC = une carte manipulable. Le message se compose en empilant, jamais
+   en tapant du HTML : c'est ce qui garantit un rendu identique partout. */
+.cm-bl{border:1px solid var(--border);border-radius:10px;background:var(--bg);margin-bottom:9px}
+.cm-bl.sel{border-color:var(--accent)}
+.cm-bl-h{display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer}
+.cm-poignee{cursor:grab;color:var(--muted);font-size:15px;line-height:1;padding:0 1px}
+.cm-poignee:active{cursor:grabbing}
+/* GLISSER-DEPOSER. Le bloc en cours de deplacement s'efface ; les DEUX blocs
+   entre lesquels il tombera s'eclairent sur la face qui le recevra. On voit
+   ainsi l'ecart qui s'ouvre, pas un trait flottant sans rapport avec la pile. */
+.cm-bl.glisse{opacity:.35}
+.cm-bl.vh{border-bottom-color:var(--accent);box-shadow:0 3px 0 -1px var(--accent)}
+.cm-bl.vb{border-top-color:var(--accent);box-shadow:0 -3px 0 -1px var(--accent)}
+.cm-vide-fin{height:10px;border-radius:6px;margin-top:-3px}
+.cm-vide-fin.vb{background:var(--accent);opacity:.25}
+.cm-bl-h i{color:var(--muted);font-size:16px}
+.cm-bl-n{font-size:12.5px;font-weight:600;flex:1}
+.cm-bl-a{display:flex;gap:4px}
+.cm-ic{border:none;background:transparent;color:var(--muted);cursor:pointer;padding:3px 5px;
+  border-radius:5px;font-family:inherit;font-size:13px}
+.cm-ic:hover{background:var(--bg2);color:var(--text)}
+.cm-bl-c{display:none;padding:0 12px 12px}
+.cm-bl.sel .cm-bl-c{display:block}
+.cm-f{margin-bottom:10px}
+.cm-f label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px}
+.cm-f input,.cm-f select,.cm-f textarea{width:100%;padding:8px 10px;border:1px solid var(--border);
+  border-radius:7px;background:var(--carte);color:var(--text);font-size:13px;font-family:inherit}
+.cm-f textarea{min-height:92px;resize:vertical;line-height:1.6}
+/* LA ZONE EDITABLE remplace le champ texte : on y voit du gras, jamais des
+   etoiles. Une etoile oubliee ne peut plus partir en clair dans un mail. */
+.tr-zone{width:100%;min-height:92px;padding:9px 11px;border:1px solid var(--border);
+  border-radius:7px;background:var(--carte);color:var(--text);font-size:13px;
+  font-family:inherit;line-height:1.65;outline:none;overflow-wrap:anywhere}
+.tr-zone:focus{border-color:var(--accent)}
+.tr-zone:empty:before{content:attr(data-vide);color:var(--muted)}
+.tr-zone a{color:#4f7ef8}
+.cm-add{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.cm-add button{border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:8px;
+  padding:7px 12px;font-size:12.5px;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
+.cm-add button:hover{border-color:var(--accent)}
+/* L'APERCU est un vrai rendu du HTML de mail, sur fond blanc comme une boite
+   de reception. Juger un mail sur fond sombre induirait en erreur. */
+.cm-ap{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.cm-ap-t{padding:9px 13px;border-bottom:1px solid #e9ecf3;font-size:11px;text-transform:uppercase;
+  letter-spacing:1px;color:#8a90a2;background:#f7f8fb}
+.cm-ap iframe{width:100%;border:none;min-height:520px;display:block;background:#fff}
+.cm-img{max-width:100%;border-radius:7px;margin-top:7px;display:block}
+/* BARRE D'OUTILS — fine et discrete : des icones de 13px, sans fond, qui ne
+   prennent la couleur du texte qu'au survol. Elle doit se faire oublier quand
+   on ecrit et se trouver quand on la cherche. */
+.cm-ba{display:flex;align-items:center;gap:1px;flex-wrap:wrap;margin-bottom:4px}
+.cm-ba button{border:none;background:transparent;color:var(--muted);cursor:pointer;
+  padding:3px 6px;border-radius:5px;font-family:inherit;font-size:13px;line-height:1}
+.cm-ba button:hover{background:var(--bg2);color:var(--text)}
+.cm-ba button.on{color:var(--accent)}
+.cm-ba i{font-size:15px;vertical-align:-2px}
+.cm-ba-s{width:1px;height:15px;background:var(--border);margin:0 5px}
+.cm-ba select{border:none;background:transparent;color:var(--muted);font-family:inherit;
+  font-size:12px;cursor:pointer;padding:2px 3px;border-radius:5px}
+.cm-ba select:hover{background:var(--bg2);color:var(--text)}
+.cm-pal{display:flex;gap:3px}
+.cm-pal button{width:15px;height:15px;border-radius:50%;padding:0;border:1px solid var(--border)}
+</style>
+
+<div class="cm-g">
+<div>
+  <div class="cm-b">
+    <div class="cm-l">Titre du modèle</div>
+    <input class="cm-c" id="cm_titre" type="text" value="{{ m.titre if m else '' }}"
+           placeholder="Programme du second semestre">
+    <div class="cm-l" style="margin-top:14px">Objet du message</div>
+    <input class="cm-c" id="cm_objet" type="text" value="{{ m.objet if m else '' }}"
+           placeholder="Nos formations de septembre à décembre" oninput="cmApercu()">
+  </div>
+
+  <div class="cm-b">
+    <div class="cm-l">Le message, bloc par bloc</div>
+    <div id="cm_blocs"></div>
+    <div class="cm-add" id="cm_ajout"></div>
+    <div class="cm-n">
+      <b>Mise en forme :</b> sélectionnez du texte, puis cliquez dans la barre au-dessus
+      du champ. Vous voyez le résultat directement — aucune syntaxe à retenir.<br>
+      <b>Taille et alignement</b> valent pour le paragraphe entier, pas pour un morceau
+      de phrase.<br>
+      Une ligne vide sépare deux paragraphes.<br>
+      Balise disponible : <code>{% raw %}{{marque}}{% endraw %}</code> — le nom de l'organisme qui envoie.
+      <br><br>
+      <i class="ti ti-lock" style="font-size:13px"></i>
+      <b>Aucune personnalisation du destinataire</b> — 174 de vos 181 contacts n'ont pas de prénom.<br>
+      <i class="ti ti-lock" style="font-size:13px"></i>
+      <b>Le pied est ajouté à l'envoi</b> : identité, mention d'origine et lien de désinscription.
+    </div>
+  </div>
+
+  <div class="cm-b">
+    <div class="cm-l">Pièces jointes</div>
+    <div id="cm_pieces"></div>
+    <div class="cm-add" style="border:none;padding-top:0;margin-top:9px">
+      <button onclick="document.getElementById('cm_fichier').click()">
+        <i class="ti ti-paperclip"></i>Ajouter un fichier</button>
+      <input type="file" id="cm_fichier" style="display:none" onchange="cmPiece(this)">
+    </div>
+    <div class="cm-n">
+      Une pièce <b>attachée</b> part avec chaque exemplaire du message : sur 178 destinataires,
+      un fichier d'un méga représente 178 mégas expédiés, un envoi qui traîne, et un mail lourd
+      adressé à beaucoup de monde — ce que les filtres n'aiment pas.<br>
+      Un <b>lien</b> ne pèse rien, se télécharge quand le destinataire le décide, et permet
+      de corriger le document après l'envoi sans renvoyer le mail.
+    </div>
+
+    <div class="cm-add">
+      <button onclick="cmEnregistrer(this)" style="border-color:var(--accent);color:var(--accent)">
+        <i class="ti ti-check"></i>Enregistrer</button>
+      {% if m %}
+      <button onclick="cmSupprimer()" style="color:var(--danger)"><i class="ti ti-trash"></i>Supprimer</button>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div>
+  <div class="cm-ap">
+    <div class="cm-ap-t">Aperçu — tel que le message partira</div>
+    <iframe id="cm_frame" title="Aperçu du message"></iframe>
+  </div>
+</div>
+</div>
+
+<script>
+var CM_ID = "{{ m.id if m else '' }}";
+var CM_BLOCS = {{ (m.blocs if m and m.blocs else blocs_neufs)|tojson }};
+var CM_SEL = 0;
+var CM_PIECES = {{ (m.pieces if m and m.pieces else [])|tojson }};
+var CM_TYPES = {
+  texte:    {nom: "Paragraphe",     icone: "ti-align-left"},
+  image:    {nom: "Image",          icone: "ti-photo"},
+  colonnes: {nom: "Image + texte",  icone: "ti-columns-2"},
+  bouton:   {nom: "Bouton",         icone: "ti-hand-click"},
+  encadre:  {nom: "Encadré",        icone: "ti-square-rounded"},
+  espace:   {nom: "Espace",         icone: "ti-arrows-vertical"},
+  lien:     {nom: "Lien discret",   icone: "ti-link"}
+};
+var CM_NEUFS = {
+  texte:    {type:"texte", contenu:"Votre texte ici."},
+  image:    {type:"image", src:"", alt:"", largeur:"560", legende:"", lien:""},
+  colonnes: {type:"colonnes", src:"", alt:"", contenu:"**Un titre**\nVotre texte à côté de l'image."},
+  bouton:   {type:"bouton", libelle:"Découvrir les dates", lien:"https://", couleur:"vert", sous:""},
+  encadre:  {type:"encadre", contenu:"Une information à ne pas manquer.", ton:"orange"},
+  espace:   {type:"espace", hauteur:"normal"},
+  lien:     {type:"lien", libelle:"Voir le programme complet", lien:"https://"}
+};
+
+function ech(t){ return String(t == null ? "" : t).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+  .replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+function cmDessiner(){
+  var h = "";
+  CM_BLOCS.forEach(function(b, i){
+    var t = CM_TYPES[b.type] || {nom: b.type, icone: "ti-point"};
+    h += '<div class="cm-bl' + (i === CM_SEL ? " sel" : "") + '" data-i="' + i + '">'
+       + '<div class="cm-bl-h" draggable="true" onclick="cmChoisir(' + i + ')">'
+       + '<i class="ti ti-grip-vertical cm-poignee" title="Glisser pour déplacer"></i>'
+       + '<i class="ti ' + t.icone + '"></i><span class="cm-bl-n">' + t.nom + '</span>'
+       + '<span class="cm-bl-a">'
+       + '<button class="cm-ic" title="Monter" onclick="event.stopPropagation();cmBouger(' + i + ',-1)"><i class="ti ti-chevron-up"></i></button>'
+       + '<button class="cm-ic" title="Descendre" onclick="event.stopPropagation();cmBouger(' + i + ',1)"><i class="ti ti-chevron-down"></i></button>'
+       + '<button class="cm-ic" title="Retirer" onclick="event.stopPropagation();cmRetirer(' + i + ')"><i class="ti ti-x"></i></button>'
+       + '</span></div><div class="cm-bl-c">' + cmChamps(b, i) + '</div></div>';
+  });
+  if(CM_BLOCS.length){ h += '<div class="cm-vide-fin" data-i="' + CM_BLOCS.length + '"></div>'; }
+  document.getElementById("cm_blocs").innerHTML = h || '<div class="cm-n">Aucun bloc. Ajoutez-en un ci-dessous.</div>';
+  var a = "";
+  for (var k in CM_TYPES) {
+    a += '<button onclick="cmAjouter(\'' + k + '\')"><i class="ti ' + CM_TYPES[k].icone + '"></i>'
+       + CM_TYPES[k].nom + '</button>';
+  }
+  document.getElementById("cm_ajout").innerHTML = a;
+  cmApercu();
+}
+
+function cmChamps(b, i){
+  function texte(cle, label, ph){
+    var id = "cm_ta_" + i + "_" + cle;
+    // La valeur stockee est en MARQUES ; on l'affiche en HTML pour l'edition,
+    // et on reconvertit a chaque frappe. L'utilisateur ne voit jamais la syntaxe.
+    return '<div class="cm-f"><label>' + label + '</label>'
+         + cmBarre(id, i, b)
+         + '<div class="tr-zone" id="' + id + '" contenteditable="true" spellcheck="true"'
+         + ' data-vide="' + ech(ph || "") + '"'
+         + ' oninput="cmMajZone(\'' + id + '\',' + i + ',\'' + cle + '\')">'
+         + trVersHtml(b[cle] || "") + '</div></div>';
+  }
+  function champ(cle, label, ph){
+    return '<div class="cm-f"><label>' + label + '</label><input type="text" value="' + ech(b[cle])
+         + '" oninput="cmMaj(' + i + ',\'' + cle + '\',this.value)" placeholder="' + ech(ph || "") + '"></div>';
+  }
+  function choix(cle, label, options){
+    var o = options.map(function(x){
+      return '<option value="' + x[0] + '"' + (b[cle] === x[0] ? " selected" : "") + '>' + x[1] + '</option>';
+    }).join("");
+    return '<div class="cm-f"><label>' + label + '</label><select onchange="cmMaj(' + i + ',\''
+         + cle + '\',this.value)">' + o + '</select></div>';
+  }
+  function image(){
+    return '<div class="cm-f"><label>Image</label>'
+      + '<input type="file" accept="image/*" onchange="cmImage(' + i + ',this)">'
+      + (b.src ? '<img class="cm-img" src="' + ech(b.src) + '" alt="">' : "")
+      + '<div class="cm-n" style="margin-top:5px">L\'image est déposée sur votre Drive et rendue '
+      + 'lisible par tous — c\'est indispensable pour qu\'elle s\'affiche chez le destinataire.</div></div>';
+  }
+  if(b.type === "texte")    return texte("contenu", "Texte", "Bonjour,\n\nVotre message.");
+  if(b.type === "encadre")  return texte("contenu", "Texte de l'encadré")
+                                 + choix("ton", "Couleur", [["orange","Orange"],["bleu","Bleu"],["vert","Vert"],["gris","Gris"]]);
+  if(b.type === "image")    return image() + champ("legende", "Légende", "facultatif")
+                                 + champ("lien", "L'image mène à", "https://ou vide")
+                                 + champ("alt", "Description (lecteurs d'écran)", "ce que montre l'image");
+  if(b.type === "colonnes") return image() + texte("contenu", "Texte à côté")
+                                 + champ("alt", "Description de l'image", "");
+  if(b.type === "bouton")   return champ("libelle", "Texte du bouton") + champ("lien", "Adresse", "https://")
+                                 + champ("sous", "Mention sous le bouton", "facultatif")
+                                 + choix("couleur", "Couleur", [["vert","Vert"],["bleu","Bleu"],["violet","Violet"],["orange","Orange"],["noir","Noir"]]);
+  if(b.type === "lien")     return champ("libelle", "Texte du lien") + champ("lien", "Adresse", "https://");
+  if(b.type === "espace")   return choix("hauteur", "Hauteur", [["petit","Petit"],["normal","Normal"],["grand","Grand"]]);
+  return "";
+}
+
+// LA BARRE agit sur la SELECTION du champ, en posant les marques que le moteur
+// de rendu sait interpreter. On n'edite pas du HTML : ce qui est tape est ce
+// qui sera rendu, et le meme texte donnera le meme mail partout.
+var CM_COULEURS = ["#2b2f3a", "#4f7ef8", "#0f9e6a", "#d4890a", "#d03b3b", "#635BFF", "#8a90a2"];
+
+function cmBarre(id, i, b){
+  var h = '<div class="cm-ba">'
+    + '<button title="Gras" onmousedown="return cmFmt(event,\'bold\')"><b>B</b></button>'
+    + '<button title="Italique" onmousedown="return cmFmt(event,\'italic\')"><i style="font-family:Georgia,serif">I</i></button>'
+    + '<button title="Souligné" onmousedown="return cmFmt(event,\'underline\')"><u>U</u></button>'
+    + '<button title="Lien" onmousedown="return cmLien(event,\'' + id + '\',' + i + ')"><i class="ti ti-link"></i></button>'
+    + '<span class="cm-ba-s"></span><span class="cm-pal">';
+  CM_COULEURS.forEach(function(c){
+    h += '<button title="Couleur du texte" style="background:' + c + '" '
+       + 'onmousedown="return cmFmt(event,\'foreColor\',\'' + c + '\')"></button>';
+  });
+  h += "</span>";
+  // Taille et alignement portent sur le BLOC entier : le moteur ne sait les
+  // appliquer qu'au paragraphe, pas a un morceau de phrase. Reserves au bloc
+  // de texte, seul a les honorer.
+  if(b.type === "texte"){
+    h += '<span class="cm-ba-s"></span>'
+      + '<select title="Taille du texte" onchange="cmMajRedessine(' + i + ',\'taille\',this.value)">'
+      + ['petit","Petite', 'normal","Normale', 'grand","Grande'].map(function(x){
+          var v = x.split('","')[0], n = x.split('","')[1];
+          return '<option value="' + v + '"' + ((b.taille || "normal") === v ? " selected" : "") + ">" + n + "</option>";
+        }).join("") + "</select>"
+      + '<select title="Alignement" onchange="cmMajRedessine(' + i + ',\'align\',this.value)">'
+      + ['gauche","Gauche', 'centre","Centré', 'droite","Droite'].map(function(x){
+          var v = x.split('","')[0], n = x.split('","')[1];
+          return '<option value="' + v + '"' + ((b.align || "gauche") === v ? " selected" : "") + ">" + n + "</option>";
+        }).join("") + "</select>";
+  }
+  return h + "</div>";
+}
+
+function cmMajZone(id, i, cle){
+  var z = document.getElementById(id);
+  if(!z) return;
+  // On stocke des MARQUES, jamais le HTML de la zone : c'est le moteur de rendu
+  // des mails qui produira le HTML final. Un seul chemin, donc un seul rendu.
+  CM_BLOCS[i][cle] = trVersMarque(z);
+  cmApercu();
+}
+
+// « onmousedown » et non « onclick » : appuyer sur un bouton fait perdre le
+// focus a la zone, et la selection avec lui. On agit avant que cela n'arrive,
+// et l'on empeche le navigateur de deplacer le curseur.
+function cmFmt(ev, cmd, valeur){
+  ev.preventDefault();
+  trCommande(cmd, valeur);
+  return false;
+}
+
+function cmLien(ev, id, i){
+  ev.preventDefault();
+  var z = document.getElementById(id);
+  if(z) z.focus();
+  var sel = String(window.getSelection ? window.getSelection() : "");
+  // La selection est perdue des l'ouverture de la fenetre : on la memorise.
+  var plage = null;
+  try {
+    var s0 = window.getSelection();
+    if(s0 && s0.rangeCount) plage = s0.getRangeAt(0).cloneRange();
+  } catch(e){}
+  dfmFenetre({titre: "Insérer un lien", sous: "Adresse complète, avec https://",
+    garder: true,
+    corps: '<label style="display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px">Texte affiché</label>'
+      + '<input id="cm_lt" type="text" value="' + ech(sel) + '" placeholder="voir le programme" '
+      + 'style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;'
+      + 'background:var(--bg);color:var(--text);font-size:13px;font-family:inherit;margin-bottom:11px">'
+      + '<label style="display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px">Adresse</label>'
+      + '<input id="cm_lu" type="text" placeholder="https://exemple.fr" '
+      + 'style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;'
+      + 'background:var(--bg);color:var(--text);font-size:13px;font-family:inherit">',
+    boutons: [{libelle: "Annuler", style: "neutre"},
+              {libelle: "Insérer", style: "primaire", action: function(){
+      var t = ((document.getElementById("cm_lt") || {}).value || "").trim() || "lien";
+      var u = ((document.getElementById("cm_lu") || {}).value || "").trim();
+      if(!u) return;
+      if(!/^(https?:\/\/|mailto:)/i.test(u)){ u = "https://" + u; }
+      dfmFermer();
+      var zz = document.getElementById(id);
+      if(!zz) return;
+      zz.focus();
+      // On restitue la selection memorisee, puis on insere le lien a sa place.
+      try {
+        if(plage){
+          var s1 = window.getSelection();
+          s1.removeAllRanges(); s1.addRange(plage);
+        }
+      } catch(e){}
+      var a = document.createElement("a");
+      a.setAttribute("href", u);
+      a.textContent = t;
+      try {
+        var s2 = window.getSelection();
+        if(s2 && s2.rangeCount){
+          var r = s2.getRangeAt(0);
+          r.deleteContents();
+          r.insertNode(a);
+          r.setStartAfter(a); r.collapse(true);
+          s2.removeAllRanges(); s2.addRange(r);
+        } else {
+          zz.appendChild(a);
+        }
+      } catch(e){ zz.appendChild(a); }
+      cmMajZone(id, i, id.split("_").slice(3).join("_"));
+    }}]});
+  return false;
+}
+
+function cmMajRedessine(i, cle, v){ CM_BLOCS[i][cle] = v; cmDessiner(); }
+
+function cmChoisir(i){ CM_SEL = i; cmDessiner(); }
+
+// ---------------------------------------------------------------------------
+// GLISSER-DEPOSER
+//
+// Les gestionnaires sont poses sur le CONTENEUR, pas sur chaque bloc : la pile
+// est redessinee a chaque frappe, et des ecouteurs attaches aux blocs eux-memes
+// disparaitraient avec eux.
+// ---------------------------------------------------------------------------
+var CM_PRIS = -1;      // le bloc en cours de deplacement
+var CM_CIBLE = -1;     // l'ecart ou il tombera : 0 = avant le premier
+
+function cmPile(){ return document.getElementById("cm_blocs"); }
+
+function cmEffacerRepere(){
+  cmPile().querySelectorAll(".vh, .vb").forEach(function(x){
+    x.classList.remove("vh"); x.classList.remove("vb");
+  });
+}
+
+// L'ECART est designe par les DEUX blocs qui l'encadrent : celui du dessus
+// s'eclaire par le bas, celui du dessous par le haut. C'est ce que l'oeil
+// attend — l'espace qui s'ouvre, pas un trait posé au hasard.
+function cmMarquer(ecart){
+  cmEffacerRepere();
+  CM_CIBLE = ecart;
+  var haut = cmPile().querySelector('.cm-bl[data-i="' + (ecart - 1) + '"]');
+  var bas = cmPile().querySelector('[data-i="' + ecart + '"]');
+  if(haut) haut.classList.add("vh");
+  if(bas) bas.classList.add("vb");
+}
+
+cmPile().addEventListener("dragstart", function(e){
+  var bl = e.target.closest ? e.target.closest(".cm-bl") : null;
+  if(!bl){ return; }
+  CM_PRIS = parseInt(bl.getAttribute("data-i"), 10);
+  bl.classList.add("glisse");
+  e.dataTransfer.effectAllowed = "move";
+  // Firefox exige une donnee pour demarrer le glissement.
+  try { e.dataTransfer.setData("text/plain", String(CM_PRIS)); } catch(err){}
+});
+
+cmPile().addEventListener("dragover", function(e){
+  if(CM_PRIS < 0){ return; }
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  var bl = e.target.closest ? e.target.closest(".cm-bl, .cm-vide-fin") : null;
+  if(!bl){ return; }
+  var i = parseInt(bl.getAttribute("data-i"), 10);
+  if(bl.classList.contains("cm-vide-fin")){ cmMarquer(CM_BLOCS.length); return; }
+  // Moitie haute : on tombe AVANT ce bloc ; moitie basse : APRES.
+  var r = bl.getBoundingClientRect();
+  cmMarquer(e.clientY < r.top + r.height / 2 ? i : i + 1);
+});
+
+cmPile().addEventListener("drop", function(e){
+  if(CM_PRIS < 0){ return; }
+  e.preventDefault();
+  var depuis = CM_PRIS, vers = CM_CIBLE;
+  CM_PRIS = -1; CM_CIBLE = -1;
+  if(vers < 0 || vers === depuis || vers === depuis + 1){ cmDessiner(); return; }
+  var bloc = CM_BLOCS.splice(depuis, 1)[0];
+  // Retirer le bloc decale tout ce qui le suivait : la cible recule d'un cran
+  // si elle etait apres lui. Sans cela, un deplacement vers le bas atterrit
+  // systematiquement une place trop loin.
+  if(vers > depuis){ vers -= 1; }
+  CM_BLOCS.splice(vers, 0, bloc);
+  CM_SEL = vers;
+  cmDessiner();
+});
+
+cmPile().addEventListener("dragend", function(){
+  CM_PRIS = -1; CM_CIBLE = -1;
+  cmEffacerRepere();
+  cmPile().querySelectorAll(".glisse").forEach(function(x){ x.classList.remove("glisse"); });
+});
+function cmMaj(i, cle, v){ CM_BLOCS[i][cle] = v; cmApercu(); }
+function cmAjouter(t){
+  CM_BLOCS.push(JSON.parse(JSON.stringify(CM_NEUFS[t])));
+  CM_SEL = CM_BLOCS.length - 1;
+  cmDessiner();
+}
+function cmRetirer(i){
+  CM_BLOCS.splice(i, 1);
+  if(CM_SEL >= CM_BLOCS.length) CM_SEL = CM_BLOCS.length - 1;
+  cmDessiner();
+}
+function cmBouger(i, d){
+  var j = i + d;
+  if(j < 0 || j >= CM_BLOCS.length) return;
+  var x = CM_BLOCS[i]; CM_BLOCS[i] = CM_BLOCS[j]; CM_BLOCS[j] = x;
+  CM_SEL = j;
+  cmDessiner();
+}
+
+function cmImage(i, input){
+  var f = input.files && input.files[0];
+  if(!f) return;
+  var fd = new FormData(); fd.append("image", f);
+  input.disabled = true;
+  fetch("/messagerie/image", {method:"POST", body:fd})
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      input.disabled = false;
+      if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+      CM_BLOCS[i].src = j.src;
+      if(!CM_BLOCS[i].alt) CM_BLOCS[i].alt = j.nom.replace(/\.[a-z0-9]+$/i, "");
+      cmDessiner();
+    });
+}
+
+// L'APERCU passe par le serveur : c'est le MEME moteur de rendu que l'envoi.
+// Le refaire en JavaScript reviendrait a comparer deux implementations, et
+// l'apercu finirait par mentir.
+var cm_minuteur = null;
+function cmApercu(){
+  clearTimeout(cm_minuteur);
+  cm_minuteur = setTimeout(function(){
+    var fd = new FormData();
+    fd.append("blocs", JSON.stringify(CM_BLOCS));
+    fetch("/messagerie/apercu", {method:"POST", body:fd})
+      .then(function(r){ return r.text(); })
+      .then(function(html){
+        var f = document.getElementById("cm_frame");
+        f.srcdoc = html;
+      });
+  }, 350);
+}
+
+function cmEnregistrer(b){
+  var titre = document.getElementById("cm_titre").value.trim();
+  var objet = document.getElementById("cm_objet").value.trim();
+  if(!titre || !objet){
+    dfmInfo("Incomplet", "<p>Un titre et un objet sont nécessaires.</p>", "danger");
+    return;
+  }
+  b.disabled = true;
+  var fd = new FormData();
+  fd.append("id", CM_ID); fd.append("titre", titre); fd.append("objet", objet);
+  fd.append("blocs", JSON.stringify(CM_BLOCS));
+  fd.append("pieces", JSON.stringify(CM_PIECES));
+  fetch("/templates/communication/enregistrer", {method:"POST", body:fd})
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      b.disabled = false;
+      if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+      if(!CM_ID){ location.href = "/templates/communication/" + j.id; }
+      else { dfmInfo("Enregistré", "<p>Le modèle est à jour.</p>"); }
+    });
+}
+function cmSupprimer(){
+  dfmFenetre({titre: "Supprimer ce modèle", sous: "Les campagnes déjà envoyées ne changent pas",
+    corps: "<p style='font-size:13.5px'>Le modèle sera retiré de la liste. Les messages "
+         + "déjà partis restent consultables dans le journal des campagnes.</p>",
+    boutons: [{libelle: "Annuler", style: "neutre"},
+              {libelle: "Supprimer", style: "danger", action: function(){
+      var fd = new FormData(); fd.append("id", CM_ID);
+      fetch("/templates/communication/supprimer", {method:"POST", body:fd})
+        .then(function(){ location.href = "/templates"; });
+    }}]});
+}
+
+function cmPieces(){
+  var h = "";
+  var totalJointes = 0;
+  CM_PIECES.forEach(function(p, i){
+    if((p.mode || "jointe") === "jointe") totalJointes += (p.taille || 0);
+    h += '<div class="cm-bl" style="padding:9px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+       + '<i class="ti ti-file" style="color:var(--muted)"></i>'
+       + '<span style="flex:1;min-width:150px;font-size:12.5px">' + ech(p.nom)
+       + ' <span style="color:var(--muted)">' + ech(p.poids || "") + '</span></span>'
+       + '<select style="width:auto;padding:5px 8px;border:1px solid var(--border);border-radius:6px;'
+       + 'background:var(--carte);color:var(--text);font-size:12px;font-family:inherit" '
+       + 'onchange="cmPieceMode(' + i + ',this.value)">'
+       + '<option value="jointe"' + ((p.mode||"jointe")==="jointe"?" selected":"") + '>Attachée au message</option>'
+       + '<option value="lien"' + (p.mode==="lien"?" selected":"") + '>Proposée en lien</option>'
+       + '</select>'
+       + '<button class="cm-ic" title="Retirer" onclick="cmPieceRetirer(' + i + ')"><i class="ti ti-x"></i></button>'
+       + '</div>';
+  });
+  if(totalJointes > 2 * 1024 * 1024){
+    h += '<div class="cm-n" style="color:var(--danger)"><i class="ti ti-alert-triangle"></i> '
+       + Math.round(totalJointes / 1024 / 1024 * 10) / 10 + ' Mo attachés à chaque envoi. '
+       + 'Au-delà de 2 Mo, préférez le lien : l\'envoi sera bien plus rapide et le message '
+       + 'moins suspect aux yeux des filtres.</div>';
+  }
+  document.getElementById("cm_pieces").innerHTML = h
+    || '<div class="cm-n" style="margin-top:0">Aucune pièce.</div>';
+}
+function cmPieceMode(i, v){
+  CM_PIECES[i].mode = v;
+  cmPieces();
+  // Le mode « lien » n'a de sens que si le lien figure dans le message : on
+  // propose d'ajouter le bouton plutot que de laisser une piece invisible.
+  if(v === "lien" && !CM_BLOCS.some(function(b){ return b.lien === CM_PIECES[i].lien; })){
+    CM_BLOCS.push({type: "bouton", libelle: "Télécharger " + CM_PIECES[i].nom,
+                   lien: CM_PIECES[i].lien, couleur: "bleu", sous: ""});
+    CM_SEL = CM_BLOCS.length - 1;
+    cmDessiner();
+  }
+}
+function cmPieceRetirer(i){ CM_PIECES.splice(i, 1); cmPieces(); }
+function cmPiece(input){
+  var f = input.files && input.files[0];
+  if(!f) return;
+  var fd = new FormData(); fd.append("piece", f);
+  input.disabled = true;
+  fetch("/messagerie/piece", {method:"POST", body:fd})
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      input.disabled = false; input.value = "";
+      if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+      j.piece.poids = j.poids;
+      CM_PIECES.push(j.piece);
+      cmPieces();
+      if(j.lourd){
+        dfmInfo("Proposée en lien",
+          "<p>Ce fichier pèse " + j.poids + ". DFM le propose en <b>lien de téléchargement</b> "
+        + "plutôt qu'en pièce attachée : le message reste léger et part bien plus vite.</p>"
+        + "<p style='color:var(--muted);font-size:13px'>Un bouton de téléchargement a été "
+        + "ajouté au message. Vous pouvez revenir sur ce choix ci-dessus.</p>", "attention");
+        cmPieceMode(CM_PIECES.length - 1, "lien");
+      }
+    });
+}
+
+cmPieces();
+cmDessiner();
+</script>
+{% endblock %}

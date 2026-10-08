@@ -1,0 +1,355 @@
+{% extends "base.html" %}
+{% block titre %}Règlements{% endblock %}
+{% block entete %}Règlements{% endblock %}
+{% block sous_entete %}Vue consolidée de toutes les formations · les périodes portent sur les dates de session{% endblock %}
+{% block actions %}
+<select class="rg-periode" id="rg_annee" onchange="rgPeriode()" title="Periode retenue">
+  <option value="tout"{{ " selected" if periode_defaut == "tout" }}>Depuis le début</option>
+  <option value="m3"{{ " selected" if periode_defaut == "m3" }}>3 derniers mois</option>
+  <option value="m6"{{ " selected" if periode_defaut == "m6" }}>6 derniers mois</option>
+  <option value="m12"{{ " selected" if periode_defaut == "m12" }}>12 derniers mois</option>
+  <option value="avenir"{{ " selected" if periode_defaut == "avenir" }}>Sessions à venir</option>
+  <option value="annee"{{ " selected" if periode_defaut == "annee" }}>Année en cours</option>
+  {% for a in annees %}<option value="an{{ a }}">Année {{ a }}</option>{% endfor %}
+  <option value="perso">Période personnalisée…</option>
+</select>
+<input type="date" class="rg-periode" id="rg_du" style="display:none" onchange="rgFiltrer()" title="Date de debut">
+<input type="date" class="rg-periode" id="rg_au" style="display:none" onchange="rgFiltrer()" title="Date de fin">
+<button class="btn btn-ghost" title="Liste affichee au format CSV" onclick="rgExporter()"><i class="ti ti-download"></i>Exporter</button>
+<button class="btn btn-ghost" title="Journal de ventes pour le comptable : factures emises uniquement" onclick="rgExportCompta()"><i class="ti ti-file-spreadsheet"></i>Export comptable</button>
+{% endblock %}
+{% block corps %}
+<style>.chip-inv{background:#fdf3e3;color:#8a5606;border:1px solid #f0dcb4}.dot-inv{background:#d4890a}</style>
+<style>
+.rg-periode{border:1px solid var(--border2);border-radius:8px;padding:7px 10px;font-size:12px;background:var(--carte);color:var(--text);cursor:pointer;font-family:inherit}
+.rg-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.rg-kpi{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden}
+.rg-acc{position:absolute;left:0;top:0;bottom:0;width:3px}
+.rg-lab{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+.rg-val{font-size:26px;font-weight:500;line-height:1;font-variant-numeric:tabular-nums}
+.rg-sub{font-size:11px;color:var(--muted);margin-top:6px}
+.rg-barre{display:flex;height:10px;border-radius:5px;overflow:hidden;border:1px solid var(--border);margin-bottom:10px}
+.rg-seg{height:100%}
+.rg-leg{display:flex;gap:16px;margin-bottom:20px;font-size:12px;flex-wrap:wrap}
+.rg-li{display:flex;align-items:center;gap:6px}
+.rg-pt{width:10px;height:10px;border-radius:3px}
+.rg-outils{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap}
+.rg-filtres{display:flex;gap:6px;flex-wrap:wrap}
+.rg-fb{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--carte);color:var(--muted);font-size:12px;cursor:pointer;font-family:inherit}
+.rg-fb.on{background:#eef3fe;color:var(--accent);border-color:var(--accent)}
+.rg-rech{display:flex;align-items:center;gap:6px;background:var(--carte);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;min-width:200px}
+.rg-rech input{border:none;outline:none;font-size:12px;font-family:inherit;width:100%;color:var(--text)}
+.rg-montant{font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rg-tag{display:inline-flex;align-items:center;gap:5px;font-size:12px}
+.rg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.rg-mode{font-size:11px;color:var(--muted)}
+.rg-num{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--accent);text-decoration:none;white-space:nowrap}
+.rg-num:hover{text-decoration:underline}
+.rg-sess{color:var(--muted);font-size:10px;margin-top:2px;text-decoration:none;display:inline-block}
+.rg-sess:hover{color:var(--accent);text-decoration:underline}
+.rg-age{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap}
+.rg-age0{background:var(--bg);color:var(--muted)}
+.rg-age1{background:#fef7ec;color:var(--warn)}
+.rg-age2{background:#fdeaea;color:var(--danger)}
+.rg-relb{background:none;border:1px dashed var(--border2);border-radius:20px;padding:2px 9px;font-size:10.5px;color:var(--muted);cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.rg-relb:hover{border-style:solid;border-color:var(--warn);color:var(--warn);background:#fdf3e3}
+.rg-tri{cursor:pointer;user-select:none}
+.rg-tri:hover{color:var(--accent)}
+.rg-tri i{font-size:11px;opacity:.4}
+.rg-tri.actif i{opacity:1;color:var(--accent)}
+.rg-pied{background:#fafafa;font-weight:500}
+.rg-pied td{border-top:2px solid var(--border);padding:12px}
+.rg-vide td{padding:34px;text-align:center;color:var(--muted)}
+.rl-voile{position:fixed;inset:0;background:rgba(16,18,30,.6);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
+.rl-modale{background:var(--carte);border-radius:14px;padding:26px 28px;max-width:480px;width:100%;max-height:90vh;overflow:auto}
+.rl-t{font-size:17px;font-weight:500;margin-bottom:4px}
+.rl-st{font-size:13px;color:var(--muted);margin-bottom:18px}
+.rl-bloc{border-radius:8px;padding:12px 14px;font-size:12px;margin-bottom:12px}
+.rl-neutre{background:var(--bg);border:1px solid var(--border)}
+.rl-orange{background:#fdf3e3;border:1px solid #f0cf94;color:#8a5a06}
+.rl-vert{background:#eafaf3;border:1px solid #9fe1cb;color:#0f6e56}
+.rl-l{display:flex;align-items:flex-start;gap:8px;padding:3px 0}
+.rl-l i{flex-shrink:0;margin-top:1px}
+.rl-pied{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+.rl-ok{background:var(--warn);color:#fff}
+</style>
+<div class="rg-kpis">
+  <div class="rg-kpi"><div class="rg-acc" style="background:var(--accent)"></div>
+    <div class="rg-lab">CA total attendu</div>
+    <div class="rg-val" id="k_attendu">{{ attendu|round|int }} €</div>
+    <div class="rg-sub" id="k_attendu_s">{{ nb_total }} inscrit{{ 's' if nb_total > 1 }} · toutes sessions</div>
+  </div>
+  <div class="rg-kpi"><div class="rg-acc" style="background:var(--success)"></div>
+    <div class="rg-lab">Encaissé</div>
+    <div class="rg-val" id="k_encaisse" style="color:var(--success)">{{ encaisse|round|int }} €</div>
+    <div class="rg-sub" id="k_encaisse_s">{{ nb_payes }} règlement{{ 's' if nb_payes > 1 }} reçu{{ 's' if nb_payes > 1 }}</div>
+  </div>
+  <div class="rg-kpi"><div class="rg-acc" style="background:var(--warn)"></div>
+    <div class="rg-lab">En attente</div>
+    <div class="rg-val" id="k_restant" style="color:var(--warn)">{{ restant|round|int }} €</div>
+    <div class="rg-sub" id="k_restant_s">{{ nb_attente }} règlement{{ 's' if nb_attente > 1 }} attendu{{ 's' if nb_attente > 1 }}</div>
+  </div>
+  <div class="rg-kpi"><div class="rg-acc" style="background:var(--danger)"></div>
+    <div class="rg-lab">Retard · plus de 30 j</div>
+    <div class="rg-val" id="k_retard" style="color:var(--danger)">0 €</div>
+    <div class="rg-sub" id="k_retard_s">0 règlement en retard</div>
+  </div>
+</div>
+<div class="rg-barre"><div class="rg-seg" id="bar_ok" style="background:var(--success);width:0%"></div><div class="rg-seg" id="bar_ko" style="background:#f0cf94;width:100%"></div></div>
+<div class="rg-leg">
+  <div class="rg-li"><span class="rg-pt" style="background:var(--success)"></span><span id="leg_ok">Encaissé</span></div>
+  <div class="rg-li"><span class="rg-pt" style="background:#f0cf94"></span><span id="leg_ko">En attente</span></div>
+</div>
+<div class="rg-outils">
+  <div class="rg-filtres">
+    <button class="rg-fb on" data-f="tous" onclick="rgChoisir(this)">Tous ({{ nb_total }})</button>
+    <button class="rg-fb" data-f="payes" onclick="rgChoisir(this)">Réglés ({{ nb_payes }})</button>
+    <button class="rg-fb" data-f="attente" onclick="rgChoisir(this)">En attente ({{ nb_attente }})</button>
+    <button class="rg-fb" data-f="retard" onclick="rgChoisir(this)">En retard</button>
+    {% for nom, n in formations %}<button class="rg-fb" data-f="formation:{{ nom }}" onclick="rgChoisir(this)">{{ nom }} ({{ n }})</button>{% endfor %}
+  </div>
+  <div class="rg-rech"><i class="ti ti-search" style="font-size:13px;color:var(--muted)"></i><input type="text" id="rg_q" placeholder="Rechercher un praticien, une facture..." oninput="rgFiltrer()"></div>
+</div>
+<div class="table-wrap"><div class="table-scroll">
+<table style="min-width:1000px">
+  <thead><tr>
+    <th class="rg-tri" data-tri="nom" onclick="rgTrier(this)">Praticien <i class="ti ti-arrows-sort"></i></th>
+    <th style="width:190px">Formation / Session</th>
+    <th class="rg-tri" style="width:90px" data-tri="du" onclick="rgTrier(this)">Montant <i class="ti ti-arrows-sort"></i></th>
+    <th style="width:100px">Règlement</th>
+    <th class="rg-tri" style="width:90px" data-tri="jours" onclick="rgTrier(this)">Attente <i class="ti ti-arrows-sort"></i></th>
+    <th style="width:85px">Mode</th>
+    <th style="width:120px">Facture</th>
+    <th class="rg-tri" style="width:95px" data-tri="paiement" onclick="rgTrier(this)">Date <i class="ti ti-arrows-sort"></i></th>
+    <th style="width:100px"></th>
+  </tr></thead>
+  <tbody id="rg_corps">
+  {% for l in lignes %}
+    <tr data-paye="{{ 'invite' if l.invite else ('oui' if l.paye else 'non') }}" data-formation="{{ l.formation }}" data-annee="{{ l.annee }}"
+        data-debut="{{ l.debut }}" data-paiement="{{ l.paiement_iso }}" data-du="{{ l.du }}" data-recu="{{ l.recu }}"
+        data-jours="{{ l.jours if l.jours is not none else -1 }}" data-nom="{{ l.nom }}"
+        data-mail="{{ l.mail }}" data-session="{{ l.session }}"
+        data-facture="{{ 'oui' if l.facture_le else 'non' }}" data-facturenum="{{ l.numero_facture }}"
+        data-rech="{{ (l.nom ~ ' ' ~ l.mail ~ ' ' ~ l.formation ~ ' ' ~ l.reference ~ ' ' ~ l.numero_facture)|lower }}">
+      <td><strong style="font-size:12px">{{ l.nom }}</strong><br><span style="color:var(--muted);font-size:10px">{{ l.mail }}</span></td>
+      <td><span class="rg-tag"><span class="rg-dot" style="background:{{ l.couleur }}"></span>{{ l.formation }}</span>
+          <br><a class="rg-sess" href="/session/{{ l.session }}" title="Ouvrir la session">{{ l.session_texte }}</a></td>
+      <td class="rg-montant">{{ l.du|round|int }} €</td>
+      <td>{% if l.invite %}<span class="chip chip-inv" title="Invité·e par l'organisme — aucun règlement demandé"><span class="dot dot-inv"></span>Invité·e</span>{% elif l.paye %}<span class="chip chip-g"><span class="dot dot-g"></span>Réglé</span>{% else %}<span class="chip chip-w"><span class="dot dot-w"></span>En attente</span>{% endif %}</td>
+      <td>{% if l.invite or l.paye or l.jours is none %}<span style="color:var(--border2)">—</span>{% elif l.jours >= 30 %}<span class="rg-age rg-age2">{{ l.jours }} j</span>{% elif l.jours >= 14 %}<span class="rg-age rg-age1">{{ l.jours }} j</span>{% else %}<span class="rg-age rg-age0">{{ l.jours }} j</span>{% endif %}</td>
+      <td class="rg-mode">{{ l.mode or '—' }}</td>
+      <td>{% if l.lien_facture %}<a href="{{ l.lien_facture }}" target="_blank" class="rg-num" title="Ouvrir la facture">{{ l.numero_facture or 'Ouvrir' }}</a>{% else %}<span style="color:var(--border2)">—</span>{% endif %}</td>
+      <td style="font-size:11px">{{ l.date_paiement or '—' }}</td>
+      <td>{% if l.relancable %}<button type="button" class="rg-relb" title="Relancer pour le reglement" data-mail="{{ l.mail }}" data-session="{{ l.session }}" onclick="relancer(this)"><i class="ti ti-bell" style="font-size:11px"></i>Relancer</button>{% endif %}</td>
+    </tr>
+  {% else %}
+    <tr class="rg-vide"><td colspan="9"><i class="ti ti-cash-off" style="font-size:22px;display:block;margin-bottom:8px"></i>Aucun règlement à afficher</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr class="rg-pied">
+      <td colspan="2" id="pied_nb">{{ nb_total }} ligne{{ 's' if nb_total > 1 }}</td>
+      <td class="rg-montant" id="pied_du">{{ attendu|round|int }} €</td>
+      <td colspan="6" id="pied_detail" style="font-size:12px;color:var(--muted)">Encaissé {{ encaisse|round|int }} € · en attente {{ restant|round|int }} €</td>
+    </tr>
+  </tfoot>
+</table>
+</div></div>
+<div class="rl-voile" id="rl_voile"><div class="rl-modale" id="rl_modale"></div></div>
+<script>
+var RG_FILTRE = "tous", RG_TRI = "", RG_SENS = 1;
+function rgChoisir(b){
+  var t = document.querySelectorAll(".rg-fb");
+  for(var i = 0; i < t.length; i++){ t[i].classList.remove("on"); }
+  b.classList.add("on");
+  RG_FILTRE = b.dataset.f;
+  rgFiltrer();
+}
+function rgISO(d){ return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
+function rgMois(n){ var d = new Date(); d.setMonth(d.getMonth() - n); return rgISO(d); }
+function rgToutVoir(){
+  document.getElementById("rg_annee").value = "tout";
+  rgPeriode();
+}
+function rgPeriode(){
+  var perso = document.getElementById("rg_annee").value === "perso";
+  document.getElementById("rg_du").style.display = perso ? "" : "none";
+  document.getElementById("rg_au").style.display = perso ? "" : "none";
+  rgFiltrer();
+}
+function rgBornes(){
+  var v = document.getElementById("rg_annee").value;
+  if(!v || v === "tout") return null;
+  if(v === "perso"){
+    var a = document.getElementById("rg_du").value, b = document.getElementById("rg_au").value;
+    return (a || b) ? [a, b] : null;
+  }
+  if(v.indexOf("an") === 0){ var an = v.slice(2); return [an + "-01-01", an + "-12-31"]; }
+  if(v === "avenir") return [rgISO(new Date()), ""];
+  if(v === "annee"){ var ac = new Date().getFullYear(); return [ac + "-01-01", ac + "-12-31"]; }
+  if(v === "m3") return [rgMois(3), rgISO(new Date())];
+  if(v === "m6") return [rgMois(6), rgISO(new Date())];
+  if(v === "m12") return [rgMois(12), rgISO(new Date())];
+  return null;
+}
+function rgLignes(){ return document.querySelectorAll("#rg_corps tr[data-paye]"); }
+function rgTrier(th){
+  var cle = th.dataset.tri;
+  RG_SENS = (RG_TRI === cle) ? -RG_SENS : 1;
+  RG_TRI = cle;
+  var ths = document.querySelectorAll(".rg-tri");
+  for(var i = 0; i < ths.length; i++){ ths[i].classList.remove("actif"); }
+  th.classList.add("actif");
+  var corps = document.getElementById("rg_corps");
+  var lignes = [];
+  var brut = rgLignes();
+  for(var j = 0; j < brut.length; j++){ lignes.push(brut[j]); }
+  var nombre = (cle === "du" || cle === "jours");
+  lignes.sort(function(a, b){
+    var x = a.dataset[cle] || "", y = b.dataset[cle] || "";
+    if(nombre){ x = parseFloat(x || 0); y = parseFloat(y || 0); return (x - y) * RG_SENS; }
+    return x.localeCompare(y) * RG_SENS;
+  });
+  for(var k = 0; k < lignes.length; k++){ corps.appendChild(lignes[k]); }
+}
+function rgFiltrer(){
+  var q = (document.getElementById("rg_q").value || "").toLowerCase().trim();
+  var bornes = rgBornes();
+  var lignes = rgLignes();
+  var n = 0, du = 0, recu = 0, nbp = 0, retard = 0, nbret = 0, horsPeriode = 0;
+  for(var i = 0; i < lignes.length; i++){
+    var tr = lignes[i], ok = true;
+    var j = parseInt(tr.dataset.jours || -1, 10);
+    var enRetard = (tr.dataset.paye === "non" && j >= 30);
+    if(RG_FILTRE === "payes" && tr.dataset.paye !== "oui") ok = false;
+    if(RG_FILTRE === "attente" && tr.dataset.paye !== "non") ok = false;
+    if(RG_FILTRE === "retard" && !enRetard) ok = false;
+    if(RG_FILTRE.indexOf("formation:") === 0 && tr.dataset.formation !== RG_FILTRE.slice(10)) ok = false;
+    if(bornes){
+      var dd = tr.dataset.debut || "";
+      // Comptabilise separement ce que masque le filtre de periode, pour le dire.
+      if(!dd || (bornes[0] && dd < bornes[0]) || (bornes[1] && dd > bornes[1])){
+        ok = false; horsPeriode++;
+      }
+    }
+    if(q && (tr.dataset.rech || "").indexOf(q) === -1) ok = false;
+    tr.style.display = ok ? "" : "none";
+    if(!ok) continue;
+    n++;
+    du += parseFloat(tr.dataset.du || 0);
+    recu += parseFloat(tr.dataset.recu || 0);
+    if(tr.dataset.paye === "oui") nbp++;
+    if(enRetard){ retard += parseFloat(tr.dataset.du || 0); nbret++; }
+  }
+  var reste = du - recu;
+  var pct = du > 0 ? Math.round(100 * recu / du) : 0;
+  document.getElementById("k_attendu").textContent = Math.round(du) + " €";
+  document.getElementById("k_attendu_s").textContent = n + " inscrit(s) affiché(s)";
+  document.getElementById("k_encaisse").textContent = Math.round(recu) + " €";
+  document.getElementById("k_encaisse_s").textContent = nbp + " règlement(s) reçu(s)";
+  document.getElementById("k_restant").textContent = Math.round(reste) + " €";
+  document.getElementById("k_restant_s").textContent = (n - nbp) + " règlement(s) attendu(s)";
+  document.getElementById("k_retard").textContent = Math.round(retard) + " €";
+  document.getElementById("k_retard_s").textContent = nbret + " règlement(s) sans réponse depuis 30 j";
+  document.getElementById("bar_ok").style.width = pct + "%";
+  document.getElementById("bar_ko").style.width = (100 - pct) + "%";
+  document.getElementById("leg_ok").textContent = "Encaissé — " + Math.round(recu) + " € (" + pct + "%)";
+  document.getElementById("leg_ko").textContent = "En attente — " + Math.round(reste) + " € (" + (100 - pct) + "%)";
+  var pied = document.getElementById("pied_nb");
+  if(n === 0 && horsPeriode > 0){
+    pied.innerHTML = 'Aucun règlement sur cette période — <b>' + horsPeriode
+      + '</b> masqué(s) par le filtre. '
+      + '<a href="#" onclick="rgToutVoir();return false;" style="color:var(--accent)">Voir toutes les sessions</a>';
+  } else {
+    pied.textContent = n + " ligne(s) affichée(s)"
+      + (horsPeriode ? " · " + horsPeriode + " hors période" : "");
+  }
+  document.getElementById("pied_du").textContent = Math.round(du) + " €";
+  document.getElementById("pied_detail").textContent = "Encaissé " + Math.round(recu) + " € · en attente " + Math.round(reste) + " €";
+}
+function rgTelecharger(nom, entete, lignes){
+  var blob = new Blob(["\ufeff" + [entete].concat(lignes).join("\n")], {type:"text/csv;charset=utf-8;"});
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = nom;
+  a.click();
+}
+function rgVisibles(){
+  var out = [], lignes = rgLignes();
+  for(var i = 0; i < lignes.length; i++){ if(lignes[i].style.display !== "none") out.push(lignes[i]); }
+  return out;
+}
+function rgExporter(){
+  var lignes = rgVisibles(), out = [];
+  for(var i = 0; i < lignes.length; i++){
+    var tr = lignes[i], c = tr.querySelectorAll("td");
+    out.push([tr.dataset.nom, tr.dataset.mail, tr.dataset.formation, c[1].querySelector("a").textContent.trim(),
+              tr.dataset.du, tr.dataset.recu, tr.dataset.paye === "oui" ? "Regle" : "En attente",
+              tr.dataset.jours, c[5].textContent.trim(), tr.dataset.facturenum || "",
+              c[7].textContent.trim()].join(";"));
+  }
+  rgTelecharger("reglements.csv", "Praticien;Mail;Formation;Session;Montant du;Montant recu;Statut;Jours d attente;Mode;Facture;Date reglement", out);
+}
+function rgExportCompta(){
+  var lignes = rgVisibles(), out = [];
+  for(var i = 0; i < lignes.length; i++){
+    var tr = lignes[i], c = tr.querySelectorAll("td");
+    if(!tr.dataset.facturenum && tr.dataset.facture !== "oui") continue;
+    out.push([c[7].textContent.trim(), tr.dataset.facturenum || "", tr.dataset.nom,
+              tr.dataset.formation, tr.dataset.recu, c[5].textContent.trim()].join(";"));
+  }
+  if(!out.length){ alert("Aucune facture émise dans la sélection affichée."); return; }
+  rgTelecharger("journal-ventes.csv", "Date;Numero de facture;Client;Prestation;Montant TTC;Mode de reglement", out);
+}
+var RL_MAIL = "", RL_SESSION = "";
+function rlFermer(){ document.getElementById("rl_voile").style.display = "none"; }
+function rlOuvrir(h){ document.getElementById("rl_modale").innerHTML = h; document.getElementById("rl_voile").style.display = "flex"; }
+function rlFerme(){ return "<div class=\"rl-pied\"><button class=\"btn btn-ghost\" onclick=\"rlFermer()\">Fermer</button></div>"; }
+function relancer(bouton){
+  RL_MAIL = bouton.dataset.mail || "";
+  RL_SESSION = bouton.dataset.session || "";
+  rlOuvrir("<div class=\"rl-t\">Verification...</div>");
+  fetch("/session/" + RL_SESSION + "/relance/impact?mail=" + encodeURIComponent(RL_MAIL))
+  .then(function(r){return r.json()}).then(function(j){
+    if(!j.ok){ rlOuvrir("<div class=\"rl-t\">" + (j.message || "Erreur") + "</div>" + rlFerme()); return; }
+    var quoi = j.type === "signature" ? "signature de la convention" : "règlement";
+    var h = "<div class=\"rl-t\">Relancer pour " + quoi + "</div><div class=\"rl-st\">" + j.nom + " · " + j.mail + "</div>";
+    h += "<div class=\"rl-bloc rl-neutre\"><div class=\"rl-l\"><i class=\"ti ti-mail-forward\"></i><span>";
+    h += (j.depuis === null || j.depuis === undefined) ? "Mail initial envoyé (date inconnue)" : ("Mail initial envoyé il y a <b>" + j.depuis + " jour(s)</b>");
+    h += "</span></div>";
+    if(j.nb > 0){
+      h += "<div class=\"rl-l\"><i class=\"ti ti-history\"></i><span><b>" + j.nb + " relance(s) déjà envoyée(s)</b> : " + j.dates.join(", ") + "</span></div>";
+    } else {
+      h += "<div class=\"rl-l\"><i class=\"ti ti-history\"></i><span>Aucune relance envoyée jusqu'ici</span></div>";
+    }
+    h += "</div>";
+    if(j.recent){
+      h += "<div class=\"rl-bloc rl-orange\"><div class=\"rl-l\"><i class=\"ti ti-alert-triangle\"></i><span><b>Dernière relance il y a " + j.dernier_jours + " jour(s).</b> C'est récent — une nouvelle relance risque d'être perçue comme insistante.</span></div></div>";
+    }
+    h += "<div class=\"rl-bloc rl-vert\"><div class=\"rl-l\"><i class=\"ti ti-send\"></i><span>Le mail part immédiatement. L'historique est conservé.</span></div></div>";
+    h += "<div class=\"rl-pied\"><button class=\"btn btn-ghost\" onclick=\"rlFermer()\">Annuler</button>";
+    h += "<button class=\"btn rl-ok\" onclick=\"rlEnvoyer(this)\"><i class=\"ti ti-send\"></i>Envoyer la relance</button></div>";
+    rlOuvrir(h);
+  }).catch(function(e){ rlOuvrir("<div class=\"rl-t\">Erreur : " + e + "</div>" + rlFerme()); });
+}
+function rlEnvoyer(bouton){
+  bouton.disabled = true;
+  bouton.innerHTML = "Envoi...";
+  var fd = new FormData();
+  fd.append("mail", RL_MAIL);
+  fetch("/session/" + RL_SESSION + "/relance", {method:"POST", body:fd})
+  .then(function(r){return r.json()}).then(function(j){
+    if(!j.ok){ rlOuvrir("<div class=\"rl-t\">Relance non envoyée</div><div class=\"rl-bloc rl-orange\">" + (j.message || "Erreur") + "</div>" + rlFerme()); return; }
+    var h = "<div class=\"rl-t\">Relance envoyée</div><div class=\"rl-st\">" + j.nom + "</div>";
+    h += "<div class=\"rl-l\"><i class=\"ti ti-circle-check\" style=\"color:var(--success)\"></i><span>Relance n°" + j.numero + "</span></div>";
+    h += "<div class=\"rl-pied\"><button class=\"btn btn-primary\" onclick=\"window.location.href=window.location.pathname\">Fermer</button></div>";
+    rlOuvrir(h);
+  }).catch(function(e){ rlOuvrir("<div class=\"rl-t\">Erreur : " + e + "</div>" + rlFerme()); });
+}
+document.addEventListener("click", function(e){
+  if(e.target && e.target.id === "rl_voile"){ rlFermer(); }
+});
+document.addEventListener("keydown", function(e){ if(e.key === "Escape") rlFermer(); });
+rgFiltrer();
+</script>
+{% endblock %}

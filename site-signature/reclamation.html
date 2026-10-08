@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adresser une réclamation</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: #eceff6; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(30,34,53,.1); padding: 28px; max-width: 520px; width: 100%; }
+  .brand { text-align: center; font-size: 20px; font-weight: 600; color: #1e2235; margin-bottom: 4px; }
+  .brand em { color: #4f7ef8; font-style: normal; }
+  .tag { text-align: center; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 22px; }
+  h1 { font-size: 17px; color: #1a1d2e; margin-bottom: 6px; }
+  .sub { font-size: 13.5px; color: #5b6172; margin-bottom: 18px; line-height: 1.6; }
+  .engage { background: #f5f8ff; border: 1px solid #e0e8fb; border-radius: 10px; padding: 14px 16px; font-size: 13px; color: #2a4a8a; line-height: 1.6; margin-bottom: 20px; }
+  label { display:block; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #6b7280; font-weight: 600; margin-bottom: 7px; margin-top: 14px; }
+  input, select, textarea { width: 100%; border: 1px solid #d1d5e0; border-radius: 10px; padding: 12px; font-family: inherit; font-size: 14px; background: #fff; color: #1a1d2e; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: #4f7ef8; }
+  textarea { resize: vertical; min-height: 130px; line-height: 1.55; }
+  .aide { font-size: 12px; color: #8a90a2; margin-top: 5px; line-height: 1.5; }
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 460px) { .duo { grid-template-columns: 1fr; } }
+  button { width: 100%; margin-top: 20px; padding: 14px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; background: #4f7ef8; color: #fff; font-family: inherit; }
+  button:disabled { opacity: .6; cursor: default; }
+  .souci { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: #fdeaea; border: 1px solid #f0b8b8; color: #8a2020; font-size: 13.5px; line-height: 1.5; display: none; }
+  .ecran { display: none; text-align: center; padding: 16px 8px; }
+  .ecran .rond { width: 68px; height: 68px; border-radius: 50%; font-size: 32px; line-height: 68px; margin: 0 auto 18px; background: #e7f7f0; color: #0f9e6a; }
+  .ecran h2 { font-size: 18px; color: #1a1d2e; margin-bottom: 12px; }
+  .ecran p { font-size: 14px; color: #5b6172; line-height: 1.65; margin-bottom: 10px; }
+  .recu { background: #f5f8ff; border: 1px solid #e0e8fb; border-radius: 10px; padding: 14px 16px; font-size: 13px; color: #2a4a8a; text-align: left; margin-top: 16px; line-height: 1.6; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div id="formulaire">
+      <div class="brand" id="of_marque">&nbsp;</div>
+      <div class="tag" id="of_accroche"></div>
+      <h1>Adresser une réclamation</h1>
+      <p class="sub">Une insatisfaction, un désaccord, un engagement que nous n'avons pas tenu&nbsp;:
+        dites-le-nous. Une réclamation est prise au sérieux et suivie jusqu'à sa clôture.</p>
+
+      <div class="engage" id="engagement">
+        Nous accusons réception de votre réclamation et vous répondons sous
+        <b><span id="delai">15</span> jours</b>.
+      </div>
+
+      <div class="duo">
+        <div>
+          <label for="qui">Votre nom</label>
+          <input id="qui" placeholder="NOM Prénom" autocomplete="name">
+        </div>
+        <div>
+          <label for="mail">Votre adresse mail</label>
+          <input id="mail" type="email" placeholder="vous@exemple.fr" autocomplete="email">
+        </div>
+      </div>
+
+      <label for="origine">À quel titre nous écrivez-vous&nbsp;?</label>
+      <select id="origine">
+        <option value="apprenant">J'ai suivi ou je dois suivre une formation</option>
+        <option value="client">Je représente une structure cliente</option>
+        <option value="formateur">J'interviens comme formateur</option>
+        <option value="financeur">Je représente un financeur</option>
+        <option value="autre">Autre</option>
+      </select>
+
+      <label for="objet">En une ligne, de quoi s'agit-il&nbsp;?</label>
+      <input id="objet" placeholder="Résumé de votre réclamation">
+
+      <label for="description">Ce qui s'est passé</label>
+      <textarea id="description" placeholder="Décrivez la situation : ce qui était prévu, ce qui s'est produit, ce que vous attendez de nous."></textarea>
+      <div class="aide">Soyez aussi précis que possible&nbsp;: dates, personnes, formation concernée.
+        Cela nous permet de traiter votre demande sans vous solliciter à nouveau.</div>
+
+      <button id="btn" onclick="envoyer()">Envoyer ma réclamation</button>
+      <div class="souci" id="souci"></div>
+    </div>
+
+    <div class="ecran" id="confirme">
+      <div class="rond">&#10003;</div>
+      <h2>Votre réclamation est enregistrée</h2>
+      <p>Elle a été reçue le <b id="recu_le"></b> et porte désormais un numéro de suivi
+        dans notre registre.</p>
+      <div class="recu">
+        <b>Ce qui se passe maintenant.</b><br>
+        Nous examinons votre réclamation et vous répondons sous
+        <b><span id="delai2">15</span> jours</b> à l'adresse que vous avez indiquée.
+        Si nous avons besoin d'une précision, nous vous écrivons avant.
+        <div id="bloc_contact" style="margin-top:10px"></div>
+      </div>
+      <p style="margin-top:16px; color:#8a90a2;">Vous pouvez fermer cette page.
+        Conservez-en une capture si vous le souhaitez&nbsp;: elle vaut accusé de réception.</p>
+    </div>
+  </div>
+
+<script>
+  var params = new URLSearchParams(window.location.search);
+
+  // La page est statique : elle ne connait ni l'organisme ni le delai. Les deux
+  // arrivent par le lien, que DFM fabrique. Sans eux, la page reste utilisable
+  // avec des valeurs neutres — mieux vaut une reclamation mal etiquetee qu'un
+  // canal ferme.
+  var marque = params.get("marque") || "";
+  if (marque) {
+    document.getElementById("of_marque").textContent = marque;
+    document.getElementById("of_accroche").textContent = "Réclamation";
+  }
+  var delai = params.get("delai") || "15";
+  document.getElementById("delai").textContent = delai;
+  document.getElementById("delai2").textContent = delai;
+  var contact = params.get("contact") || "";
+  if (contact) {
+    document.getElementById("bloc_contact").innerHTML =
+      "Vous pouvez aussi nous joindre directement à <b>" + contact.replace(/[<>]/g, "") + "</b>.";
+  }
+  var qui = params.get("qui") || "";
+  if (qui) document.getElementById("qui").value = qui;
+  var mail = params.get("mail") || "";
+  if (mail) document.getElementById("mail").value = mail;
+
+  function afficherSouci(t) {
+    var z = document.getElementById("souci");
+    z.textContent = t;
+    z.style.display = "block";
+  }
+
+  async function envoyer() {
+    var bouton = document.getElementById("btn");
+    document.getElementById("souci").style.display = "none";
+    var corps = {
+      qui: document.getElementById("qui").value,
+      mail: document.getElementById("mail").value,
+      origine: document.getElementById("origine").value,
+      objet: document.getElementById("objet").value,
+      description: document.getElementById("description").value,
+      organisme: params.get("of") || "",
+      session: params.get("session") || ""
+    };
+    bouton.disabled = true;
+    bouton.textContent = "Envoi en cours...";
+    try {
+      var reponse = await fetch("/.netlify/functions/reclamer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(corps)
+      });
+      var resultat = await reponse.json();
+      if (reponse.ok) {
+        var d = new Date();
+        document.getElementById("recu_le").textContent =
+          ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + "/" + d.getFullYear();
+        document.getElementById("formulaire").style.display = "none";
+        document.getElementById("confirme").style.display = "block";
+      } else {
+        afficherSouci(resultat.message || "Envoi impossible.");
+        bouton.disabled = false;
+        bouton.textContent = "Envoyer ma réclamation";
+      }
+    } catch (e) {
+      afficherSouci("Envoi impossible : " + e.message
+        + (contact ? " Écrivez-nous directement à " + contact + "." : ""));
+      bouton.disabled = false;
+      bouton.textContent = "Envoyer ma réclamation";
+    }
+  }
+</script>
+</body>
+</html>

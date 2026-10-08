@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block titre %}Réclamations{% endblock %}
+{% block entete %}<i class="ti ti-message-report" style="color:var(--accent);vertical-align:-3px;margin-right:6px"></i>Réclamations{% endblock %}
+{% block sous_entete %}Registre des réclamations reçues et de leur traitement{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" href="/reclamations/registre" target="_blank" rel="noopener" title="Le registre imprimable, a presenter en controle"><i class="ti ti-printer"></i>Registre à présenter</a>
+<button class="btn btn-ghost" title="Rapatrier les reclamations deposees sur la page publique" onclick="rcRelever(this)"><i class="ti ti-refresh"></i>Relever</button>
+<button class="btn btn-primary" onclick="rcOuvrir()"><i class="ti ti-plus"></i>Enregistrer une réclamation</button>
+{% endblock %}
+{% block corps %}
+<style>
+.rc-i{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:14px 17px;
+  margin-bottom:14px;font-size:12.5px;color:var(--muted);line-height:1.7}
+.rc-k{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.rc-kc{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:15px 17px}
+.rc-kl{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.rc-kv{font-size:26px;font-weight:500;line-height:1.2;margin-top:5px;font-variant-numeric:tabular-nums}
+.rc-ks{font-size:11.5px;color:var(--muted);margin-top:3px}
+.rouge{color:var(--danger)}.vert{color:var(--success)}.orange{color:#d4890a}
+.rc-c{background:var(--carte);border:1px solid var(--border);border-radius:12px;margin-bottom:11px;overflow:hidden}
+.rc-c.retard{border-left:3px solid var(--danger)}
+.rc-c.ouverte{border-left:3px solid #d4890a}
+.rc-c.close{border-left:3px solid var(--success)}
+.rc-t{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;padding:13px 17px;cursor:pointer}
+.rc-n{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);flex:none}
+.rc-o{font-size:14px;font-weight:600;flex:1;min-width:0}
+.rc-m{font-size:11.5px;color:var(--muted)}
+.rc-b{font-size:10.5px;font-weight:600;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.rc-bo{background:rgba(212,137,10,.16);color:#a06a14}
+.rc-br{background:rgba(208,59,59,.14);color:var(--danger)}
+.rc-bc{background:rgba(15,158,106,.14);color:var(--success)}
+.rc-d{padding:0 17px 15px;display:none}
+.rc-c.on .rc-d{display:block}
+.rc-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:13px;margin-bottom:13px}
+.rc-ch label{display:block;font-size:10.5px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;
+  color:var(--muted);margin-bottom:5px}
+.rc-ch input,.rc-ch select,.rc-ch textarea{width:100%;padding:9px 11px;border:1px solid var(--border);
+  border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;font-family:inherit}
+.rc-ch textarea{min-height:76px;resize:vertical;line-height:1.55}
+.rc-ch input:focus,.rc-ch select:focus,.rc-ch textarea:focus{outline:none;border-color:var(--accent)}
+.rc-h{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5}
+.rc-etat{font-size:12px;color:var(--muted);margin-top:9px}
+.rc-vide{background:var(--carte);border:1px solid var(--border);border-radius:12px;
+  padding:26px;text-align:center;color:var(--muted);font-size:13px;line-height:1.7}
+.rc-voile{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:60;
+  align-items:center;justify-content:center;padding:20px}
+.rc-voile.on{display:flex}
+.rc-mod{background:var(--carte);border-radius:14px;max-width:560px;width:100%;
+  max-height:90vh;overflow:auto;padding:22px 24px}
+.rc-mod h3{font-size:16px;margin:0 0 4px}
+.rc-mod .rc-h{margin-bottom:14px}
+.rc-pied{display:flex;gap:9px;justify-content:flex-end;margin-top:16px}
+</style>
+
+<div class="rc-i">
+  <b>L'indicateur 31 ne demande pas de n'avoir aucune réclamation.</b> Il demande de savoir
+  en traiter une et de le prouver&nbsp;: date de réception, accusé de réception, traitement,
+  réponse, clôture. Un registre vide et tenu vaut mieux qu'une absence de registre —
+  c'est ce dernier cas qu'un auditeur regarde de près.
+  {% if bilan.delai_annonce %}<br>Vous vous engagez à répondre sous
+  <b>{{ bilan.delai_annonce }} jours</b> — modifiable dans la fiche de l'organisme.{% endif %}
+  {% if lien_public %}<br>Page publique de dépôt&nbsp;:
+  <a href="{{ lien_public }}" target="_blank" rel="noopener">ouvrir</a> — son lien part
+  avec l'<b>attestation</b>, après la formation. Les dépôts arrivent ici par le bouton
+  <b>Relever</b>. Balise <code>{{ '{{lien_reclamation}}' }}</code> si vous voulez le
+  placer ailleurs.{% endif %}
+</div>
+
+<div class="rc-k">
+  <div class="rc-kc"><div class="rc-kl">Reçues en {{ bilan.annee }}</div>
+    <div class="rc-kv">{{ bilan.cette_annee }}</div>
+    <div class="rc-ks">{{ bilan.total }} depuis l'origine</div></div>
+  <div class="rc-kc"><div class="rc-kl">En cours</div>
+    <div class="rc-kv {{ 'orange' if bilan.ouvertes }}">{{ bilan.ouvertes }}</div>
+    <div class="rc-ks">non closes à ce jour</div></div>
+  <div class="rc-kc"><div class="rc-kl">Hors délai</div>
+    <div class="rc-kv {{ 'rouge' if bilan.en_retard else 'vert' }}">{{ bilan.en_retard }}</div>
+    <div class="rc-ks">au-delà de {{ bilan.delai_annonce }} jours</div></div>
+  <div class="rc-kc"><div class="rc-kl">Délai moyen</div>
+    <div class="rc-kv">{% if bilan.delai_moyen is not none %}{{ bilan.delai_moyen }}<span style="font-size:14px"> j</span>{% else %}—{% endif %}</div>
+    <div class="rc-ks">sur {{ bilan.closes }} close{{ 's' if bilan.closes > 1 }}</div></div>
+</div>
+
+{% for r in liste %}
+<div class="rc-c {{ 'retard' if r.en_retard else ('ouverte' if r.ouverte else 'close') }}" id="rc_{{ r.id }}">
+  <div class="rc-t" onclick="rcBasculer('{{ r.id }}')">
+    <span class="rc-n">{{ r.numero }}</span>
+    <span class="rc-o">{{ r.objet }}</span>
+    <span class="rc-m">{{ r.origine_libelle }}{% if r.qui %} · {{ r.qui }}{% endif %} · reçue le {{ r.recue_fr }}</span>
+    {% if r.en_retard %}<span class="rc-b rc-br">{{ r.jours }} j — hors délai</span>
+    {% elif r.ouverte %}<span class="rc-b rc-bo">En cours{% if r.jours is not none %} · {{ r.jours }} j{% endif %}</span>
+    {% else %}<span class="rc-b rc-bc">Close{% if r.jours is not none %} en {{ r.jours }} j{% endif %}</span>{% endif %}
+    <i class="ti ti-chevron-down" style="color:var(--muted)"></i>
+  </div>
+  <div class="rc-d">
+    <div class="rc-g">
+      <div class="rc-ch"><label>Reçue le</label>
+        <input type="date" data-c="recue_le" value="{{ r.recue_le }}" onchange="rcSauver('{{ r.id }}')"></div>
+      <div class="rc-ch"><label>Origine</label>
+        <select data-c="origine" onchange="rcSauver('{{ r.id }}')">
+          {% for v, lib in origines %}<option value="{{ v }}" {{ 'selected' if r.origine == v }}>{{ lib }}</option>{% endfor %}
+        </select></div>
+      <div class="rc-ch"><label>De qui</label>
+        <input data-c="qui" value="{{ r.qui }}" placeholder="NOM Prénom" onchange="rcSauver('{{ r.id }}')"></div>
+      <div class="rc-ch"><label>Adresse mail</label>
+        <input data-c="mail" value="{{ r.mail }}" onchange="rcSauver('{{ r.id }}')"></div>
+      <div class="rc-ch"><label>Session concernée</label>
+        <select data-c="session" onchange="rcSauver('{{ r.id }}')">
+          <option value="">Aucune en particulier</option>
+          {% for c in sessions %}<option value="{{ c }}" {{ 'selected' if r.session == c }}>{{ c }}</option>{% endfor %}
+        </select></div>
+      <div class="rc-ch"><label>Accusé de réception envoyé le</label>
+        <input type="date" data-c="accusee_le" value="{{ r.accusee_le }}" onchange="rcSauver('{{ r.id }}')">
+        <div class="rc-h">Accuser réception vite est la moitié du travail attendu.</div></div>
+    </div>
+    <div class="rc-ch" style="margin-bottom:13px"><label>Objet</label>
+      <input data-c="objet" value="{{ r.objet }}" onchange="rcSauver('{{ r.id }}')"></div>
+    <div class="rc-ch" style="margin-bottom:13px"><label>Ce qui est reproché</label>
+      <textarea data-c="description" onchange="rcSauver('{{ r.id }}')">{{ r.description }}</textarea>
+      <div class="rc-h">Les mots du réclamant, autant que possible. Une reformulation qui adoucit
+        se retourne contre vous.</div></div>
+    <div class="rc-ch" style="margin-bottom:13px"><label>Traitement — ce qui a été fait</label>
+      <textarea data-c="traitement" onchange="rcSauver('{{ r.id }}')">{{ r.traitement }}</textarea></div>
+    <div class="rc-g">
+      <div class="rc-ch"><label>Close le</label>
+        <input type="date" data-c="close_le" value="{{ r.close_le }}" onchange="rcSauver('{{ r.id }}')"></div>
+      <div class="rc-ch"><label>Issue</label>
+        <select data-c="issue" onchange="rcSauver('{{ r.id }}')">
+          <option value="">—</option>
+          {% for v, lib in issues %}<option value="{{ v }}" {{ 'selected' if r.issue == v }}>{{ lib }}</option>{% endfor %}
+        </select></div>
+    </div>
+    <div class="rc-ch"><label>Ce que cela change pour la suite</label>
+      <textarea data-c="amelioration" onchange="rcSauver('{{ r.id }}')">{{ r.amelioration }}</textarea>
+      <div class="rc-h">Facultatif, mais c'est ce qui fait la différence en audit&nbsp;: une réclamation
+        qui produit une amélioration nourrit l'indicateur 32.</div></div>
+    <div class="rc-etat" id="rc_etat_{{ r.id }}"></div>
+  </div>
+</div>
+{% else %}
+<div class="rc-vide">
+  Aucune réclamation enregistrée.<br>
+  Si vous en avez reçu une par le passé — même réglée d'un coup de téléphone — inscrivez-la&nbsp;:
+  un registre qui commence le jour de l'audit ne convainc personne.
+</div>
+{% endfor %}
+
+<div class="rc-voile" id="rc_voile" onclick="if(event.target===this) rcFermer()">
+  <div class="rc-mod">
+    <h3>Enregistrer une réclamation</h3>
+    <div class="rc-h">Les autres champs — traitement, clôture, issue — se remplissent ensuite,
+      au fil du traitement.</div>
+    <div class="rc-g">
+      <div class="rc-ch"><label>Reçue le</label><input type="date" id="rc_recue"></div>
+      <div class="rc-ch"><label>Origine</label>
+        <select id="rc_origine">
+          {% for v, lib in origines %}<option value="{{ v }}">{{ lib }}</option>{% endfor %}
+        </select></div>
+      <div class="rc-ch"><label>De qui</label><input id="rc_qui" placeholder="NOM Prénom"></div>
+      <div class="rc-ch"><label>Adresse mail</label><input id="rc_mail"></div>
+    </div>
+    <div class="rc-ch" style="margin-bottom:13px"><label>Session concernée</label>
+      <select id="rc_session"><option value="">Aucune en particulier</option>
+        {% for c in sessions %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+      </select></div>
+    <div class="rc-ch" style="margin-bottom:13px"><label>Objet</label>
+      <input id="rc_objet" placeholder="Résumé en une ligne"></div>
+    <div class="rc-ch"><label>Ce qui est reproché</label><textarea id="rc_desc"></textarea></div>
+    <div class="rc-etat" id="rc_etat_new"></div>
+    <div class="rc-pied">
+      <button class="btn btn-ghost" onclick="rcFermer()">Annuler</button>
+      <button class="btn btn-primary" onclick="rcCreer(this)">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function rcRelever(b){
+  b.disabled = true;
+  var t = b.innerHTML; b.innerHTML = "Relève en cours…";
+  fetch("/reclamations/relever", {method:"POST"}).then(r=>r.json()).then(function(d){
+    b.disabled = false; b.innerHTML = t;
+    if(!d.ok){ alert(d.message || "Relève impossible."); return; }
+    if(d.nouvelles){ window.location.reload(); }
+    else { alert("Aucune nouvelle réclamation déposée."); }
+  }).catch(function(e){ b.disabled = false; b.innerHTML = t; alert(String(e)); });
+}
+function rcBasculer(id){ document.getElementById("rc_"+id).classList.toggle("on"); }
+function rcOuvrir(){
+  document.getElementById("rc_recue").value = new Date().toISOString().slice(0,10);
+  document.getElementById("rc_voile").classList.add("on");
+}
+function rcFermer(){ document.getElementById("rc_voile").classList.remove("on"); }
+function rcCreer(b){
+  var objet = document.getElementById("rc_objet").value.trim();
+  var etat = document.getElementById("rc_etat_new");
+  if(!objet){ etat.textContent = "Donnez un objet à cette réclamation."; return; }
+  b.disabled = true; etat.textContent = "Enregistrement…";
+  var fd = new FormData();
+  fd.append("recue_le", document.getElementById("rc_recue").value);
+  fd.append("origine", document.getElementById("rc_origine").value);
+  fd.append("qui", document.getElementById("rc_qui").value);
+  fd.append("mail", document.getElementById("rc_mail").value);
+  fd.append("session", document.getElementById("rc_session").value);
+  fd.append("objet", objet);
+  fd.append("description", document.getElementById("rc_desc").value);
+  fetch("/reclamations/ajouter", {method:"POST", body:fd}).then(r=>r.json()).then(function(d){
+    b.disabled = false;
+    if(!d.ok){ etat.textContent = d.message || "Échec."; return; }
+    window.location.reload();
+  }).catch(function(e){ b.disabled = false; etat.textContent = String(e); });
+}
+function rcSauver(id){
+  var carte = document.getElementById("rc_"+id);
+  var etat = document.getElementById("rc_etat_"+id);
+  var d = {};
+  carte.querySelectorAll("[data-c]").forEach(function(e){ d[e.getAttribute("data-c")] = e.value; });
+  etat.textContent = "Enregistrement…";
+  fetch("/reclamations/"+id+"/enregistrer", {method:"POST",
+    headers:{"Content-Type":"application/json"}, body: JSON.stringify(d)})
+    .then(r=>r.json()).then(function(r){
+      if(!r.ok){ etat.textContent = r.message || "Échec."; return; }
+      // Clore change l'etat visible de la carte : on recharge plutot que de
+      // laisser une pastille « en cours » sur une reclamation close.
+      if(r.reclamation.close_le && !carte.classList.contains("close")){
+        window.location.reload(); return;
+      }
+      etat.textContent = "Enregistré.";
+      setTimeout(function(){ etat.textContent = ""; }, 2000);
+    }).catch(function(e){ etat.textContent = String(e); });
+}
+</script>
+{% endblock %}

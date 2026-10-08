@@ -1,0 +1,104 @@
+<script>
+// ---------------------------------------------------------------------------
+// TEXTE RICHE — la mise en forme se VOIT, les marques ne se voient jamais.
+//
+// POURQUOI. Un champ ou l'on tape « **gras** » expose sa syntaxe : une etoile
+// oubliee, et le mail part avec des asterisques en clair. Le meme probleme
+// s'etait pose dans l'editeur de mails, et il s'y resout ainsi : on edite dans
+// une zone contenteditable — l'utilisateur voit du gras, pas des etoiles — et
+// l'on convertit dans les deux sens au moment de lire et d'ecrire.
+//
+// LE STOCKAGE RESTE EN MARQUES, pas en HTML. C'est le moteur de rendu de mails
+// qui produit le HTML final, a partir de ces marques : un seul chemin, donc un
+// seul rendu possible. Laisser passer du HTML saisi ici ouvrirait la porte a
+// tout ce qu'Outlook ne sait pas afficher.
+// ---------------------------------------------------------------------------
+
+function trVersHtml(t){
+  var h = (t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  h = h.replace(/\[\[(#[0-9a-fA-F]{3,6})\|([\s\S]*?)\]\]/g, '<span style="color:$1">$2</span>');
+  h = h.replace(/\[([^\[\]]+)\]\((https?:\/\/[^\s()]+|mailto:[^\s()]+)\)/g,
+                '<a href="$2">$1</a>');
+  h = h.replace(/\*\*([\s\S]+?)\*\*/g, "<b>$1</b>");
+  h = h.replace(/__([\s\S]+?)__/g, "<u>$1</u>");
+  h = h.replace(/(^|[^*])\*(?!\*)([\s\S]+?)\*(?!\*)/g, "$1<i>$2</i>");
+  return h.replace(/\n/g, "<br>");
+}
+
+function trHex(c){
+  if(!c) return "";
+  if(c.charAt(0) === "#") return c;
+  var m = c.match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/);
+  if(!m) return "";
+  var v = "#";
+  for(var i = 1; i <= 3; i++){
+    var x = parseInt(m[i], 10).toString(16);
+    v += (x.length === 1 ? "0" : "") + x;
+  }
+  return v;
+}
+
+function trVersMarque(noeud){
+  var out = "";
+  var enfants = noeud.childNodes || [];
+  for(var i = 0; i < enfants.length; i++){
+    var n = enfants[i];
+    if(n.nodeType === 3){ out += n.nodeValue; continue; }
+    if(n.nodeType !== 1){ continue; }
+    var nom = n.nodeName.toUpperCase();
+    if(nom === "BR"){ out += "\n"; continue; }
+    var dedans = trVersMarque(n);
+    var style = (n.getAttribute && n.getAttribute("style")) || "";
+    var gras = (nom === "B" || nom === "STRONG" || /font-weight:\s*(bold|[6-9]00)/.test(style));
+    var ital = (nom === "I" || nom === "EM" || /font-style:\s*italic/.test(style));
+    var soul = (nom === "U" || /text-decoration[^;]*underline/.test(style));
+    var coul = "";
+    var mc = style.match(/(?:^|[^-])color:\s*([^;]+)/);
+    if(mc){ coul = trHex(mc[1].trim()); }
+    // UN LIEN redevient sa marque. On refuse tout ce qui n'est pas http, https
+    // ou mailto : le reste serait sans effet dans un mail, mais l'apercu, lui,
+    // s'affiche dans un navigateur.
+    if(nom === "A"){
+      var u = (n.getAttribute("href") || "").trim();
+      if(/^(https?:\/\/|mailto:)/i.test(u) && dedans.trim()){
+        dedans = "[" + dedans + "](" + u + ")";
+      }
+      out += dedans;
+      continue;
+    }
+    if(dedans.trim()){
+      if(coul && coul !== "#000000" && coul !== "#2b2f3a"){ dedans = "[[" + coul + "|" + dedans + "]]"; }
+      if(soul){ dedans = "__" + dedans + "__"; }
+      if(ital){ dedans = "*" + dedans + "*"; }
+      if(gras){ dedans = "**" + dedans + "**"; }
+    }
+    if(nom === "DIV" || nom === "P"){
+      out += (out && out.charAt(out.length - 1) !== "\n" ? "\n" : "") + dedans;
+    } else { out += dedans; }
+  }
+  return out;
+}
+
+// Le champ actif, retenu au moment ou l'on quitte la zone : cliquer sur un
+// bouton de la barre fait perdre le focus, et la selection avec lui.
+var TR_ZONE = null;
+document.addEventListener("focusin", function(e){
+  if(e.target && e.target.classList && e.target.classList.contains("tr-zone")){
+    TR_ZONE = e.target;
+  }
+});
+
+function trCommande(cmd, valeur){
+  if(!TR_ZONE){ return false; }
+  // On ne rappelle PAS focus() : le mousedown a ete neutralise, la zone n'a
+  // donc jamais perdu le focus — et sur plusieurs navigateurs, focus() sur un
+  // contenteditable ramene le curseur au debut et efface la selection.
+  if(document.activeElement !== TR_ZONE){ TR_ZONE.focus(); }
+  try {
+    document.execCommand("styleWithCSS", false, cmd === "foreColor");
+    document.execCommand(cmd, false, valeur || null);
+  } catch(e){ return false; }
+  if(TR_ZONE.oninput){ TR_ZONE.oninput(); }
+  return true;
+}
+</script>

@@ -1,0 +1,383 @@
+{% extends "base.html" %}
+{% block titre %}{{ d.identite.nom }} {{ d.identite.prenom }}{% endblock %}
+{% block entete %}Fiche apprenant{% endblock %}
+{% block sous_entete %}Profil permanent et historique complet des formations suivies{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" title="Revenir a la base des apprenants" href="/inscrits"><i class="ti ti-arrow-left"></i>Base apprenants</a>
+<a class="btn btn-primary" title="Ecrire un mail a cet apprenant" href="mailto:{{ d.identite.mail }}"><i class="ti ti-mail"></i>Contacter</a>
+{% endblock %}
+{% block corps %}
+<style>
+.ap-hero{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px}
+.ap-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+.ap-ident{display:flex;gap:16px;align-items:flex-start;min-width:260px}
+.ap-avatar{width:56px;height:56px;border-radius:50%;background:#eef3fe;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:500;color:var(--accent);flex:none}
+.ap-nom{font-size:18px;font-weight:500;margin-bottom:4px}
+.ap-sub{font-size:12px;color:var(--muted);margin-bottom:9px}
+.ap-tags{display:flex;flex-wrap:wrap;gap:6px}
+.ap-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;background:#eef3fe;color:var(--accent)}
+.ap-tag.gris{background:var(--bg);color:var(--muted);border:1px solid var(--border2)}
+.ap-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding-top:16px;border-top:1px solid var(--border)}
+.ap-stat{text-align:center}
+.ap-sv{font-size:20px;font-weight:500;font-variant-numeric:tabular-nums}
+.ap-sl{font-size:11px;color:var(--muted);margin-top:2px}
+.ap-grille{display:grid;grid-template-columns:1fr 310px;gap:14px;align-items:start}
+.ap-carte{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:14px}
+.ap-titre{font-size:13px;font-weight:500;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.ap-titre-g{display:flex;align-items:center;gap:7px}
+.ap-titre i{color:var(--accent);font-size:16px}
+.ap-titre-d{font-size:11px;color:var(--muted);font-weight:400}
+.ap-fc{border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;transition:border-color .15s}
+.ap-fc:hover{border-color:var(--accent)}
+.ap-fc:last-child{margin-bottom:0}
+.ap-fc.annulee{opacity:.6}
+.ap-fc-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px;flex-wrap:wrap}
+.ap-fc-t{font-size:13px;font-weight:500;line-height:1.3}
+.ap-fc-d{font-size:11px;color:var(--muted);margin-top:3px}
+.ap-fc-p{text-align:right;white-space:nowrap}
+.ap-fc-m{font-size:14px;font-weight:500}
+.ap-etapes{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.ap-scores{display:flex;gap:18px;margin-top:11px;padding-top:11px;border-top:1px solid var(--border);font-size:12px;flex-wrap:wrap}
+.ap-scores b{font-variant-numeric:tabular-nums}
+.ap-docs{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+.ap-doc{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-size:11.5px;text-decoration:none;color:var(--text)}
+.ap-doc:hover{border-color:var(--accent);color:var(--accent)}
+.ap-actions{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+.ap-info{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;gap:12px}
+.ap-info:last-child{border-bottom:none}
+.ap-info-l{color:var(--muted);flex:none}
+.ap-info-v{font-weight:500;text-align:right;word-break:break-word}
+.ap-tl-i{display:flex;gap:10px}
+.ap-tl-w{display:flex;flex-direction:column;align-items:center;width:8px}
+.ap-tl-d{width:8px;height:8px;border-radius:50%;flex:none;margin-top:4px;background:var(--accent)}
+.ap-tl-c{width:1px;flex:1;background:var(--border);margin:3px 0;min-height:14px}
+.ap-tl-b{flex:1;padding-bottom:12px}
+.ap-tl-date{font-size:10px;color:var(--muted);margin-bottom:2px}
+.ap-tl-t{font-size:12px}
+.ap-sc{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.ap-sc:last-child{border-bottom:none}
+.ap-sc-l{flex:1;color:var(--muted)}
+.ap-sc-p{width:80px;height:6px;background:var(--border);border-radius:3px;overflow:hidden;flex:none}
+.ap-sc-p div{height:100%;border-radius:3px;background:var(--success)}
+.ap-sc-v{font-weight:500;min-width:30px;text-align:right;font-variant-numeric:tabular-nums}
+.ap-verb{background:var(--bg);border-radius:8px;padding:11px 13px;margin-top:9px;font-size:12px;font-style:italic;color:var(--text)}
+.ap-div{background:#fdf7ec;font-weight:600;position:relative}
+.ap-div:after{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--warn)}
+.ap-legende{font-size:11px;color:var(--muted);margin-top:9px;display:flex;align-items:center;gap:7px}
+.ap-pastille{display:inline-block;width:10px;height:10px;border-radius:2px;background:#fdf7ec;border-left:2px solid var(--warn);flex:none}
+.ap-vide{padding:30px;text-align:center;color:var(--muted);font-size:13px}
+.ct-m{display:inline-flex;align-items:center;gap:7px;padding:7px 15px;border-radius:20px;font-size:13px;
+  font-weight:600;font-family:inherit;cursor:pointer;margin:0 7px 8px 0;
+  background:var(--bg);color:var(--muted);border:1.5px solid var(--border)}
+.ct-m:hover{border-color:var(--border2);color:var(--text)}
+.ct-m .pt{width:10px;height:10px;border-radius:50%;flex:none;background:currentColor;opacity:.45}
+.ct-m.on{color:#fff;border-color:transparent}
+.ct-m.on .pt{background:#fff;opacity:.85}
+.ct-m.on:hover{color:#fff;filter:brightness(1.07)}
+.ct-m.att{opacity:.5;pointer-events:none}
+.ct-neuf{border-style:dashed}
+</style>
+<div class="ap-hero">
+  <div class="ap-top">
+    <div class="ap-ident">
+      <div class="ap-avatar">{{ d.initiales }}</div>
+      <div>
+        <div class="ap-nom">{{ d.identite.nom }} {{ d.identite.prenom }}</div>
+        <div class="ap-sub">{{ d.identite.mail }}{% if d.identite.telephone %} · {{ d.identite.telephone }}{% endif %}{% if d.identite.ville %} · {{ d.identite.ville }}{% endif %}</div>
+        <div class="ap-tags">
+          {% if c %}
+            {% if c.apprenant %}<span class="ap-tag" style="background:#e7f0ff;color:#1b4fa8">Apprenant</span>
+            {% else %}<span class="ap-tag gris">Prospect</span>{% endif %}
+            {% for cle in c.poses %}<span class="ap-tag" style="background:{{ c.couleurs.get(cle, '#6b7280') }};color:#fff">{{ c.libelles.get(cle, cle) }}</span>{% endfor %}
+            {% if not c.joignable %}<span class="ap-tag" style="background:#fdeaea;color:#a33333">Injoignable</span>{% endif %}
+            {% if c.fiche.ne_plus_contacter %}<span class="ap-tag" style="background:#fdeaea;color:#a33333">Ne plus contacter</span>{% endif %}
+          {% endif %}
+          {% for f in d.formations %}<span class="ap-tag">{{ f }}</span>{% endfor %}
+          {% if d.annulees %}<span class="ap-tag gris">{{ d.annulees }} annulation{{ 's' if d.annulees > 1 }}</span>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ap-stats">
+    <div class="ap-stat"><div class="ap-sv">{{ d.actifs }}</div><div class="ap-sl">Formation{{ 's' if d.actifs > 1 }} suivie{{ 's' if d.actifs > 1 }}</div></div>
+    <div class="ap-stat"><div class="ap-sv">{{ d.ca|round|int }} €</div><div class="ap-sl">CA généré</div></div>
+    <div class="ap-stat"><div class="ap-sv">{% if d.completion is not none %}{{ d.completion }} %{% else %}—{% endif %}</div><div class="ap-sl">Dossiers complets</div></div>
+    <div class="ap-stat"><div class="ap-sv" style="font-size:15px">{{ d.premiere or '—' }}</div><div class="ap-sl">1ère inscription</div></div>
+  </div>
+</div>
+{% if c %}
+<div class="ap-carte" style="margin-bottom:14px">
+  <div class="ap-titre"><span class="ap-titre-g"><i class="ti ti-tags"></i>Marqueurs et coordonnées</span>
+    <span class="ap-titre-d" id="ct_etat">Un clic pose ou retire un marqueur</span></div>
+  <div id="ct_marq" style="margin-bottom:12px">
+    {% for m in c.catalogue %}
+    <button type="button" class="ct-m{% if m.cle in c.poses %} on{% endif %}" data-cle="{{ m.cle }}"
+            data-couleur="{{ m.couleur }}"
+            style="{% if m.cle in c.poses %}background:{{ m.couleur }};{% else %}color:{{ m.couleur }};border-color:{{ m.couleur }}44;{% endif %}"
+            onclick="ctBasculer(this)"><span class="pt"></span>{{ m.libelle }}</button>
+    {% else %}
+    <span style="font-size:12px;color:var(--muted)">Aucun marqueur défini.</span>
+    {% endfor %}
+    <button type="button" class="ct-m ct-neuf" onclick="ctNouveau()">+ nouveau marqueur</button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:9px">
+    {% for cle, lib in (("nom","Nom"),("prenom","Prénom"),("mail","Adresse mail"),("telephone","Téléphone"),("ville","Ville")) %}
+    <div><div style="font-size:11px;color:var(--muted);margin-bottom:3px">{{ lib }}</div>
+      <input id="ct_{{ cle }}" type="text" value="{{ c.fiche[cle] }}"
+        style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;
+               background:var(--bg);color:var(--text);font-size:12.5px;font-family:inherit"></div>
+    {% endfor %}
+    <div><div style="font-size:11px;color:var(--muted);margin-bottom:3px">Fonction</div>
+      <select id="ct_fonction"
+        style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;
+               background:var(--bg);color:var(--text);font-size:12.5px;font-family:inherit">
+        {% for x in c.fonctions %}
+        <option value="{{ x }}" {% if (c.fiche.fonction or c.fonction_defaut) == x %}selected{% endif %}>{{ x }}</option>
+        {% endfor %}
+      </select></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px;margin-top:12px;flex-wrap:wrap">
+    <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer">
+      <input type="checkbox" id="ct_npc" {% if c.fiche.ne_plus_contacter %}checked{% endif %}>
+      Ne plus contacter</label>
+    <button class="btn" onclick="ctEnregistrer(this)"><i class="ti ti-check"></i>Enregistrer</button>
+    <span style="font-size:11px;color:var(--muted)">Le nom est conservé tel qu'il a été saisi.</span>
+  </div>
+</div>
+{% endif %}
+<div class="ap-grille">
+  <div>
+    <div class="ap-carte">
+      <div class="ap-titre"><span class="ap-titre-g"><i class="ti ti-history"></i>Historique des formations</span>
+        <span class="ap-titre-d">{{ d.parcours|length }} inscription{{ 's' if d.parcours|length > 1 }} · {{ d.ca|round|int }} € encaissés</span></div>
+      {% for p in d.parcours %}
+      <div class="ap-fc {{ 'annulee' if p.annule }}">
+        <div class="ap-fc-h">
+          <div style="flex:1;min-width:180px">
+            <div class="ap-fc-t">{{ p.titre or p.formation }}</div>
+            <div class="ap-fc-d">{{ p.date_texte }}{% if p.adresse %} · {{ p.adresse }}{% endif %}</div>
+          </div>
+          <div class="ap-fc-p">
+            <div class="ap-fc-m">{{ p.montant_du|round|int }} €</div>
+            {% if p.annule %}<span class="chip chip-r"><span class="dot dot-r"></span>Annulée</span>
+            {% elif p.montant_recu %}<span class="chip chip-g"><span class="dot dot-g"></span>Réglé</span>
+            {% else %}<span class="chip chip-w"><span class="dot dot-w"></span>{{ p.statut }}</span>{% endif %}
+          </div>
+        </div>
+        <div class="ap-etapes">
+          {% for e in p.etapes %}
+          <span class="chip {{ 'chip-g' if e.fait else 'chip-gray' }}">{% if e.fait %}<span class="dot dot-g"></span>{% endif %}{{ e.libelle }}</span>
+          {% endfor %}
+        </div>
+        {% if p.score_init is not none or p.score_fin is not none or p.satisfaction is not none %}
+        <div class="ap-scores">
+          {% if p.score_init is not none %}<span>Entrée <b>{{ p.score_init|round|int }} %</b></span>{% endif %}
+          {% if p.score_fin is not none %}<span>Sortie <b style="color:var(--success)">{{ p.score_fin|round|int }} %</b></span>{% endif %}
+          {% if p.score_init is not none and p.score_fin is not none %}<span>Progression <b style="color:var(--accent)">{{ '+' if (p.score_fin - p.score_init) >= 0 }}{{ (p.score_fin - p.score_init)|round|int }} pts</b></span>{% endif %}
+          {% if p.satisfaction is not none %}<span>Satisfaction <b>{{ p.satisfaction }}/5</b></span>{% endif %}
+        </div>
+        {% endif %}
+        {% if p.docs %}
+        <div class="ap-docs">
+          {% for doc in p.docs %}
+          <a class="ap-doc" href="{{ doc.lien }}" target="_blank" title="Ouvrir dans le Drive">
+            <i class="ti {{ doc.icone }}" style="font-size:14px"></i>{{ doc.nom }}</a>
+          {% endfor %}
+        </div>
+        {% endif %}
+        <div class="ap-actions">
+          <a class="ap-doc" href="/session/{{ p.code }}" title="Ouvrir la fiche de cette session"><i class="ti ti-calendar-event" style="font-size:14px"></i>Voir la session</a>
+          {% if p.score_fin is not none %}
+          <a class="ap-doc" href="/session/{{ p.code }}/recap/{{ d.identite.mail }}" target="_blank" title="Recapitulatif pedagogique imprimable"><i class="ti ti-file-text" style="font-size:14px"></i>Récapitulatif</a>
+          {% endif %}
+          <a class="ap-doc" href="/session/{{ p.code }}/dossier/{{ d.identite.mail }}" target="_blank" title="Toutes les pieces de cette personne sur cette session, imprimable pour un controle"><i class="ti ti-folder-open" style="font-size:14px"></i>Dossier de preuves</a>
+        </div>
+        {% if p.questionnaires %}
+        {# LES QUESTIONNAIRES REMPLIS, accessibles d'ici. On les atteignait par le
+           dossier de preuves uniquement, et personne ne pensait a y aller. #}
+        <div class="ap-actions" style="margin-top:7px">
+          <span style="font-size:11.5px;color:var(--muted);align-self:center;margin-right:2px">Questionnaires remplis&nbsp;:</span>
+          {% for q in p.questionnaires %}
+          <a class="ap-doc" href="/session/{{ p.code }}/questionnaire/{{ d.identite.mail }}/{{ q.type }}" target="_blank" title="Chaque enonce, la reponse cochee, la reponse attendue"><i class="ti ti-list-check" style="font-size:14px"></i>{{ q.nom }}</a>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="ap-vide">Aucune inscription trouvée pour cet apprenant</div>
+      {% endfor %}
+    </div>
+    {% if d.nb_fiches > 1 %}
+    <div class="ap-carte" id="ap_fusion">
+      <div class="ap-titre"><span class="ap-titre-g"><i class="ti ti-users-group"></i>{{ d.nb_fiches }} inscriptions pour cette adresse</span>
+        <span class="ap-titre-d">{% if d.ecarts %}{{ d.ecarts|length }} information{{ 's' if d.ecarts|length > 1 }} diverge{{ 'nt' if d.ecarts|length > 1 }}{% else %}informations identiques partout{% endif %}</span></div>
+      {% if d.ecarts %}
+      <div style="background:#fdf3e3;border:1px solid #f0cf94;border-radius:9px;padding:11px 13px;font-size:12px;color:#8a5a06;margin-bottom:13px;line-height:1.5">
+        Ce praticien s'est inscrit plusieurs fois et n'a pas saisi les mêmes informations à chaque fois. La fiche affiche les plus récentes ; les anciennes lignes gardent leurs valeurs d'origine.
+      </div>
+      {% endif %}
+      <div class="table-wrap" style="border:none"><div class="table-scroll">
+      <table style="min-width:520px;font-size:12px">
+        <thead><tr><th style="width:150px">Inscription</th><th>Nom</th><th>Prénom</th><th>Téléphone</th><th>Ville</th></tr></thead>
+        <tbody>
+        {% for f in d.fiches %}
+          <tr>
+            <td><b style="font-size:11.5px">{{ f.code }}</b>
+              <div style="color:var(--muted);font-size:10px">{{ f.dates.inscription or '—' }}{% if loop.first %} · la plus récente{% endif %}</div></td>
+            {% for cle in ['nom', 'prenom', 'telephone', 'ville'] %}
+            {% set v = f.identite[cle] %}
+            <td class="{{ 'ap-div' if cle in d.ecarts|map(attribute='cle')|list }}">{% if v %}{{ v }}{% else %}<span style="color:var(--border2)">—</span>{% endif %}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div></div>
+      {% if d.ecarts %}
+      <div class="ap-legende"><span class="ap-pastille"></span>Les cellules surlignées sont celles qui diffèrent d'une inscription à l'autre.</div>
+      <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:13px;align-items:center">
+        <button class="btn btn-primary" title="Recopier les informations les plus recentes sur toutes les lignes" onclick="apFusionner(this)"><i class="ti ti-git-merge"></i>Fusionner les fiches</button>
+        <span style="font-size:11.5px;color:var(--muted)">Alignera {{ d.ecarts|map(attribute='libelle')|join(', ')|lower }} sur les valeurs les plus récentes.</span>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% for s in d.satisfactions %}
+    <div class="ap-carte">
+      <div class="ap-titre"><span class="ap-titre-g"><i class="ti ti-star"></i>Satisfaction · {{ s.formation }}</span>
+        <span class="ap-titre-d">{% if s.globale is not none %}{{ s.globale }}/5{% endif %}{% if s.reco is not none %} · recommandation {{ s.reco|round|int }}/10{% endif %}</span></div>
+      {% for q in s.detail %}
+      <div class="ap-sc"><span class="ap-sc-l">{{ q.libelle }}</span>
+        <span class="ap-sc-p"><div style="width:{{ q.largeur }}%"></div></span>
+        <span class="ap-sc-v">{{ q.note|round|int }}/5</span></div>
+      {% endfor %}
+      {% for v in s.verbatims %}
+      <div class="ap-verb">« {{ v.texte }} »</div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+  <div>
+    <div class="ap-carte">
+      <div class="ap-titre"><span class="ap-titre-g"><i class="ti ti-id"></i>Informations</span></div>
+      <div class="ap-info"><span class="ap-info-l">Mail</span><span class="ap-info-v">{{ d.identite.mail }}</span></div>
+      <div class="ap-info"><span class="ap-info-l">Téléphone</span><span class="ap-info-v">{{ d.identite.telephone or '—' }}</span></div>
+      <div class="ap-info"><span class="ap-info-l">Lieu d'exercice</span><span class="ap-info-v">{{ d.identite.ville or '—' }}</span></div>
+      <div class="ap-info"><span class="ap-info-l">1ère inscription</span><span class="ap-info-v">{{ d.premiere or '—' }}</span></div>
+      <div class="ap-info"><span class="ap-info-l">Formations suivies</span><span class="ap-info-v">{{ d.actifs }}</span></div>
+      <div class="ap-info"><span class="ap-info-l">CA encaissé</span><span class="ap-info-v">{{ d.ca|round|int }} €</span></div>
+      {% if d.attendu > d.ca %}
+      <div class="ap-info"><span class="ap-info-l">Reste dû</span><span class="ap-info-v" style="color:var(--warn)">{{ (d.attendu - d.ca)|round|int }} €</span></div>
+      {% endif %}
+    </div>
+    <div class="ap-carte">
+      <div class="ap-titre"><span class="ap-titre-g"><i class="ti ti-activity"></i>Activité</span></div>
+      {% for e in d.evenements %}
+      <div class="ap-tl-i">
+        <div class="ap-tl-w"><div class="ap-tl-d"></div>{% if not loop.last %}<div class="ap-tl-c"></div>{% endif %}</div>
+        <div class="ap-tl-b"><div class="ap-tl-date">{{ e.date }}</div><div class="ap-tl-t">{{ e.texte }}</div></div>
+      </div>
+      {% else %}
+      <div class="ap-vide" style="padding:16px">Aucun évènement</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+<script>
+function apFusionner(bouton){
+  var mail = "{{ d.identite.mail }}";
+  dfmConfirmer({ton: "attention", titre: "Fusionner les fiches",
+  sous: "{{ d.identite.nom }} {{ d.identite.prenom }}",
+    corps: "<p>" + String("Recopier les informations les plus récentes sur toutes les inscriptions de ce praticien ?\n\nLes lignes plus anciennes du Sheet seront mises à jour.").replace(/\n/g, "<br>") + "</p>",
+    valider: "Fusionner", styleValider: "attention",
+    action: function(){
+  bouton.disabled = true;
+  bouton.innerHTML = "Fusion…";
+  fetch("/apprenant/" + encodeURIComponent(mail) + "/fusionner", {method: "POST"})
+  .then(function(r){return r.json()}).then(function(j){
+    if(!j.ok){ bouton.disabled = false; bouton.innerHTML = '<i class="ti ti-git-merge"></i>Fusionner les fiches'; alert(j.message || "Impossible"); return; }
+    alert(j.alignees + " fiche(s) alignée(s) sur : " + (j.champs || []).join(", "));
+    window.location.href = window.location.pathname;
+  }).catch(function(e){ bouton.disabled = false; alert("Erreur : " + e); });
+
+    }});}
+</script>
+{% endblock %}
+{% if c %}
+<script>
+var CT_ID = {{ c.fiche.id }};
+function ctCles(){
+  return Array.prototype.slice.call(document.querySelectorAll("#ct_marq .ct-m.on"))
+    .map(function(b){ return b.getAttribute("data-cle"); }).filter(Boolean);
+}
+function ctPeindre(b){
+  var c = b.getAttribute("data-couleur") || "";
+  if(b.classList.contains("on")){ b.style.background = c; b.style.color = ""; b.style.borderColor = ""; }
+  else { b.style.background = ""; b.style.color = c; b.style.borderColor = c + "44"; }
+}
+function ctBasculer(b){
+  // On bascule d'abord, on envoie l'etat COMPLET voulu, et on revient en
+  // arriere si le serveur refuse. L'ancienne version lisait l'etat dans le
+  // style en ligne du bouton : elle ne retrouvait jamais rien, et aucun clic
+  // n'avait d'effet.
+  b.classList.toggle("on");
+  ctPeindre(b);
+  var boutons = document.querySelectorAll("#ct_marq .ct-m");
+  for(var i = 0; i < boutons.length; i++){ boutons[i].classList.add("att"); }
+  var etat = document.getElementById("ct_etat");
+  etat.textContent = "Enregistrement…";
+  ctEnvoyer({marqueurs: ctCles().join(",")}, function(ok, message){
+    for(var i = 0; i < boutons.length; i++){ boutons[i].classList.remove("att"); }
+    if(!ok){
+      b.classList.toggle("on");
+      ctPeindre(b);
+      etat.textContent = "Non enregistré";
+      dfmInfo("Impossible", "<p>" + (message || "") + "</p>", "danger");
+      return;
+    }
+    etat.textContent = b.classList.contains("on") ? "Marqueur posé" : "Marqueur retiré";
+    setTimeout(function(){ etat.textContent = "Un clic pose ou retire un marqueur"; }, 2000);
+  });
+}
+function ctEnvoyer(donnees, apres){
+  var fd = new FormData();
+  for(var k in donnees){ fd.append(k, donnees[k]); }
+  fetch("/contact/" + CT_ID + "/modifier", {method:"POST", body:fd})
+  .then(function(r){return r.json()}).then(function(j){
+    if(apres) apres(!!j.ok, j.message || "");
+    else if(!j.ok) dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger");
+  }).catch(function(e){ if(apres) apres(false, e.message); });
+}
+function ctV(id){ var e = document.getElementById(id); return e ? e.value : ""; }
+function ctEnregistrer(b){
+  b.disabled = true; b.innerHTML = "Enregistrement…";
+  ctEnvoyer({nom: ctV("ct_nom"), prenom: ctV("ct_prenom"), mail: ctV("ct_mail"),
+             telephone: ctV("ct_telephone"), ville: ctV("ct_ville"),
+             fonction: (document.getElementById("ct_fonction") || {}).value || "",
+             ne_plus_contacter: document.getElementById("ct_npc").checked ? "1" : "0"},
+            function(ok, message){
+              if(!ok){ dfmInfo("Impossible", "<p>" + (message || "") + "</p>", "danger"); return; }
+              location.reload();
+            });
+  setTimeout(function(){ b.disabled = false; b.innerHTML = '<i class="ti ti-check"></i>Enregistrer'; }, 2500);
+}
+function ctNouveau(){
+  dfmFenetre({titre: "Nouveau marqueur", sous: "Il sera posé sur cette fiche",
+    corps: '<input id="ct_lib" type="text" placeholder="Congrès ADF 2026" style="width:100%;padding:9px 11px;'
+         + 'border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);'
+         + 'font-size:13px;font-family:inherit">',
+    boutons: [{libelle:"Annuler", style:"neutre"},
+              {libelle:"Créer et poser", style:"primaire", garder: true, action: function(){
+      var v = (document.getElementById("ct_lib") || {}).value || "";
+      if(!v.trim()){ dfmFermer(); return; }
+      dfmFermer();
+      var fd = new FormData(); fd.append("action","creer"); fd.append("libelle", v);
+      fetch("/contacts/marqueur", {method:"POST", body:fd}).then(function(r){return r.json()})
+      .then(function(j){
+        if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+        ctEnvoyer({marqueurs: ctCles().concat([j.cle]).join(",")}, function(){ location.reload(); });
+      });
+    }}]});
+}
+</script>
+{% endif %}

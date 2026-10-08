@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block titre %}Praticiens{% endblock %}
+{% block entete %}Base apprenants{% endblock %}
+{% block sous_entete %}{{ b.total }} praticien{{ 's' if b.total > 1 }} · {{ b.participants }} participant{{ 's' if b.participants > 1 }} · {{ b.fideles }} fidèle{{ 's' if b.fideles > 1 }}{% endblock %}
+{% block actions %}
+<a class="btn btn-secondary" title="Balayer toute la base et lister les fiches qui designent probablement la meme personne" href="/apprenants/doublons"><i class="ti ti-users-group"></i>Rechercher les doublons</a>
+<button class="btn btn-secondary" title="Telecharger la liste au format CSV" onclick="exporter()"><i class="ti ti-download"></i>Exporter</button>
+{% endblock %}
+{% block corps %}
+
+<div class="kpi-row" style="grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+  <div class="kpi-mini">
+    <div class="kpi-val" style="color:var(--accent)">{{ b.total }}</div>
+    <div class="kpi-label" style="margin:6px 0 0">Praticiens au total</div>
+    <div class="kpi-bar"><div class="kpi-bar-fill" style="width:100%;background:var(--accent)"></div></div>
+  </div>
+  <div class="kpi-mini">
+    <div class="kpi-val" style="color:var(--success)">{{ b.participants }}</div>
+    <div class="kpi-label" style="margin:6px 0 0">Ont participé</div>
+    <div class="kpi-bar"><div class="kpi-bar-fill" style="width:{{ (100*b.participants/b.total)|round|int if b.total else 0 }}%;background:var(--success)"></div></div>
+  </div>
+  <div class="kpi-mini">
+    <div class="kpi-val" style="color:var(--accent2)">{{ b.fideles }}</div>
+    <div class="kpi-label" style="margin:6px 0 0">Plusieurs formations</div>
+    <div class="kpi-bar"><div class="kpi-bar-fill" style="width:{{ (100*b.fideles/b.total)|round|int if b.total else 0 }}%;background:var(--accent2)"></div></div>
+  </div>
+  <div class="kpi-mini">
+    <div class="kpi-val" style="color:{{ 'var(--warn)' if b.incomplets else 'var(--success)' }}">{{ b.incomplets }}</div>
+    <div class="kpi-label" style="margin:6px 0 0">Fiches incomplètes</div>
+    <div class="kpi-bar"><div class="kpi-bar-fill" style="width:{{ (100*b.incomplets/b.total)|round|int if b.total else 0 }}%;background:var(--warn)"></div></div>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <div class="filter-left">
+    <button class="filter-btn active" onclick="filtrerP(this,'tous')">Tous ({{ b.total }})</button>
+    <button class="filter-btn" onclick="filtrerP(this,'participants')">Ont participé ({{ b.participants }})</button>
+    <button class="filter-btn" onclick="filtrerP(this,'fideles')">Fidèles ({{ b.fideles }})</button>
+    <button class="filter-btn" onclick="filtrerP(this,'incomplets')">Fiche incomplète ({{ b.incomplets }})</button>
+  </div>
+  <div class="search-box"><i class="ti ti-search" style="font-size:13px"></i><input type="text" placeholder="Nom, email, ville..." oninput="chercherP(this.value)"></div>
+</div>
+
+<div class="table-wrap"><div class="table-scroll">
+<table style="min-width:820px">
+  <thead><tr>
+    <th>Praticien</th>
+    <th style="width:180px">Contact</th>
+    <th style="width:110px">Lieu</th>
+    <th style="width:200px">Formations</th>
+    <th style="width:88px">Réglé</th>
+    <th style="width:70px">Fiche</th>
+    <th style="width:56px"></th>
+  </tr></thead>
+  <tbody id="corps-praticiens">
+  {% for p in b.praticiens %}
+    <tr style="cursor:pointer" onclick="location.href='/apprenant/' + encodeURIComponent('{{ p.mail }}')" data-cle="{{ (p.nom ~ ' ' ~ p.prenom ~ ' ' ~ p.mail ~ ' ' ~ p.ville)|lower }}"
+        data-participants="{{ 'ok' if p.participations else 'ko' }}"
+        data-fideles="{{ 'ok' if p.fidele else 'ko' }}"
+        data-incomplets="{{ 'ko' if p.complet else 'ok' }}">
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:30px;height:30px;border-radius:50%;background:#eef3fe;color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex:none">{{ p.initiales }}</div>
+          <div style="min-width:0">
+            <div style="font-weight:500;font-size:12.5px">{{ p.nom }} {{ p.prenom }}</div>
+            {% if p.fidele %}<span class="chip chip-b" style="margin-top:2px"><i class="ti ti-star" style="font-size:10px"></i>{{ p.participations }} formations</span>{% endif %}
+          </div>
+        </div>
+      </td>
+      <td>
+        <div style="font-size:11px">{{ p.mail }}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">{{ p.telephone or '—' }}</div>
+      </td>
+      <td style="font-size:11.5px;color:var(--muted)">{{ p.ville or '—' }}</td>
+      <td>
+        {% for s in p.sessions %}
+        <a href="/session/{{ s.code }}" class="chip {{ 'chip-g' if s.statut == 'Reglee' else ('chip-r' if s.statut in ['Annulee','Annulation demandee'] else ('chip-gray' if s.statut == 'A recontacter' else 'chip-w')) }}" style="margin:1px 2px 1px 0" title="{{ s.statut }}">
+          {{ s.formation }} {{ s.date.strftime('%m/%y') }}
+        </a>
+        {% endfor %}
+      </td>
+      <td style="font-size:12px;font-weight:500">{{ p.total_paye|euros if p.total_paye else '—' }}</td>
+      <td>
+        {% if p.complet %}<span class="chip chip-g"><span class="dot dot-g"></span>OK</span>
+        {% else %}<span class="chip chip-w"><span class="dot dot-w"></span>Partielle</span>{% endif %}
+      </td>
+      <td><a class="icon-btn" title="Ecrire un mail" href="mailto:{{ p.mail }}" aria-label="mail"><i class="ti ti-mail"></i></a></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="vide"><i class="ti ti-users"></i>Aucun praticien</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+
+<div class="alerte a-calme" style="margin-top:16px">
+  <i class="ti ti-info-circle" style="font-size:17px;color:var(--accent);flex:none"></i>
+  <div>Cette base est reconstituée à partir de tes inscriptions, regroupées par adresse mail. L'import de contacts extérieurs et les mailing lists viendront plus tard.</div>
+</div>
+
+<script>
+function filtrerP(el, mode){
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('#corps-praticiens tr').forEach(tr=>{
+    if(!tr.dataset.cle) return;
+    tr.style.display = (mode==='tous' || tr.dataset[mode]==='ok') ? '' : 'none';
+  });
+}
+function chercherP(q){
+  q = q.toLowerCase();
+  document.querySelectorAll('#corps-praticiens tr').forEach(tr=>{
+    if(!tr.dataset.cle) return;
+    tr.style.display = tr.dataset.cle.includes(q) ? '' : 'none';
+  });
+}
+function exporter(){
+  const lignes = [["Nom","Prenom","Email","Telephone","Ville","Formations","Total regle"]];
+  document.querySelectorAll('#corps-praticiens tr').forEach(tr=>{
+    if(!tr.dataset.cle || tr.style.display==='none') return;
+    const c = tr.querySelectorAll('td');
+    const nom = c[0].querySelector('div > div > div').textContent.trim();
+    const contact = c[1].querySelectorAll('div');
+    lignes.push([
+      nom.split(' ')[0], nom.split(' ').slice(1).join(' '),
+      contact[0].textContent.trim(), contact[1].textContent.trim(),
+      c[2].textContent.trim(),
+      Array.from(c[3].querySelectorAll('a')).map(a=>a.textContent.trim()).join(' | '),
+      c[4].textContent.trim()
+    ]);
+  });
+  const csv = lignes.map(l=>l.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(";")).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\ufeff"+csv], {type:"text/csv;charset=utf-8"}));
+  a.download = "praticiens-dfm.csv";
+  a.click();
+}
+</script>
+{% endblock %}

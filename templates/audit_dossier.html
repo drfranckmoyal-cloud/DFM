@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Dossier d'audit Qualiopi — {{ d.marque }}</title>
+<style>
+@page{size:A4;margin:13mm}
+*{box-sizing:border-box}
+body{margin:0;background:#f4f5f8;color:#1a1d2e;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.55;font-size:12.5px}
+.page{max-width:840px;margin:0 auto;background:#fff;padding:34px 40px 46px}
+.entete{border-bottom:2px solid #1a1d2e;padding-bottom:14px;margin-bottom:18px}
+.org{font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:#6b7280}
+h1{font-size:22px;margin:9px 0 4px;font-weight:600}
+.sous{font-size:12.5px;color:#3d4250;max-width:70ch}
+h2{font-size:13px;font-weight:600;color:#1a1d2e;margin:24px 0 10px;padding:8px 12px;
+  background:#f0f2f7;border-radius:7px;page-break-after:avoid}
+h2 span{font-size:10.5px;color:#6b7280;text-transform:uppercase;letter-spacing:.8px;display:block}
+.note{background:#f7f8fb;border-left:3px solid #d1d5e0;padding:11px 14px;font-size:11.5px;
+  color:#5b6172;margin-bottom:14px;max-width:78ch;line-height:1.65}
+.trio{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:16px}
+.bloc{border:1px solid #e5e8f0;border-radius:8px;padding:12px;text-align:center}
+.bloc-l{font-size:9.5px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px}
+.bloc-v{font-size:24px;font-weight:600;line-height:1.2;margin-top:3px;font-variant-numeric:tabular-nums}
+.vert{color:#0f9e6a}.orange{color:#d4890a}.rouge{color:#d03b3b}.gris{color:#8a90a2}
+.i{border:1px solid #e5e8f0;border-radius:9px;padding:13px 15px;margin-bottom:10px;page-break-inside:avoid}
+.i-t{display:flex;align-items:flex-start;gap:10px;margin-bottom:9px}
+.i-n{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;flex:none;
+  font-size:12px;font-weight:700;color:#fff}
+.b-couvert{background:#0f9e6a}.b-partiel{background:#d4890a}.b-absent{background:#d03b3b}.b-na{background:#c3c8d4}
+.i-e{flex:1;min-width:0;font-size:12.5px;font-weight:600;line-height:1.45}
+.i-g{font-size:9.5px;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap;flex:none}
+.g-maj{background:#fdeaea;color:#8a2020}
+.g-min{background:#fdf2e2;color:#a06a14}
+.g-al{background:#eef3fe;color:#2a5fd6}
+.l{font-size:10px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#6b7280;margin:11px 0 5px}
+.att{background:#fbfcfe;border-left:2px solid #d1d5e0;padding:9px 12px;font-size:12px;line-height:1.6}
+.nc{font-size:11.5px;color:#5b6172;margin-top:6px;line-height:1.55}
+ul{margin:0;padding-left:18px}
+li{margin-bottom:3px;font-size:12px;line-height:1.55}
+.tr{font-size:11.5px;color:#5b6172;font-style:italic;margin-top:8px;padding-left:10px;border-left:2px solid #e5e8f0}
+.e{display:grid;grid-template-columns:80px 1fr;gap:3px 11px;font-size:11.5px;padding:6px 0;
+  border-bottom:1px solid #f0f2f7}
+.e:last-child{border-bottom:none}
+.e-d{color:#8a90a2;font-variant-numeric:tabular-nums}
+.e-x{color:#5b6172}
+.na{background:#fafbfd;border-radius:8px;padding:10px 13px;font-size:11.5px;color:#5b6172;
+  margin-bottom:6px;line-height:1.55;page-break-inside:avoid}
+.pied{margin-top:28px;padding-top:12px;border-top:1px solid #e5e8f0;font-size:10px;color:#8a90a2;line-height:1.7}
+.barre{position:fixed;top:16px;right:16px;display:flex;gap:10px;z-index:5}
+.imprimer{background:#4f7ef8;color:#fff;border:none;border-radius:8px;padding:11px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 3px 12px rgba(0,0,0,.18);white-space:nowrap}
+.retour{background:#fff;color:#3d4250;border:1px solid #d1d5e0;border-radius:8px;padding:11px 16px;font-size:13px;cursor:pointer;font-family:inherit;text-decoration:none;white-space:nowrap}
+@media print{.barre{display:none}body{background:#fff}.page{padding:0;max-width:none}}
+</style>
+</head>
+<body>
+<div class="barre">
+  <a class="retour" href="/audit">Retour à l'assistant</a>
+  <button class="imprimer" onclick="window.print()">Imprimer ou enregistrer en PDF</button>
+</div>
+<div class="page">
+
+  <div class="entete">
+    <div class="org">{{ d.marque }}{% if d.nouvel_entrant %} · nouvel entrant{% endif %}</div>
+    <h1>Dossier d'audit Qualiopi</h1>
+    <div class="sous">Référentiel national qualité, {{ d.version }}. État de préparation
+      établi le {{ edite }}, indicateur par indicateur.</div>
+  </div>
+
+  <div class="trio">
+    <div class="bloc"><div class="bloc-l">Couverts</div><div class="bloc-v vert">{{ d.bilan.couvert }}</div></div>
+    <div class="bloc"><div class="bloc-l">Partiels</div><div class="bloc-v orange">{{ d.bilan.partiel }}</div></div>
+    <div class="bloc"><div class="bloc-l">Non couverts</div><div class="bloc-v rouge">{{ d.bilan.absent }}</div></div>
+    <div class="bloc"><div class="bloc-l">Non applicables</div><div class="bloc-v gris">{{ d.bilan.na }}</div></div>
+  </div>
+
+  <div class="note">
+    <b>Ce document ne prétend pas à la conformité.</b> Il recense ce que l'organisme peut
+    produire comme preuve, ce qui reste à sa charge, et ce qui ne s'applique pas à sa
+    situation. L'appréciation appartient à l'auditeur, et le guide rappelle que la conformité
+    « repose sur l'appréciation de l'auditeur quant à la mise en œuvre des exigences et non
+    sur la seule présence ou l'absence » d'une pièce.
+    {% if d.nouvel_entrant %}<br><b>Nouvel entrant :</b> sur les indicateurs marqués
+    <i>Allégé</i>, seule la formalisation du processus est vérifiée à l'audit initial.{% endif %}
+    {% if not d.site %}<br><b>Sans site public :</b> l'information du public et les indicateurs
+    de résultats passent par la proposition commerciale adressée aux structures clientes,
+    que le guide admet dès lors qu'elle précède la contractualisation.{% endif %}
+  </div>
+
+  {% for b in blocs %}
+  <h2><span>Critère {{ b.num }} — {{ b.bilan.couvert }} couvert{{ 's' if b.bilan.couvert > 1 }},
+      {{ b.bilan.partiel }} partiel{{ 's' if b.bilan.partiel > 1 }},
+      {{ b.bilan.absent }} non couvert{{ 's' if b.bilan.absent > 1 }}</span>{{ b.titre }}</h2>
+
+  {% for i in b.indicateurs %}
+  <div class="i">
+    <div class="i-t">
+      <div class="i-n b-{{ i.etat }}">{{ i.n }}</div>
+      <div class="i-e">{{ i.enonce }}</div>
+      {% if i.allege_actif %}<span class="i-g g-al">Allégé</span>{% endif %}
+      <span class="i-g {{ 'g-maj' if i.gravite == 'majeure' else 'g-min' }}">NC {{ i.gravite }}</span>
+    </div>
+    <div class="l">Niveau attendu</div>
+    <div class="att">{{ i.attendu }}</div>
+    <div class="nc"><b>Non-conformité —</b> {{ i.nc }}</div>
+
+    {% if i.dfm %}
+    <div class="l">Preuves produites par DFM</div>
+    <ul>{% for p in i.dfm %}<li>{{ p.quoi }}</li>{% endfor %}</ul>
+    {% endif %}
+
+    {% if i.charge %}
+    <div class="l">À la charge de l'organisme</div>
+    <ul>{% for c in i.charge %}<li>{{ c }}</li>{% endfor %}</ul>
+    {% endif %}
+
+    {% if i.note %}<div class="tr">{{ i.note }}</div>{% endif %}
+
+    {% if i.registre and consignations[i.registre] %}
+    <div class="l">{{ registres[i.registre][0] }} — {{ consignations[i.registre]|length }} entrée{{ 's' if consignations[i.registre]|length > 1 }}</div>
+    {% for e in consignations[i.registre] %}
+    <div class="e">
+      <span class="e-d">{{ e.quand[8:10] }}/{{ e.quand[5:7] }}/{{ e.quand[0:4] }}</span>
+      <span><b>{{ e.quoi }}</b>{% if e.source %} · {{ e.source }}{% endif %}
+        {% if e.exploitation %}<div class="e-x">{{ e.exploitation }}</div>{% endif %}
+        {% if e.lien %}<div class="e-x">{{ e.lien }}</div>{% endif %}</span>
+    </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  {% for i in b.non_applicables %}
+  <div class="na"><b>Indicateur {{ i.n }} — non applicable.</b> {{ i.enonce }}<br>{{ i.na }}</div>
+  {% endfor %}
+  {% endfor %}
+
+  <div class="pied">
+    Source : guide de lecture du référentiel national qualité, {{ d.version }}, seule version
+    en vigueur au {{ d.verifie_le }}.<br>
+    Les énoncés, niveaux attendus et caractérisations de non-conformité sont repris du guide.
+    L'applicabilité et la correspondance avec les outils sont une lecture de la situation de
+    l'organisme.<br>
+    Édité depuis DFM le {{ edite }} · {{ d.marque }}
+  </div>
+</div>
+</body>
+</html>

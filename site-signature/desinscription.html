@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Se désinscrire</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: #eceff6; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(30,34,53,.1); padding: 28px; max-width: 480px; width: 100%; }
+  .brand { text-align: center; font-size: 20px; font-weight: 600; color: #1e2235; margin-bottom: 4px; }
+  .brand em { color: #4f7ef8; font-style: normal; }
+  .tag { text-align: center; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 22px; }
+  h1 { font-size: 17px; color: #1a1d2e; margin-bottom: 6px; }
+  .sub { font-size: 13.5px; color: #5b6172; line-height: 1.6; margin-bottom: 20px; }
+  button { width: 100%; padding: 13px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn-oui { background: #d03b3b; color: #fff; }
+  .btn-oui:disabled { opacity: .6; cursor: default; }
+  .ecran { display: none; text-align: center; padding: 10px 4px; }
+  .ecran .rond { width: 68px; height: 68px; border-radius: 50%; font-size: 32px; line-height: 68px; margin: 0 auto 18px; }
+  .ecran h2 { font-size: 18px; color: #1a1d2e; margin-bottom: 12px; }
+  .ecran p { font-size: 14px; color: #5b6172; line-height: 1.6; margin-bottom: 10px; }
+  .note { font-size: 12.5px; color: #6b7280; line-height: 1.6; margin-top: 18px; padding-top: 16px; border-top: 1px solid #eaeef8; }
+</style>
+</head>
+
+<body>
+  <div class="card">
+    <div class="brand" id="of_marque">&nbsp;</div>
+    <div class="tag" id="of_accroche"></div>
+
+    <div id="demande">
+      <h1>Ne plus recevoir nos communications</h1>
+      <p class="sub">Vous ne recevrez plus nos annonces de formations ni nos actualités.
+        Les documents liés à une inscription en cours — convention, facture, attestation —
+        continueront de vous parvenir : ils relèvent de nos obligations, pas de la communication.</p>
+      <button class="btn-oui" id="btn" onclick="desinscrire()">Confirmer ma désinscription</button>
+      <p class="note">Vous changez d'avis ? Écrivez-nous, nous vous réinscrirons.</p>
+    </div>
+
+    <div class="ecran" id="fait">
+      <div class="rond" style="background:#e1f5ee;color:#0f9e6a">&#10003;</div>
+      <h2>C'est fait</h2>
+      <p>Vous ne recevrez plus nos communications.</p>
+      <p class="note">Si vous avez une inscription en cours, les documents s'y rapportant
+        vous parviendront toujours.</p>
+    </div>
+
+    <div class="ecran" id="souci">
+      <div class="rond" style="background:#fdeaea;color:#c2492f">!</div>
+      <h2>Lien non valable</h2>
+      <p id="souci_texte">Ce lien de désinscription n'est pas reconnu.</p>
+      <p class="note">Répondez simplement au message que vous avez reçu, nous nous en occuperons.</p>
+    </div>
+  </div>
+
+<script>
+  // L'identite de l'organisme voyage dans l'adresse, comme sur les autres pages :
+  // le meme site sert les deux organismes, rien n'est ecrit en dur ici.
+  var params = new URLSearchParams(window.location.search);
+  function poser(id, valeur) {
+    if (valeur) { document.getElementById(id).textContent = valeur; }
+  }
+  poser("of_marque", params.get("marque"));
+  poser("of_accroche", params.get("accroche"));
+
+  function montrer(id) {
+    document.getElementById("demande").style.display = "none";
+    document.getElementById(id).style.display = "block";
+  }
+
+  var jeton = params.get("c") || "";
+  if (!jeton) { montrer("souci"); }
+
+  async function desinscrire() {
+    var b = document.getElementById("btn");
+    b.disabled = true;
+    b.textContent = "Enregistrement…";
+    try {
+      var r = await fetch("/.netlify/functions/desinscrire?c=" + encodeURIComponent(jeton));
+      var j = await r.json();
+      if (r.ok) { montrer("fait"); }
+      else {
+        document.getElementById("souci_texte").textContent = j.message || "Lien non reconnu.";
+        montrer("souci");
+      }
+    } catch (e) {
+      document.getElementById("souci_texte").textContent = "La connexion a échoué. Réessayez.";
+      montrer("souci");
+    }
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,451 @@
+{% extends "base.html" %}
+{% block titre %}Bases de données{% endblock %}
+{% block entete %}Bases de données{% endblock %}
+{% block sous_entete %}Apprenants et prospects — une personne, une fiche{% endblock %}
+{% block actions %}
+<button class="btn btn-ghost" onclick="bdSynchro(this)"><i class="ti ti-refresh"></i>Synchroniser</button>
+<a class="btn btn-ghost" href="/apprenants/doublons"><i class="ti ti-users-group"></i>Doublons</a>
+{% endblock %}
+{% block corps %}
+<style>
+.bd-souci{background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:16px 18px;font-size:13px;line-height:1.65}
+.bd-souci code{display:block;background:var(--bg);border:1px solid var(--border);border-radius:8px;
+  padding:10px 12px;margin-top:10px;font-size:11.5px;white-space:pre-wrap;color:var(--muted)}
+.bd-barre{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:13px}
+.bd-ch{flex:1;min-width:210px;position:relative}
+.bd-ch input{width:100%;padding:9px 12px 9px 33px;border:1px solid var(--border);border-radius:9px;
+  background:var(--carte);color:var(--text);font-size:13px;font-family:inherit}
+.bd-ch i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px}
+.bd-p{border:1px solid var(--border);background:var(--carte);color:var(--muted);border-radius:20px;
+  padding:5px 13px;font-size:12px;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-flex;
+  align-items:center;gap:6px;white-space:nowrap}
+.bd-p:hover{border-color:var(--border2);color:var(--text)}
+.bd-p.on{background:var(--accent);border-color:transparent;color:#fff}
+.bd-p .n{opacity:.7;font-size:11px}
+.bd-fam{font-size:10px;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);
+  font-weight:600;margin-left:6px;align-self:center}
+.bd-lignes{background:var(--carte);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.bd-l{display:grid;grid-template-columns:26px minmax(160px,1.4fr) minmax(160px,1.5fr) 112px 104px 1fr 82px;
+  align-items:center;gap:12px;padding:7px 14px;border-bottom:1px solid var(--border);
+  text-decoration:none;color:inherit}
+.bd-l:last-child{border-bottom:none}
+.bd-l:hover{background:var(--bg2)}
+.bd-ent{display:grid;grid-template-columns:26px minmax(160px,1.4fr) minmax(160px,1.5fr) 112px 104px 1fr 82px;
+  gap:12px;padding:8px 14px;border-bottom:1px solid var(--border);font-size:10px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.7px;color:var(--muted);background:var(--bg2)}
+.bd-cel{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--muted)}
+.bd-id{min-width:0}
+.bd-nom{font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px;flex-wrap:wrap;line-height:1.35}
+/* Un contact qu'on ne peut ni convoquer ni facturer se voit tout de suite :
+   rouge, en fin de page, et la raison ecrite a cote plutot qu'en infobulle —
+   une infobulle ne se lit que si on la cherche. */
+.bd-nom.inj{color:var(--danger)}
+.bd-pourquoi{font-size:11px;color:var(--danger);font-weight:400;opacity:.85}
+.bd-snc{font-weight:600;color:var(--muted);letter-spacing:.5px}
+.bd-co{font-size:11px;color:var(--muted);margin-top:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bd-q{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:600;letter-spacing:.2px;white-space:nowrap}
+.bd-q-a{background:#e7f0ff;color:#1b4fa8;border:1px solid #cfe0ff}
+.bd-q-p{background:#eef0f5;color:#5b6172;border:1px solid #e0e3ea}
+.bd-q-m{color:#fff;border:1px solid transparent}
+.bd-q-x{background:#fdeaea;color:#a33333;border:1px solid #f2cccc}
+.bd-q-h{background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+.bd-parc{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}
+.bd-tb{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:10px;margin-bottom:14px}
+.bd-k{background:var(--carte);border:1px solid var(--border);border-radius:11px;padding:11px 14px;
+  text-decoration:none;display:block}
+.bd-k:hover{border-color:var(--border2)}
+.bd-k.on{border-color:var(--accent)}
+.bd-k b{display:block;font-size:23px;font-weight:600;line-height:1.15;color:var(--text)}
+.bd-k span{font-size:11px;color:var(--muted)}
+.bd-k i{font-size:13px;margin-right:5px;opacity:.8}
+.bd-actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.bd-gros{display:inline-flex;align-items:center;gap:9px;border-radius:10px;padding:12px 22px;
+  font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;text-decoration:none;border:none;
+  background:var(--accent);color:#fff}
+.bd-gros:hover{filter:brightness(1.07)}
+.bd-gros i{font-size:19px}
+.bd-gros.second{background:var(--carte);color:var(--text);border:1px solid var(--border2)}
+.bd-gros.second:hover{filter:none;border-color:var(--accent)}
+.bd-tris{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:12px;color:var(--muted)}
+.bd-vide{padding:34px 16px;text-align:center;color:var(--muted);font-size:13px}
+.bd-pied{display:flex;justify-content:space-between;align-items:center;margin-top:13px;font-size:12.5px;color:var(--muted)}
+.bd-sel{background:var(--carte);border:1px solid var(--border);border-radius:10px;padding:9px 14px;
+  margin-bottom:11px;display:none;align-items:center;gap:11px;flex-wrap:wrap;font-size:12.5px}
+.bd-sel.on{display:flex}
+.bd-c{flex:none;width:16px;height:16px;cursor:pointer}
+/* La regle generale « html[data-sombre] a{color:var(--accent)} » est plus
+   specifique que mes classes : en mode sombre, le texte du bouton d'import
+   devenait bleu SUR UN FOND BLEU, donc invisible. On reprend la main. */
+html[data-sombre] a.bd-gros{color:#fff}
+html[data-sombre] a.bd-gros.second{color:var(--text)}
+html[data-sombre] a.bd-p{color:var(--muted)}
+html[data-sombre] a.bd-p.on{color:#fff}
+html[data-sombre] a.bd-l{color:var(--text)}
+html[data-sombre] a.bd-k{color:var(--text)}
+@media(max-width:980px){
+  .bd-ent{display:none}
+  .bd-l{grid-template-columns:26px 1fr;row-gap:2px}
+  .bd-l .bd-cel{grid-column:2}
+  .bd-parc{grid-column:2;text-align:left}
+}
+</style>
+
+{% if not pret %}
+<div class="bd-souci">
+  <b>La base de contacts n'est pas encore prête.</b><br>
+  {{ souci }}
+  <code>Tableau de bord Supabase → SQL Editor → exécuter le script de création de la table « Contacts ».</code>
+</div>
+{% else %}
+
+<div class="bd-actions">
+  <a class="bd-gros" href="/contacts/import"><i class="ti ti-file-import"></i>Importer une liste</a>
+  <button class="bd-gros second" onclick="bdNouveauContact()"><i class="ti ti-user-plus"></i>Nouveau contact</button>
+  <button class="bd-gros second" onclick="bdExporter()"><i class="ti ti-file-export"></i>Exporter</button>
+  <button class="bd-gros second" onclick="bdGererMarqueurs()"><i class="ti ti-tags"></i>Marqueurs</button>
+  <button class="bd-gros second" onclick="bdMiroir(this)"><i class="ti ti-table-share"></i>Classeur miroir</button>
+</div>
+
+<div class="bd-tb">
+  <a class="bd-k {% if not qualite and not sel %}on{% endif %}" href="{{ bd_lien(qualite='') }}">
+    <b>{{ tb.total }}</b><span>fiches au total</span></a>
+  <a class="bd-k {% if qualite == 'apprenant' %}on{% endif %}" href="{{ bd_lien(qualite='apprenant') }}">
+    <b>{{ tb.apprenants }}</b><span>apprenants</span></a>
+  <a class="bd-k {% if qualite == 'prospect' %}on{% endif %}" href="{{ bd_lien(qualite='prospect') }}">
+    <b>{{ tb.prospects }}</b><span>prospects</span></a>
+  <a class="bd-k" href="{{ bd_lien(npc=true) }}"><b>{{ tb.contactables }}</b><span>contactables</span></a>
+  <div class="bd-k"><b>{{ tb.marques }}</b><span>portent un marqueur</span></div>
+  {% if tb.injoignables %}
+  <div class="bd-k"><b style="color:var(--warn)">{{ tb.injoignables }}</b><span>sans coordonnée</span></div>
+  {% endif %}
+</div>
+
+<div class="bd-barre">
+  <form class="bd-ch" method="get" action="/contacts" id="bd_f">
+    <i class="ti ti-search"></i>
+    <input type="text" name="q" value="{{ q }}" placeholder="Nom, prénom, adresse, téléphone, ville…" autocomplete="off">
+    <input type="hidden" name="qualite" value="{{ qualite }}">
+    <input type="hidden" name="m" value="{{ sel|join(',') }}">
+    {% if npc %}<input type="hidden" name="npc" value="1">{% endif %}
+  </form>
+  <a class="bd-p {% if not qualite %}on{% endif %}" href="{{ bd_lien(qualite='') }}">Tous</a>
+  <a class="bd-p {% if qualite == 'apprenant' %}on{% endif %}" href="{{ bd_lien(qualite='apprenant') }}">Apprenants</a>
+  <a class="bd-p {% if qualite == 'prospect' %}on{% endif %}" href="{{ bd_lien(qualite='prospect') }}">Prospects</a>
+  {# Ciblage par fonction : un envoi peut ne concerner que les assistantes. #}
+  <span class="bd-fam">Fonction</span>
+  {% for x in fonctions %}
+  <a class="bd-p {% if fonction == x %}on{% endif %}"
+     href="{{ bd_lien(fonction='' if fonction == x else x) }}">{{ x }}</a>
+  {% endfor %}
+  {% for famille, titre in (('libre', 'Marqueurs'), ('client', 'Clients')) %}
+    {% if familles.get(famille) %}
+    <span class="bd-fam">{{ titre }}</span>
+    {% for m in familles[famille] %}
+    <a class="bd-p {% if m.cle in sel %}on{% endif %}" href="{{ bd_lien(bascule=m.cle) }}"
+       style="{% if m.cle in sel %}background:{{ m.couleur }};border-color:transparent;color:#fff{% else %}color:{{ m.couleur }};border-color:{{ m.couleur }}55{% endif %}">
+      {% if famille == 'client' %}<i class="ti ti-building" style="font-size:12px"></i>{% endif %}
+      {{ m.libelle }}<span class="n">{{ compte.get(m.cle, 0) }}</span></a>
+    {% endfor %}
+    {% endif %}
+  {% endfor %}
+  <a class="bd-p {% if npc %}on{% endif %}" href="{{ bd_lien(npc=not npc) }}"
+     title="Masquer les personnes à ne plus contacter">Contactables</a>
+  <button class="bd-p" onclick="bdNouveauMarqueur()"><i class="ti ti-plus"></i>Marqueur</button>
+</div>
+
+<div class="bd-sel" id="bd_sel">
+  <b><span id="bd_n">0</span> sélectionnée(s)</b>
+  {% for m in marqueurs %}
+  <button class="bd-p" onclick="bdPoser('{{ m.cle }}', false)">+ {{ m.libelle }}</button>
+  <button class="bd-p" onclick="bdPoser('{{ m.cle }}', true)">− {{ m.libelle }}</button>
+  {% endfor %}
+</div>
+
+<div class="bd-tris">
+  <span>Classer par</span>
+  {% for cle, lib, _ in tris %}
+  <a class="bd-p {% if tri == cle %}on{% endif %}" href="{{ bd_lien(tri=cle) }}">{{ lib }}</a>
+  {% endfor %}
+</div>
+
+<div class="bd-lignes">
+  {% if fiches %}
+  <div class="bd-ent">
+    <span></span><span>Nom</span><span>Adresse mail</span><span>Téléphone</span>
+    <span>Ville</span><span>Statut et formations</span><span>Entrée</span>
+  </div>
+  {% endif %}
+  {% for f in fiches %}
+  <a class="bd-l" href="/contact/{{ f.id }}">
+    <input type="checkbox" class="bd-c" value="{{ f.id }}"
+           onclick="event.stopPropagation()" onchange="bdCompter()">
+    <div class="bd-id">
+      <div class="bd-nom{{ ' inj' if not f.joignable }}">
+        {%- if f.sans_nom %}<span class="bd-snc" title="Sans nom connu">SNC</span>
+        {%- else %}{{ f.nom_affiche }}{% endif %}
+        {%- if not f.joignable %}<span class="bd-pourquoi">ni adresse mail ni téléphone —
+          ne peut recevoir ni convocation, ni convention, ni attestation</span>{% endif %}
+      </div>
+    </div>
+    <div class="bd-cel">{{ f.mail or "—" }}</div>
+    <div class="bd-cel">{{ f.telephone or "—" }}</div>
+    <div class="bd-cel">{{ f.ville or "—" }}</div>
+    <div class="bd-parc">
+      {% if f.apprenant %}<span class="bd-q bd-q-a">Apprenant</span>
+      {% elif f.hors_prospect %}<span class="bd-q bd-q-h"
+        title="Fonction administrative : présent parce que son employeur est client, jamais démarché pour une formation">Hors prospection</span>
+      {% else %}<span class="bd-q bd-q-p">Prospect</span>{% endif %}
+      {% for c in f.marqueurs %}<span class="bd-q bd-q-m" style="background:{{ couleurs.get(c, '#6b7280') }}">{{ libelles.get(c, c) }}</span>{% endfor %}
+      {% if not f.joignable %}<span class="bd-q bd-q-x" title="Ni adresse mail ni téléphone">Injoignable</span>{% endif %}
+      {% if f.npc %}<span class="bd-q bd-q-x">Ne plus contacter</span>{% endif %}
+      {% if f.nb_inscriptions %}<span style="opacity:.8">{{ f.parcours|map(attribute='formation')|unique|join(', ') }}</span>{% endif %}
+    </div>
+    <div class="bd-cel" style="text-align:right">{{ f.entree }}</div>
+  </a>
+  {% else %}
+  <div class="bd-vide">
+    <i class="ti ti-user-search" style="font-size:22px"></i><br>
+    Aucune fiche ne correspond.
+    {% if not q and not sel and not qualite %}<br>Utilisez « Synchroniser » pour y faire entrer vos inscrits.{% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<div class="bd-pied">
+  <span>{{ total }} fiche(s){% if pages > 1 %} · page {{ page }} sur {{ pages }}{% endif %}</span>
+  <span>
+    {% if page > 1 %}<a class="bd-p" href="{{ bd_lien(page=page-1) }}">← Précédent</a>{% endif %}
+    {% if page < pages %}<a class="bd-p" href="{{ bd_lien(page=page+1) }}">Suivant →</a>{% endif %}
+  </span>
+</div>
+
+<script>
+document.getElementById("bd_f").addEventListener("submit", function(){ });
+function bdCoches(){
+  return Array.prototype.slice.call(document.querySelectorAll(".bd-c:checked")).map(function(c){return c.value});
+}
+function bdCompter(){
+  var n = bdCoches().length;
+  document.getElementById("bd_n").textContent = n;
+  document.getElementById("bd_sel").className = "bd-sel" + (n ? " on" : "");
+}
+function bdPoser(cle, retirer){
+  var ids = bdCoches();
+  if(!ids.length) return;
+  var fd = new FormData();
+  fd.append("ids", ids.join(",")); fd.append("cles", cle);
+  if(retirer) fd.append("retirer", "1");
+  fetch("/contacts/poser", {method:"POST", body:fd}).then(function(r){return r.json()})
+  .then(function(j){
+    if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+    location.reload();
+  });
+}
+function bdMiroir(bouton){
+  dfmConfirmer({ton: "info", titre: "Mettre à jour le classeur miroir",
+    sous: "Une copie lisible de toute la base, dans Google Sheets",
+    corps: "<p>DFM recopie vos <b>{{ tb.total }} fiches</b> dans un classeur Google que vous pouvez "
+         + "consulter sans passer par DFM.</p>"
+         + "<p style=\"font-size:12.5px;color:var(--muted)\">C'est une <b>photographie, pas une source</b> : "
+         + "DFM n'y lit jamais rien. Une modification faite à la main dans ce classeur n'aura aucun effet "
+         + "et sera effacée à la mise à jour suivante — la première ligne le rappelle.</p>",
+    valider: "Mettre à jour", styleValider: "primaire", action: function(){
+      bouton.disabled = true; bouton.innerHTML = "Copie en cours…";
+      fetch("/contacts/miroir", {method:"POST"}).then(function(r){return r.json()}).then(function(j){
+        bouton.disabled = false;
+        bouton.innerHTML = '<i class="ti ti-table-share"></i>Classeur miroir';
+        if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+        dfmFenetre({ton: "succes", titre: j.neuf ? "Classeur créé" : "Classeur à jour",
+          sous: j.lignes + " fiche(s) recopiées",
+          corps: '<p><a href="' + j.lien + '" target="_blank" rel="noopener">Ouvrir « Contacts DFM — miroir »</a></p>'
+               + '<p style="font-size:12.5px;color:var(--muted)">Relancez cette copie quand vous voudrez '
+               + 'une version à jour. Elle remplace intégralement la précédente.</p>',
+          boutons: [{libelle: "Fermer", style: "neutre"}]});
+      }).catch(function(e){
+        bouton.disabled = false;
+        bouton.innerHTML = '<i class="ti ti-table-share"></i>Classeur miroir';
+        dfmInfo("Erreur", "<p>" + e.message + "</p>", "danger");
+      });
+    }});
+}
+function bdChamp(id, lib, valeur){
+  return '<div style="margin-bottom:9px"><div style="font-size:11px;color:var(--muted);margin-bottom:3px">'
+    + lib + '</div><input id="' + id + '" type="text" value="' + (valeur || "") + '" '
+    + 'style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:8px;'
+    + 'background:var(--bg);color:var(--text);font-size:13px;font-family:inherit"></div>';
+}
+function bdNouveauContact(){
+  var corps = bdChamp("nc_nom", "Nom — tel que vous voulez le lire", "")
+    + bdChamp("nc_prenom", "Prénom (facultatif)", "")
+    + bdChamp("nc_mail", "Adresse mail", "")
+    + bdChamp("nc_tel", "Téléphone", "")
+    + bdChamp("nc_ville", "Ville", "")
+    + '<p style="font-size:12px;color:var(--muted)">Il faut <b>au moins</b> une adresse mail ou un '
+    + 'téléphone : sans quoi la personne ne serait ni joignable, ni rapprochable d\'une autre fiche.</p>';
+  dfmFenetre({ton: "info", titre: "Nouveau contact", sous: "Il entrera comme prospect", corps: corps,
+    boutons: [{libelle: "Annuler", style: "neutre"},
+              {libelle: "Créer", style: "primaire", garder: true, action: function(){ bdCreer(false); }}]});
+}
+function bdCreer(confirme){
+  var fd = new FormData();
+  [["nom","nc_nom"],["prenom","nc_prenom"],["mail","nc_mail"],
+   ["telephone","nc_tel"],["ville","nc_ville"]].forEach(function(p){
+    var e = document.getElementById(p[1]);
+    fd.append(p[0], e ? e.value : "");
+  });
+  if(confirme) fd.append("confirme", "1");
+  dfmFermer();                 // les champs viennent d'etre lus, on peut fermer
+  fetch("/contacts/creer", {method:"POST", body:fd}).then(function(r){return r.json()})
+  .then(function(j){
+    if(j.ok){ location.href = "/contact/" + j.id; return; }
+    if(j.doublon){
+      dfmConfirmer({ton: "attention", titre: "Cette personne existe deja".replace("deja","déjà"),
+        sous: j.qui,
+        corps: "<p><b>" + j.qui + "</b> — " + (j.mail || j.tel) + " — figure déjà dans la base.</p>"
+             + "<p style=\"font-size:12.5px;color:var(--muted)\">Vous pouvez ouvrir sa fiche pour la "
+             + "compléter, ou créer une seconde fiche si ce sont bien deux personnes différentes.</p>",
+        valider: "Créer quand même", styleValider: "attention",
+        action: function(){ bdCreer(true); }});
+      return;
+    }
+    dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger");
+  });
+}
+function bdGererMarqueurs(){
+  fetch("/contacts/marqueurs").then(function(r){return r.json()}).then(function(j){
+    var corps = "";
+    if(!j.marqueurs.length){
+      corps = '<p style="color:var(--muted);font-size:13px">Aucun marqueur pour l\'instant.</p>';
+    } else {
+      corps = '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+      j.marqueurs.forEach(function(m){
+        var lib = m.libelle.replace(/'/g, "&#39;");
+        corps += '<tr><td style="padding:7px 0;border-bottom:1px solid var(--border)"><b>'
+          + m.libelle + '</b><div style="font-size:11px;color:var(--muted)">'
+          + m.portees + ' fiche(s)</div></td>'
+          + '<td style="padding:7px 0;border-bottom:1px solid var(--border);text-align:right">'
+          + '<button class="bd-p" onclick="bdRenommer(\'' + m.cle + '\',\'' + lib + '\')">Renommer</button> '
+          + '<button class="bd-p" onclick="bdSupprimerMarqueur(\'' + m.cle + '\',\'' + lib + '\','
+          + m.portees + ')">Supprimer</button></td></tr>';
+      });
+      corps += "</table>";
+    }
+    corps += '<p style="font-size:12px;color:var(--muted);margin-top:12px">Renommer ne détache aucune '
+      + 'fiche : le lien se fait par un identifiant stable, pas par le libellé.</p>';
+    dfmFenetre({ton: "info", titre: "Gérer les marqueurs", sous: "Ils servent à cibler vos envois",
+      corps: corps,
+      boutons: [{libelle: "Fermer", style: "neutre"},
+                {libelle: "Nouveau", style: "primaire", action: bdNouveauMarqueur}]});
+  });
+}
+function bdRenommer(cle, libelle){
+  dfmFenetre({titre: "Renommer le marqueur", sous: libelle,
+    corps: bdChamp("mq_lib", "Nouveau libellé", libelle)
+      + '<p style="font-size:12px;color:var(--muted)">Les fiches qui le portent restent rattachées.</p>',
+    boutons: [{libelle: "Annuler", style: "neutre"},
+              {libelle: "Renommer", style: "primaire", garder: true, action: function(){
+      var v = (document.getElementById("mq_lib") || {}).value || "";
+      if(!v.trim()){ dfmFermer(); return; }
+      dfmFermer();
+      var fd = new FormData();
+      fd.append("action", "renommer"); fd.append("cle", cle); fd.append("libelle", v);
+      fetch("/contacts/marqueur", {method:"POST", body:fd}).then(function(r){return r.json()})
+      .then(function(j){
+        if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+        location.reload();
+      });
+    }}]});
+}
+function bdSupprimerMarqueur(cle, libelle, portees){
+  var corps = portees
+    ? "<p>Ce marqueur est posé sur <b>" + portees + " fiche(s)</b>. Il leur sera retiré.</p>"
+      + "<p style=\"font-size:12.5px;color:var(--muted)\">Aucune fiche n'est supprimée — elles perdent "
+      + "seulement ce classement, et rien ne permettra de le reconstituer.</p>"
+    : "<p>Ce marqueur n'est posé sur aucune fiche.</p>";
+  dfmConfirmer({ton: portees ? "danger" : "attention", titre: "Supprimer « " + libelle + " » ?",
+    sous: portees ? "Perte de classement irréversible" : "", corps: corps,
+    valider: "Supprimer", styleValider: portees ? "danger" : "attention", action: function(){
+      var fd = new FormData();
+      fd.append("action", "supprimer"); fd.append("cle", cle); fd.append("confirme", "1");
+      fetch("/contacts/marqueur", {method:"POST", body:fd}).then(function(r){return r.json()})
+      .then(function(j){
+        if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+        location.reload();
+      });
+    }});
+}
+function bdExporter(){
+  var criteres = [];
+  {% if qualite %}criteres.push("Statut : <b>{{ 'apprenants' if qualite == 'apprenant' else 'prospects' }}</b>");{% endif %}
+  {% if fonction %}criteres.push("Fonction : <b>{{ fonction }}</b>");{% endif %}
+  {% for cle in sel %}criteres.push("Marqueur : <b>{{ libelles.get(cle, cle) }}</b>");{% endfor %}
+  {% if npc %}criteres.push("<b>Contactables seulement</b>");{% endif %}
+  {% if q %}criteres.push("Recherche : <b>{{ q }}</b>");{% endif %}
+  var corps = "<p>Le fichier reprendra <b>exactement ce que montre l'écran</b> : "
+    + "les mêmes filtres, sans la pagination.</p>"
+    + "<p style=\"font-size:23px;font-weight:600;margin:14px 0 4px\">{{ total }}</p>"
+    + "<p style=\"color:var(--muted);font-size:12.5px;margin-top:0\">contact(s) exportés</p>";
+  corps += criteres.length
+    ? '<div class="dfm-bloc"><b>Filtres appliqués</b><br>' + criteres.join("<br>") + "</div>"
+    : '<div class="dfm-bloc">Aucun filtre : <b>toute la base</b> sera exportée.<br>'
+      + '<span style="font-size:12px;color:var(--muted)">Fermez cette fenêtre, posez vos filtres, '
+      + 'et relancez l\'export pour n\'emporter qu\'une partie.</span></div>';
+  corps += '<p style="font-size:12px;color:var(--muted)">Colonnes : nom, prénom, adresse, téléphone, '
+    + 'ville, statut, marqueurs, ne plus contacter, date d\'entrée, origine. '
+    + 'Format CSV, lisible par Excel et Numbers.</p>';
+  dfmConfirmer({ton: "info", titre: "Exporter les contacts",
+    sous: "Aucune donnée n'est modifiée", corps: corps,
+    valider: "Télécharger", styleValider: "primaire", iconeValider: "ti-download",
+    action: function(){ window.location = "/contacts/export.csv" + window.location.search; }});
+}
+function bdNouveauMarqueur(){
+  dfmFenetre({
+    titre: "Nouveau marqueur", sous: "Il servira à cibler vos envois",
+    corps: '<p style="font-size:13px;color:var(--muted)">Un marqueur se pose à la main. La qualité '
+         + 'd\'apprenant, elle, est calculée toute seule depuis le classeur.</p>'
+         + '<input id="bd_lib" type="text" placeholder="Congrès ADF 2026" '
+         + 'style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;'
+         + 'background:var(--bg);color:var(--text);font-size:13px;font-family:inherit">',
+    boutons: [
+      {libelle: "Annuler", style: "neutre"},
+      {libelle: "Créer", style: "primaire", garder: true, action: function(){
+        var v = (document.getElementById("bd_lib") || {}).value || "";
+        if(!v.trim()){ dfmFermer(); return; }
+        dfmFermer();
+        var fd = new FormData(); fd.append("action", "creer"); fd.append("libelle", v);
+        fetch("/contacts/marqueur", {method:"POST", body:fd}).then(function(r){return r.json()})
+        .then(function(j){
+          if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+          location.reload();
+        });
+      }}
+    ]
+  });
+}
+function bdSynchro(bouton){
+  bouton.disabled = true;
+  var avant = bouton.innerHTML;
+  bouton.innerHTML = "Synchronisation…";
+  fetch("/contacts/synchro", {method:"POST"}).then(function(r){return r.json()}).then(function(j){
+    bouton.disabled = false; bouton.innerHTML = avant;
+    if(!j.ok){ dfmInfo("Synchronisation impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+    if(!j.crees && !j.marques && !j.completes){
+      dfmInfo("Déjà à jour", "<p>Les " + j.vus + " inscrits du classeur figurent déjà dans la base, "
+            + "avec les mêmes informations.</p>");
+      return;
+    }
+    dfmInfo("Synchronisation terminée",
+      "<p><b>" + j.crees + "</b> fiche(s) créée(s)<br><b>" + j.marques
+      + "</b> rattachée(s) à un contact déjà connu<br><b>" + j.completes
+      + "</b> complétée(s) depuis le classeur</p>"
+      + "<p style=\"color:var(--muted);font-size:12px\">Le classeur reste la référence : "
+      + "rien n'y a été écrit.</p>");
+    setTimeout(function(){ location.reload(); }, 1400);
+  }).catch(function(e){
+    bouton.disabled = false; bouton.innerHTML = avant;
+    dfmInfo("Erreur", "<p>" + e.message + "</p>", "danger");
+  });
+}
+</script>
+{% endif %}
+{% endblock %}

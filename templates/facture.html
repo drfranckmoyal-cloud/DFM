@@ -1,0 +1,134 @@
+{#
+  FACTURE — pièce comptable.
+
+  LE TEXTE EST REPRIS MOT POUR MOT du modele Google Docs « Facture — modele
+  unique », mentions legales du pied comprises : article 293 B, enregistrement
+  prefectoral, penalites de retard. Rien n'y est reformule.
+
+  CE QUI CHANGE : le tableau de designation est un vrai tableau plutot qu'une
+  grille Docs, les montants s'alignent a droite, et le detail des journees
+  apparait — il manquait, alors que le financeur le compare a la convention.
+#}<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Facture {{ f.numero }} — {{ f.destinataire }}</title>
+<style>
+  /* Le meme bleu que la convention : les deux pieces partent ensemble au
+     client, elles doivent se reconnaitre comme venant du meme organisme. */
+  :root { --bleu:#1f4fa8; --bleu-pale:#eef3fc; --trait:#d7dcea; --gris:#5b6172; }
+
+  @page { size: A4 portrait; margin: 18mm 19mm 15mm; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+         color:#16191f; font-size:10.5pt; line-height:1.55; }
+
+  .haut { display:flex; justify-content:space-between; align-items:flex-start; gap:30px;
+          border-bottom:2.5px solid var(--bleu); padding-bottom:12px; margin-bottom:26px; }
+  .of { font-size:9.5pt; line-height:1.55; color:var(--gris); }
+  .of b { display:block; font-size:13pt; color:var(--bleu); margin-bottom:3px; }
+  .ref { text-align:right; flex:none; }
+  .ref h1 { font-size:21pt; color:var(--bleu); margin:0 0 2px; letter-spacing:.5px; }
+  .ref .num { font-size:13pt; font-weight:600; font-variant-numeric:tabular-nums; }
+  .ref .d { font-size:9pt; color:var(--gris); margin-top:2px; }
+
+  h2 { font-size:8.5pt; text-transform:uppercase; letter-spacing:1px; color:var(--gris);
+       margin:0 0 7px; font-weight:700; }
+  .client { background:var(--bleu-pale); border-left:3px solid var(--bleu);
+            border-radius:0 7px 7px 0; padding:12px 15px; margin-bottom:24px; }
+  .client .n { font-size:12.5pt; font-weight:600; }
+
+  table { width:100%; border-collapse:collapse; }
+  .desi th { text-align:left; font-size:8pt; text-transform:uppercase; letter-spacing:.7px;
+             color:var(--gris); font-weight:700; padding:0 0 7px; border-bottom:1.5px solid var(--bleu); }
+  .desi td { padding:11px 0; border-bottom:1px solid #eef0f5; vertical-align:top; }
+  .desi .l { color:var(--gris); width:112px; }
+  .desi .v b { font-weight:600; }
+  .jours { margin:4px 0 0; padding-left:17px; font-size:9.6pt; color:var(--gris); }
+
+  .tot { margin-top:18px; margin-left:auto; width:min(300px,100%); }
+  .tot td { padding:6px 0; font-size:10.5pt; }
+  .tot td.m { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .tot tr.g td { border-top:2px solid var(--bleu); padding-top:9px; font-weight:700;
+                 color:var(--bleu); font-size:12.5pt; }
+
+  .regl { margin-top:26px; background:#f7f9fd; border-radius:9px; padding:14px 17px;
+          page-break-inside:avoid; }
+  .regl .t { font-weight:600; margin-bottom:3px; }
+  .regl .rib { font-family:ui-monospace,Menlo,monospace; font-size:9.5pt; margin-top:6px;
+               color:var(--gris); }
+  .paye { background:#eafaf3; }
+  .paye .t { color:#0f6e56; }
+
+  .mentions { margin-top:26px; padding-top:11px; border-top:1px solid var(--trait);
+              font-size:8pt; color:var(--gris); line-height:1.6; }
+</style>
+</head>
+<body>
+
+<div class="haut">
+  <div class="of">
+    <b>{{ f.organisme }}</b>
+    {{ f.adresse_organisme }}<br>
+    SIRET&nbsp;: {{ f.siret }}
+    {% if f.mention_declaration %}<br>{{ f.mention_declaration }}{% endif %}
+  </div>
+  <div class="ref">
+    <h1>Facture</h1>
+    <div class="num">{{ f.numero }}</div>
+    <div class="d">Émise le {{ f.date_facture }}</div>
+  </div>
+</div>
+
+<h2>Client</h2>
+<div class="client">
+  <div class="n">{{ f.civilite }}{{ f.destinataire }}</div>
+</div>
+
+<h2>Désignation</h2>
+<table class="desi">
+  <thead><tr><th colspan="2">Action de formation professionnelle continue</th></tr></thead>
+  <tbody>
+    <tr><td class="l">Intitulé</td>
+      <td class="v"><b>{{ f.titre_formation }}</b>{% if f.quantite > 1 %}
+        — {{ f.quantite }} participants{% endif %}</td></tr>
+    <tr><td class="l">Dates</td>
+      <td class="v">{{ f.date_formation }}
+        {% if f.jours_formation|length > 1 %}
+        <ul class="jours">{% for j in f.jours_formation %}<li>{{ j }}</li>{% endfor %}</ul>
+        {% endif %}</td></tr>
+    <tr><td class="l">Durée</td><td class="v"><b>{{ f.duree }}</b></td></tr>
+  </tbody>
+</table>
+
+<table class="tot">
+  <tr><td>Montant unitaire</td>
+    <td class="m">{{ f.unitaire }} € × {{ f.quantite }}</td></tr>
+  <tr><td>TVA</td><td class="m">Non applicable</td></tr>
+  <tr class="g"><td>Total net de taxe</td><td class="m">{{ f.total }} €</td></tr>
+</table>
+
+{% if f.paiement %}
+<div class="regl paye">
+  <div class="t">Facture acquittée</div>
+  <div>Réglée le {{ f.paiement.le }} par {{ f.paiement.mode }}{% if f.paiement.reference
+    and f.paiement.reference != '-' %}, référence {{ f.paiement.reference }}{% endif %}.</div>
+</div>
+{% else %}
+<div class="regl">
+  {% if f.mention_reglement %}<div class="t">{{ f.mention_reglement }}</div>{% endif %}
+  {% if f.ligne_reglement %}<div>{{ f.ligne_reglement }}</div>{% endif %}
+  {% if f.rib %}<div class="rib">{{ f.rib }}</div>{% endif %}
+</div>
+{% endif %}
+
+<div class="mentions">
+  TVA non applicable, article 293 B du Code général des impôts.<br>
+  Organisme enregistré auprès du préfet de région d'Île-de-France. Cet enregistrement
+  ne vaut pas agrément de l'État.<br>
+  En cas de retard de paiement, pénalités au taux de 3 fois le taux d'intérêt légal,
+  plus indemnité forfaitaire de 40 € pour frais de recouvrement.
+</div>
+
+</body>
+</html>

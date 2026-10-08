@@ -1,0 +1,48 @@
+# ═══════════════════════════════════════════════════════════════════════
+#  DFM — TOUT EST EXCLU PAR DEFAUT. ON NE PUBLIE QUE LE CODE.
+# ═══════════════════════════════════════════════════════════════════════
+#
+# Ce dossier contient des noms de praticiens, des conventions signees, des
+# factures, des attestations, une cle d'API Supabase et des jetons Google.
+#
+# UNE LISTE D'EXCLUSIONS SE SERAIT TROMPEE UN JOUR. Il aurait suffi qu'un
+# nouveau fichier de donnees apparaisse — et DFM en cree tout seul — pour
+# qu'il parte dans le depot sans que personne le remarque. On fait donc
+# l'inverse : rien ne sort tant qu'on ne l'a pas autorise, ligne par ligne.
+
+/*
+
+# ── Ce qui part : le code, et rien d'autre ────────────────────────────
+!/.gitignore
+!/*.py
+!/*.sh
+!/*.md
+!/*.command
+!/requirements.txt
+!/templates/
+!/static/
+!/site-signature/
+
+# ── Les secrets, meme sous une extension de code ──────────────────────
+/config.py
+
+# ── Le site public : le code oui ; dependances et PDF non ─────────────
+site-signature/node_modules/
+site-signature/.netlify/
+site-signature/programmes/
+site-signature/package-lock.json
+
+# ── Les sauvegardes d'avant git : git les remplace ────────────────────
+*.avant-*
+*.reprise-*
+*.verrou
+*.safe.*
+
+# ── Les habituels ─────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
+venv/
+*.db
+.env

@@ -1,0 +1,336 @@
+{% extends "base.html" %}
+{% block titre %}{{ f.nom_complet }}{% endblock %}
+{% block entete %}<i class="ti ti-certificate-2" style="color:var(--accent);vertical-align:-3px;margin-right:6px"></i>{{ f.nom_complet }}{% endblock %}
+{% block sous_entete %}Dossier du formateur — ce qui justifie sa qualité à intervenir{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" href="{{ retour_lien }}"><i class="ti ti-arrow-left"></i>{{ retour_nom }}</a>
+{% endblock %}
+{% block corps %}
+<style>
+.fm-c{background:var(--carte);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden}
+.fm-t{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.fm-ic{width:34px;height:34px;border-radius:9px;background:rgba(79,126,248,.12);color:var(--accent);
+  display:grid;place-items:center;font-size:18px;flex:none}
+.fm-tt{font-size:14px;font-weight:600}
+.fm-ta{font-size:12px;color:var(--muted);margin-top:1px}
+.fm-b{padding:16px 18px}
+.fm-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.fm-ch label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+.fm-ch input,.fm-ch select{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;
+  background:var(--bg);color:var(--text);font-size:13px;font-family:inherit}
+.fm-ch input:focus,.fm-ch select:focus{outline:none;border-color:var(--accent)}
+.fm-ch select{appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:30px;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='11' height='7' viewBox='0 0 11 7'><path d='M1 1l4.5 4.5L10 1' fill='none' stroke='%238a90a2' stroke-width='1.6' stroke-linecap='round'/></svg>");
+  background-repeat:no-repeat;background-position:right 11px center}
+.fm-h{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.55}
+.fm-liens{display:flex;gap:9px;align-items:flex-start;margin-top:14px;padding:10px 13px;
+  background:var(--bg);border:1px solid var(--border);border-radius:9px;
+  font-size:12px;color:var(--muted);line-height:1.6}
+.fm-liens i{font-size:15px;flex:none;margin-top:1px}
+.fm-liens b{color:var(--text);font-weight:600}
+.fm-liens b.ici{color:var(--accent)}
+.fm-f{display:flex;align-items:flex-start;gap:9px;padding:10px 12px;border:1px solid var(--border);
+  border-radius:9px;margin-bottom:7px;background:var(--bg);cursor:pointer}
+.fm-f input{margin-top:2px;flex:none}
+.fm-f b{font-weight:600;font-size:13px;display:block}
+.fm-f span{color:var(--muted);font-size:11.5px}
+.fm-p{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--border);
+  border-radius:10px;margin-bottom:9px;background:var(--bg)}
+.fm-p.vide{border-style:dashed}
+.fm-p.manque{border-color:#d4890a;background:rgba(212,137,10,.06)}
+.fm-p i.gros{font-size:19px;flex:none;color:var(--muted)}
+.fm-px{flex:1;min-width:0}
+.fm-pn{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fm-pn a{color:inherit;text-decoration:none}
+.fm-pn a:hover{color:var(--accent)}
+.fm-pd{font-size:11.5px;color:var(--muted);margin-top:1px}
+.fm-x{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px 6px;
+  border-radius:6px;font-size:16px;line-height:1}
+.fm-x:hover{color:var(--danger);background:rgba(208,59,59,.1)}
+.fm-depot{border:1.5px dashed var(--border);border-radius:10px;padding:16px;text-align:center;
+  cursor:pointer;color:var(--muted);font-size:12.5px}
+.fm-depot:hover,.fm-depot.survol{border-color:var(--accent);background:rgba(79,126,248,.06);color:var(--text)}
+/* Le CV et le diplome se voient comme des cibles quand on survole avec un
+   fichier : sans ce retour, on ne sait pas si lacher ici fera quelque chose. */
+.fm-p.fm-zone{transition:border-color .12s,background .12s}
+.fm-p.fm-zone.survol{border-color:var(--accent);background:rgba(79,126,248,.08)}
+.fm-p.fm-zone.survol *{pointer-events:none}
+.fm-depot i{font-size:20px;display:block;margin-bottom:5px}
+.fm-al{display:flex;gap:11px;align-items:flex-start;border-radius:12px;padding:13px 16px;
+  margin-bottom:14px;font-size:12.5px;line-height:1.65;border:1px solid var(--border);
+  background:var(--carte);border-left:3px solid #d4890a}
+.fm-al i{font-size:18px;flex:none;color:#d4890a;margin-top:1px}
+.fm-etat{font-size:12px;color:var(--muted);margin-top:8px}
+.fm-ident{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.fm-photo{position:relative;width:92px;height:92px;border-radius:50%;flex:none;cursor:pointer;
+  overflow:hidden;background:var(--bg);border:1px solid var(--border);display:grid;place-items:center}
+.fm-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.fm-photo:hover,.fm-photo.survol{border-color:var(--accent)}
+.fm-init{font-size:28px;font-weight:600;color:var(--muted);letter-spacing:1px}
+/* Le voile n'apparait qu'au survol : une photo de profil couverte en permanence
+   d'une icone d'appareil photo n'est plus une photo de profil. */
+.fm-photo-v{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.45);
+  color:#fff;font-size:22px;opacity:0;transition:opacity .15s}
+.fm-photo:hover .fm-photo-v,.fm-photo.survol .fm-photo-v{opacity:1}
+</style>
+
+<div id="fm_alertes"></div>
+
+<div class="fm-c">
+  <div class="fm-t">
+    <div class="fm-ic"><i class="ti ti-user"></i></div>
+    <div style="flex:1;min-width:0"><div class="fm-tt">Identité</div>
+      <div class="fm-ta">Le nom tel qu'il figure sur les conventions et les attestations.</div></div>
+  </div>
+  <div class="fm-b">
+    <div class="fm-ident">
+      <div class="fm-photo" id="fm_photo"
+           onclick="document.getElementById('fm_fichier_photo').click()"
+           title="Choisir une photo, ou la glisser ici">
+        {% if pieces.photo %}<img src="/formateur/{{ f.id }}/photo?v={{ pieces.photo.quand }}" alt="">
+        {% else %}<span class="fm-init">{{ f.initiales or '?' }}</span>{% endif %}
+        <span class="fm-photo-v"><i class="ti ti-camera"></i></span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="fm-g">
+          <div class="fm-ch"><label>Civilité</label>
+            <select id="fm_civilite" onchange="fmModifie()">
+              <option value=""{% if not f.civilite %} selected{% endif %}>&mdash;</option>
+              {% for c in ["Dr", "Pr", "M.", "Mme"] %}
+              <option value="{{ c }}"{% if f.civilite == c %} selected{% endif %}>{{ c }}</option>
+              {% endfor %}
+              {# Une civilite saisie autrefois en texte libre ne doit pas quitter le
+                 menu : elle figure deja sur des documents emis. #}
+              {% if f.civilite and f.civilite not in ["Dr", "Pr", "M.", "Mme"] %}
+              <option value="{{ f.civilite }}" selected>{{ f.civilite }}</option>
+              {% endif %}
+            </select></div>
+          <div class="fm-ch"><label>NOM</label>
+            <input id="fm_nom" value="{{ f.nom }}" placeholder="DUPONT" oninput="fmModifie()"></div>
+          <div class="fm-ch"><label>Prénom</label>
+            <input id="fm_prenom" value="{{ f.prenom }}" placeholder="Marie" oninput="fmModifie()"></div>
+        </div>
+        {% if pieces.photo %}
+        <div class="fm-h" style="margin-top:9px">
+          <a href="#" onclick="fmRetirer('{{ pieces.photo.id }}');return false"
+             style="color:var(--muted)">Retirer la photo</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% if organismes_lies %}
+    <div class="fm-liens">
+      <i class="ti ti-building"></i>
+      <span>Intervient pour
+        {% for o in organismes_lies %}<b class="{{ 'ici' if o.actif }}">{{ o.nom }}</b>{% if not loop.last %}, {% endif %}{% endfor %}.
+        {% if organismes_lies|length > 1 %}
+        Son CV, son diplôme et ses pièces sont les mêmes partout&nbsp;: les modifier ici
+        les modifie pour tous. Les <b>formations</b> ci-dessous, elles, ne valent que pour
+        l'organisme actif.{% endif %}
+      </span>
+    </div>
+    {% endif %}
+    <div class="fm-ch" style="margin-top:14px"><label>Fonction</label>
+      <input id="fm_fonction" value="{{ f.fonction }}"
+             placeholder="Chirurgien-dentiste, responsable pédagogique" oninput="fmModifie()">
+      <div class="fm-h">La qualité au titre de laquelle cette personne intervient. Un auditeur
+        la rapproche du CV et des diplômes ci-dessous.</div></div>
+    <div class="fm-etat" id="fm_etat"></div>
+  </div>
+</div>
+
+<div class="fm-c">
+  <div class="fm-t">
+    <div class="fm-ic"><i class="ti ti-books"></i></div>
+    <div style="flex:1;min-width:0"><div class="fm-tt">Formations délivrées</div>
+      <div class="fm-ta">Celles pour lesquelles cette personne est le formateur désigné.</div></div>
+  </div>
+  <div class="fm-b">
+    {% for c in catalogue %}
+    <label class="fm-f">
+      <input type="checkbox" value="{{ c.code }}" {{ 'checked' if c.code in f.formations }}
+             onchange="fmModifie()">
+      <span><b>{{ c.nom }}</b>{% if c.titre %}<span>{{ c.titre }}</span>{% endif %}</span>
+    </label>
+    {% else %}
+    <div class="fm-h">Aucune formation dans la bibliothèque.</div>
+    {% endfor %}
+    <div class="fm-h" style="margin-top:10px">Chaque formation doit avoir un formateur désigné&nbsp;:
+      sans cela, rien ne prouve que quelqu'un est compétent pour la délivrer.</div>
+  </div>
+</div>
+
+<div class="fm-c">
+  <div class="fm-t">
+    <div class="fm-ic"><i class="ti ti-file-certificate"></i></div>
+    <div style="flex:1;min-width:0"><div class="fm-tt">Pièces justificatives</div>
+      <div class="fm-ta">Rangées dans le dossier de cet organisme, sur cet ordinateur — indicateur 21.</div></div>
+  </div>
+  <div class="fm-b">
+    <div id="fm_cv"></div>
+    <div id="fm_diplome"></div>
+    <div style="margin:16px 0 9px;font-size:12px;color:var(--muted);font-weight:600;
+                text-transform:uppercase;letter-spacing:.6px">Pièces complémentaires</div>
+    <div id="fm_autres"></div>
+    <div class="fm-depot" id="fm_depot" onclick="document.getElementById('fm_fichier').click()">
+      <i class="ti ti-upload"></i>
+      <b>Choisir des fichiers</b> ou les glisser ici<br>
+      <span style="font-size:11.5px">Attestations, formations suivies, publications, expérience…</span>
+    </div>
+    <input type="file" id="fm_fichier" multiple style="display:none"
+           onchange="fmDeposer(this.files,'autre'); this.value=''">
+    <input type="file" id="fm_fichier_cv" style="display:none"
+           onchange="fmDeposer(this.files,'cv'); this.value=''">
+    <input type="file" id="fm_fichier_diplome" style="display:none"
+           onchange="fmDeposer(this.files,'diplome'); this.value=''">
+    <input type="file" id="fm_fichier_photo" accept="image/*" style="display:none"
+           onchange="fmDeposer(this.files,'photo'); this.value=''">
+    <div class="fm-etat" id="fm_etat_p"></div>
+  </div>
+</div>
+
+<script>
+var FM_ID = {{ f.id|tojson }};
+var FM_PIECES = {{ pieces|tojson }};
+var FM_MANQUES = {{ f.manques|tojson }};
+var FM_ATTENTE = null;
+
+function fmEch(t){ var d=document.createElement("div"); d.textContent=t||""; return d.innerHTML; }
+
+function fmLigneObligatoire(role, libelle, piece){
+  if(piece){
+    return '<div class="fm-p fm-zone" data-role="'+role+'">'
+      + '<i class="ti ti-file-check gros" style="color:var(--success)"></i>'
+      + '<div class="fm-px"><div class="fm-pn"><a href="'+piece.lien+'" target="_blank" rel="noopener">'
+      + fmEch(piece.nom)+'</a></div><div class="fm-pd">'+libelle+' · '+piece.poids+' · '+piece.quand+'</div></div>'
+      + '<button class="fm-x" title="Remplacer" onclick="document.getElementById(\'fm_fichier_'+role+'\').click()">'
+      + '<i class="ti ti-refresh" style="font-size:14px"></i></button>'
+      + '<button class="fm-x" title="Retirer (mis de cote, jamais detruit)" '
+      + 'onclick="fmRetirer(\''+piece.id+'\')">&times;</button></div>';
+  }
+  return '<div class="fm-p manque fm-zone" data-role="'+role+'" style="cursor:pointer" '
+    + 'onclick="document.getElementById(\'fm_fichier_'+role+'\').click()">'
+    + '<i class="ti ti-alert-triangle gros" style="color:#d4890a"></i>'
+    + '<div class="fm-px"><div class="fm-pn">'+libelle+' manquant</div>'
+    + '<div class="fm-pd">Pièce attendue en contrôle. Glissez le fichier ici, ou cliquez.</div></div>'
+    + '<i class="ti ti-upload" style="color:var(--muted)"></i></div>';
+}
+
+function fmRendre(){
+  document.getElementById("fm_cv").innerHTML = fmLigneObligatoire("cv","CV",FM_PIECES.cv);
+  document.getElementById("fm_diplome").innerHTML = fmLigneObligatoire("diplome","Diplôme",FM_PIECES.diplome);
+  var a = FM_PIECES.autres || [];
+  document.getElementById("fm_autres").innerHTML = a.length ? a.map(function(p){
+    return '<div class="fm-p"><i class="ti ti-file gros"></i>'
+      + '<div class="fm-px"><div class="fm-pn"><a href="'+p.lien+'" target="_blank" rel="noopener">'
+      + fmEch(p.nom)+'</a></div><div class="fm-pd">'+p.poids+' · '+p.quand+'</div></div>'
+      + '<button class="fm-x" title="Retirer (mis de cote, jamais detruit)" '
+      + 'onclick="fmRetirer(\''+p.id+'\')">&times;</button></div>';
+  }).join("") : '<div class="fm-h" style="margin-bottom:9px">Aucune pièce complémentaire.</div>';
+
+  fmBrancherZones();
+  var z = document.getElementById("fm_alertes");
+  if(FM_MANQUES && FM_MANQUES.length){
+    z.innerHTML = '<div class="fm-al"><i class="ti ti-alert-triangle"></i><div>'
+      + '<b>Dossier incomplet : '+FM_MANQUES.join(" et ").toLowerCase()+' manquant'
+      + (FM_MANQUES.length>1?'s':'')+'.</b> L\'indicateur 21 demande de prouver la compétence '
+      + 'des intervenants. Un nom sur une convention n\'y suffit pas.</div></div>';
+  } else { z.innerHTML = ""; }
+}
+
+function fmBrancherZones(){
+  Array.prototype.forEach.call(document.querySelectorAll(".fm-zone"), function(z){
+    var role = z.getAttribute("data-role");
+    ["dragenter","dragover"].forEach(function(e){
+      z.addEventListener(e, function(ev){ ev.preventDefault(); z.classList.add("survol"); }); });
+    ["dragleave","drop"].forEach(function(e){
+      z.addEventListener(e, function(ev){ ev.preventDefault(); z.classList.remove("survol"); }); });
+    z.addEventListener("drop", function(ev){
+      // UN SEUL FICHIER. Le CV et le diplome n'ont qu'une place : lacher trois
+      // fichiers sur la ligne « CV » en deposerait trois l'un sur l'autre, et
+      // seul le dernier resterait, sans que personne l'ait demande.
+      var f = ev.dataTransfer && ev.dataTransfer.files;
+      if(!f || !f.length) return;
+      if(f.length > 1){
+        document.getElementById("fm_etat_p").textContent =
+          "Un seul fichier pour le CV et le diplôme : le premier a été pris.";
+      }
+      fmDeposer([f[0]], role);
+    });
+  });
+}
+
+function fmFormations(){
+  return Array.prototype.slice.call(
+    document.querySelectorAll(".fm-f input:checked")).map(function(i){ return i.value; });
+}
+function fmModifie(){
+  clearTimeout(FM_ATTENTE);
+  document.getElementById("fm_etat").textContent = "Modification en cours…";
+  FM_ATTENTE = setTimeout(fmEnregistrer, 700);
+}
+function fmEnregistrer(){
+  var d = {civilite: document.getElementById("fm_civilite").value,
+           nom: document.getElementById("fm_nom").value,
+           prenom: document.getElementById("fm_prenom").value,
+           fonction: document.getElementById("fm_fonction").value,
+           formations: fmFormations()};
+  fetch("/formateur/"+FM_ID+"/enregistrer", {method:"POST",
+    headers:{"Content-Type":"application/json"}, body: JSON.stringify(d)})
+    .then(r=>r.json()).then(function(r){
+      document.getElementById("fm_etat").textContent = r.ok ? "Enregistré." : (r.message||"Échec.");
+      if(r.ok) setTimeout(function(){ document.getElementById("fm_etat").textContent=""; }, 2000);
+    });
+}
+function fmDeposer(fichiers, role){
+  if(!fichiers || !fichiers.length) return;
+  var etat = document.getElementById("fm_etat_p");
+  var restants = fichiers.length, soucis = [];
+  etat.textContent = "Dépôt en cours…";
+  Array.prototype.forEach.call(fichiers, function(f){
+    var fd = new FormData(); fd.append("piece", f); fd.append("role", role);
+    fetch("/formateur/"+FM_ID+"/deposer", {method:"POST", body:fd}).then(r=>r.json())
+      .then(function(d){ if(!d.ok) soucis.push(f.name+" : "+(d.message||"")); })
+      .catch(function(e){ soucis.push(f.name+" : "+e); })
+      .finally(function(){
+        restants--;
+        if(restants<=0){ etat.textContent = soucis.join(" — "); fmRecharger(); }
+      });
+  });
+}
+function fmRetirer(id){
+  if(!confirm("Retirer cette pièce ?\n\nElle est déplacée dans « documents/_corbeille » "
+            + "et reste récupérable — DFM ne détruit rien.")) return;
+  var fd = new FormData(); fd.append("id", id);
+  fetch("/formateur/"+FM_ID+"/retirer", {method:"POST", body:fd}).then(r=>r.json())
+    .then(function(d){
+      if(!d.ok) document.getElementById("fm_etat_p").textContent = d.message||"";
+      fmRecharger();
+    });
+}
+function fmRecharger(){ window.location.reload(); }
+
+(function(){
+  var z = document.getElementById("fm_depot");
+  ["dragenter","dragover"].forEach(function(e){
+    z.addEventListener(e, function(ev){ ev.preventDefault(); z.classList.add("survol"); }); });
+  ["dragleave","drop"].forEach(function(e){
+    z.addEventListener(e, function(ev){ ev.preventDefault(); z.classList.remove("survol"); }); });
+  z.addEventListener("drop", function(ev){
+    if(ev.dataTransfer && ev.dataTransfer.files) fmDeposer(ev.dataTransfer.files, "autre"); });
+
+  // La photo accepte le glisser-deposer comme le reste : ce serait deroutant
+  // d'etre la seule zone de la page a ne pas le faire.
+  var p = document.getElementById("fm_photo");
+  if(p){
+    ["dragenter","dragover"].forEach(function(e){
+      p.addEventListener(e, function(ev){ ev.preventDefault(); p.classList.add("survol"); }); });
+    ["dragleave","drop"].forEach(function(e){
+      p.addEventListener(e, function(ev){ ev.preventDefault(); p.classList.remove("survol"); }); });
+    p.addEventListener("drop", function(ev){
+      if(ev.dataTransfer && ev.dataTransfer.files) fmDeposer(ev.dataTransfer.files, "photo"); });
+  }
+  fmRendre();
+})();
+</script>
+{% endblock %}

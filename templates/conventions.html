@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% block titre %}Conventions{% endblock %}
+{% block entete %}Conventions de formation{% endblock %}
+{% block sous_entete %}Toutes sessions confondues · signature, génération et relances{% endblock %}
+{% block actions %}
+<select class="cv-per" id="cv_periode" onchange="cvPeriode()" title="Filtrer sur une periode de session">
+  <option value="tout"{{ " selected" if periode_defaut == "tout" }}>Toutes les sessions</option>
+  <option value="m3"{{ " selected" if periode_defaut == "m3" }}>3 derniers mois</option>
+  <option value="m6"{{ " selected" if periode_defaut == "m6" }}>6 derniers mois</option>
+  <option value="m12"{{ " selected" if periode_defaut == "m12" }}>12 derniers mois</option>
+  <option value="avenir"{{ " selected" if periode_defaut == "avenir" }}>Sessions à venir</option>
+  <option value="annee"{{ " selected" if periode_defaut == "annee" }}>Année en cours</option>
+  <option value="perso">Période personnalisée…</option>
+</select>
+<span id="cv_dates" style="display:none;gap:6px;align-items:center">
+  <input type="date" class="cv-per" id="cv_du" onchange="cvFiltrer()" title="Date de debut">
+  <input type="date" class="cv-per" id="cv_au" onchange="cvFiltrer()" title="Date de fin">
+</span>
+<a class="btn btn-ghost" title="Telecharger la liste au format CSV" href="/conventions/export.csv"><i class="ti ti-download"></i>Exporter</a>
+{% endblock %}
+{% block corps %}
+<style>
+.cv-per{border:1px solid var(--border2);border-radius:8px;padding:7px 10px;font-size:12px;background:var(--carte);color:var(--text);font-family:inherit;cursor:pointer}
+.cv-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.cv-kpi{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden}
+.cv-acc{position:absolute;left:0;top:0;bottom:0;width:3px}
+.cv-lab{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+.cv-val{font-size:26px;font-weight:500;line-height:1;font-variant-numeric:tabular-nums}
+.cv-sub{font-size:11px;color:var(--muted);margin-top:6px}
+.cv-bande{border-radius:10px;padding:13px 16px;font-size:12.5px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-start;line-height:1.55}
+.cv-rouge{background:#fdeaea;border:1px solid #f0b8b8;color:#8a2020}
+.cv-orange{background:#fdf3e3;border:1px solid #f0cf94;color:#8a5a06}
+.cv-bande i{flex-shrink:0;margin-top:1px;font-size:16px}
+.cv-outils{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap}
+.cv-filtres{display:flex;gap:6px;flex-wrap:wrap}
+.cv-fb{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--carte);color:var(--muted);font-size:12px;cursor:pointer;font-family:inherit}
+.cv-fb.on{background:#eef3fe;color:var(--accent);border-color:var(--accent)}
+.cv-fb.alerte{border-color:#f0b8b8;color:var(--danger)}
+.cv-fb.alerte.on{background:#fdeaea;border-color:var(--danger)}
+.cv-rech{display:flex;align-items:center;gap:6px;background:var(--carte);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;min-width:220px}
+.cv-rech input{border:none;outline:none;font-size:12px;font-family:inherit;width:100%;color:var(--text)}
+.cv-tri{cursor:pointer;user-select:none;white-space:nowrap}
+.cv-tri:hover{color:var(--accent)}
+.cv-tri i{font-size:11px;opacity:.4}
+.cv-tri.actif i{opacity:1;color:var(--accent)}
+.cv-tag{display:inline-flex;align-items:center;gap:5px;font-size:12px}
+.cv-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.cv-lien{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:11px;text-decoration:none;color:var(--text);white-space:nowrap}
+.cv-lien:hover{border-color:var(--accent);color:var(--accent)}
+.cv-relb{background:none;border:1px dashed var(--border2);border-radius:20px;padding:3px 9px;font-size:10.5px;color:var(--muted);cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.cv-relb:hover{border-style:solid;border-color:var(--warn);color:var(--warn);background:#fdf3e3}
+.cv-age{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap}
+.cv-a0{background:var(--bg);color:var(--muted)}
+.cv-a1{background:#fef7ec;color:var(--warn)}
+.cv-a2{background:#fdeaea;color:var(--danger)}
+.cv-urg{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:#fdeaea;color:var(--danger);white-space:nowrap;margin-left:5px}
+.cv-urg.moyenne{background:#fdf3e3;color:var(--warn)}
+.cv-anom{font-size:10.5px;color:var(--danger);margin-top:3px;display:flex;align-items:center;gap:4px}
+.cv-vide{padding:34px;text-align:center;color:var(--muted);font-size:13px}
+.cv-pied{background:#fafafa;font-weight:500}
+.cv-pied td{border-top:2px solid var(--border);padding:12px}
+</style>
+<div class="cv-kpis">
+  <div class="cv-kpi"><div class="cv-acc" style="background:var(--accent)"></div>
+    <div class="cv-lab">Conventions</div>
+    <div class="cv-val" id="k_total">{{ nb_total }}</div>
+    <div class="cv-sub">inscrits actifs, toutes sessions</div>
+  </div>
+  <div class="cv-kpi"><div class="cv-acc" style="background:var(--success)"></div>
+    <div class="cv-lab">Signées</div>
+    <div class="cv-val" style="color:var(--success)" id="k_signees">{{ nb_signees }}</div>
+    <div class="cv-sub">{% if taux is not none %}{{ taux }} % du total{% else %}—{% endif %}</div>
+  </div>
+  <div class="cv-kpi"><div class="cv-acc" style="background:var(--warn)"></div>
+    <div class="cv-lab">En attente</div>
+    <div class="cv-val" style="color:var(--warn)" id="k_attente">{{ nb_attente }}</div>
+    <div class="cv-sub">{{ nb_non_envoyees }} pas encore envoyée{{ 's' if nb_non_envoyees > 1 }}</div>
+  </div>
+  <div class="cv-kpi"><div class="cv-acc" style="background:var(--danger)"></div>
+    <div class="cv-lab">Session imminente</div>
+    <div class="cv-val" style="color:var(--danger)" id="k_urgentes">{{ nb_urgentes }}</div>
+    <div class="cv-sub">non signées à moins de 20 jours</div>
+  </div>
+  <div class="cv-kpi"><div class="cv-acc" style="background:var(--muted)"></div>
+    <div class="cv-lab">Anomalies</div>
+    <div class="cv-val">{{ nb_anomalies }}</div>
+    <div class="cv-sub">document introuvable</div>
+  </div>
+</div>
+{% if nb_urgentes %}
+<div class="cv-bande cv-rouge"><i class="ti ti-alert-triangle"></i>
+  <span><b>{{ nb_urgentes }} convention{{ 's' if nb_urgentes > 1 }} non signée{{ 's' if nb_urgentes > 1 }} pour une session qui approche.</b>
+  Sans convention signée, l'inscription n'est pas juridiquement formée et la présence du praticien vous expose. Filtrez sur <b>Session imminente</b> pour les traiter.</span></div>
+{% endif %}
+{% if nb_anomalies %}
+<div class="cv-bande cv-orange"><i class="ti ti-file-alert"></i>
+  <span><b>{{ nb_anomalies }} convention{{ 's' if nb_anomalies > 1 }} marquée{{ 's' if nb_anomalies > 1 }} signée{{ 's' if nb_anomalies > 1 }} sans document dans le Drive.</b>
+  La génération a échoué : le praticien croit avoir signé, et vous n'avez pas de pièce à produire en audit.</span></div>
+{% endif %}
+<div class="cv-outils">
+  <div class="cv-filtres">
+    <button class="cv-fb on" data-f="tous" onclick="cvChoisir(this)">Toutes ({{ nb_total }})</button>
+    <button class="cv-fb" data-f="signee" onclick="cvChoisir(this)">Signées ({{ nb_signees }})</button>
+    <button class="cv-fb" data-f="attente" onclick="cvChoisir(this)">En attente ({{ nb_attente }})</button>
+    <button class="cv-fb" data-f="non_envoyee" onclick="cvChoisir(this)">Pas envoyées ({{ nb_non_envoyees }})</button>
+    {% if nb_urgentes %}<button class="cv-fb alerte" data-f="urgent" onclick="cvChoisir(this)">Session imminente ({{ nb_urgentes }})</button>{% endif %}
+    {% if nb_anomalies %}<button class="cv-fb alerte" data-f="anomalie" onclick="cvChoisir(this)">Anomalies ({{ nb_anomalies }})</button>{% endif %}
+    {% for nom, n in formations %}<button class="cv-fb" data-f="formation:{{ nom }}" onclick="cvChoisir(this)">{{ nom }} ({{ n }})</button>{% endfor %}
+  </div>
+  <div class="cv-rech"><i class="ti ti-search" style="font-size:13px;color:var(--muted)"></i><input type="text" id="cv_q" placeholder="Rechercher un praticien, une formation..." oninput="cvFiltrer()"></div>
+</div>
+<div class="table-wrap"><div class="table-scroll">
+<table style="min-width:1020px">
+  <thead><tr>
+    <th class="cv-tri" data-tri="nom" onclick="cvTrier(this)">Praticien <i class="ti ti-arrows-sort"></i></th>
+    <th class="cv-tri" style="width:200px" data-tri="formation" onclick="cvTrier(this)">Formation et session <i class="ti ti-arrows-sort"></i></th>
+    <th style="width:150px">Statut</th>
+    <th class="cv-tri" style="width:95px" data-tri="jours" onclick="cvTrier(this)">Attente <i class="ti ti-arrows-sort"></i></th>
+    <th class="cv-tri" style="width:105px" data-tri="genere" onclick="cvTrier(this)">Générée le <i class="ti ti-arrows-sort"></i></th>
+    <th style="width:80px">Relances</th>
+    <th style="width:210px"></th>
+  </tr></thead>
+  <tbody id="cv_corps">
+  {% for l in lignes %}
+    <tr data-statut="{{ l.statut }}" data-formation="{{ l.formation }}" data-annee="{{ l.debut[:4] }}" data-debut="{{ l.debut }}"
+        data-urgent="{{ 'oui' if l.urgence else 'non' }}" data-anomalie="{{ 'oui' if l.anomalie else 'non' }}"
+        data-nom="{{ l.nom }}" data-jours="{{ l.jours if l.jours is not none else -1 }}"
+        data-genere="{{ l.genere_iso }}"
+        data-rech="{{ (l.nom ~ ' ' ~ l.mail ~ ' ' ~ l.formation ~ ' ' ~ l.session)|lower }}">
+      <td>
+        <strong style="font-size:12px">{{ l.nom }}</strong>
+        <a class="icon-btn" style="width:22px;height:20px" title="Ouvrir la fiche de cet apprenant" href="/apprenant/{{ l.mail }}"><i class="ti ti-user-circle" style="font-size:14px"></i></a>
+        <div style="color:var(--muted);font-size:10px">{{ l.mail }}</div>
+        {% if l.anomalie %}<div class="cv-anom"><i class="ti ti-alert-circle" style="font-size:12px"></i>{{ l.anomalie }}</div>{% endif %}
+      </td>
+      <td>
+        <span class="cv-tag"><span class="cv-dot" style="background:{{ l.couleur }}"></span>{{ l.formation }}</span>
+        <div style="color:var(--muted);font-size:10px;margin-top:2px">{{ l.session_texte }}</div>
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--border2);margin-top:1px">{{ l.formation_code }} · {{ l.session }}</div>
+      </td>
+      <td>
+        {% if l.statut == 'signee' %}<span class="chip chip-g"><span class="dot dot-g"></span>Signée{% if l.signe_le %} le {{ l.signe_le }}{% endif %}</span>
+        {% elif l.statut == 'attente' %}<span class="chip chip-w"><span class="dot dot-w"></span>En attente</span>
+        {% else %}<span class="chip chip-gray">Pas encore envoyée</span>{% endif %}
+        {% if l.urgence == 'haute' %}<span class="cv-urg">session dans {{ l.avant }} j</span>
+        {% elif l.urgence == 'moyenne' %}<span class="cv-urg moyenne">session dans {{ l.avant }} j</span>{% endif %}
+      </td>
+      <td>{% if l.jours is not none %}<span class="cv-age {{ 'cv-a2' if l.jours >= 20 else ('cv-a1' if l.jours >= 10 else 'cv-a0') }}">{{ l.jours }} j</span>{% else %}<span style="color:var(--border2)">—</span>{% endif %}</td>
+      <td style="font-size:11px">{{ l.genere_le or '—' }}</td>
+      <td>{% if l.relances %}<span class="chip chip-w" title="Derniere relance le {{ l.derniere_relance }}">{{ l.relances }}</span>{% else %}<span style="color:var(--border2)">—</span>{% endif %}</td>
+      <td style="white-space:nowrap">
+        {% if l.lien %}<a class="cv-lien" href="{{ l.lien }}" target="_blank" title="Ouvrir la convention dans le Drive"><i class="ti ti-file-check" style="font-size:13px"></i>Convention</a>{% endif %}
+        {% if l.statut == 'attente' %}<button type="button" class="cv-relb" title="Relancer pour la signature" data-mail="{{ l.mail }}" data-session="{{ l.session }}" onclick="cvRelancer(this)"><i class="ti ti-bell" style="font-size:11px"></i>Relancer</button>{% endif %}
+        <a class="cv-lien" href="/session/{{ l.session }}" title="Ouvrir la session"><i class="ti ti-calendar-event" style="font-size:13px"></i></a>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="cv-vide"><i class="ti ti-file-off" style="font-size:22px;display:block;margin-bottom:8px"></i>Aucune convention à afficher</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr class="cv-pied"><td colspan="7" id="cv_pied">{{ nb_total }} ligne{{ 's' if nb_total > 1 }}</td></tr>
+  </tfoot>
+</table>
+</div></div>
+<div class="rl-voile" id="rl_voile"><div class="rl-modale" id="rl_modale"></div></div>
+<style>
+.rl-voile{position:fixed;inset:0;background:rgba(16,18,30,.6);display:none;align-items:center;justify-content:center;z-index:70;padding:20px}
+.rl-modale{background:var(--carte);border-radius:14px;padding:26px 28px;max-width:480px;width:100%;max-height:90vh;overflow:auto}
+.rl-t{font-size:17px;font-weight:500;margin-bottom:4px}
+.rl-st{font-size:13px;color:var(--muted);margin-bottom:18px}
+.rl-bloc{border-radius:8px;padding:12px 14px;font-size:12px;margin-bottom:12px}
+.rl-neutre{background:var(--bg);border:1px solid var(--border)}
+.rl-orange{background:#fdf3e3;border:1px solid #f0cf94;color:#8a5a06}
+.rl-vert{background:#eafaf3;border:1px solid #9fe1cb;color:#0f6e56}
+.rl-l{display:flex;align-items:flex-start;gap:8px;padding:3px 0}
+.rl-l i{flex-shrink:0;margin-top:1px}
+.rl-pied{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+.rl-ok{background:var(--warn);color:#fff}
+</style>
+<script>
+var CV_FILTRE = "tous", CV_TRI = "", CV_SENS = 1;
+function cvBornes(){
+  var choix = document.getElementById("cv_periode").value;
+  var au = "", du = "";
+  var t = new Date();
+  var iso = function(d){ return d.toISOString().slice(0, 10); };
+  if(choix === "m3"){ var a = new Date(t); a.setMonth(a.getMonth() - 3); du = iso(a); au = iso(t); }
+  else if(choix === "m6"){ var b = new Date(t); b.setMonth(b.getMonth() - 6); du = iso(b); au = iso(t); }
+  else if(choix === "m12"){ var c = new Date(t); c.setFullYear(c.getFullYear() - 1); du = iso(c); au = iso(t); }
+  else if(choix === "avenir"){ du = iso(t); }
+  else if(choix === "annee"){ du = t.getFullYear() + "-01-01"; au = t.getFullYear() + "-12-31"; }
+  else if(choix === "perso"){
+    du = document.getElementById("cv_du").value || "";
+    au = document.getElementById("cv_au").value || "";
+  }
+  return {du: du, au: au};
+}
+function cvToutVoir(){
+  document.getElementById("cv_periode").value = "tout";
+  cvPeriode();
+}
+function cvPeriode(){
+  var perso = (document.getElementById("cv_periode").value === "perso");
+  document.getElementById("cv_dates").style.display = perso ? "inline-flex" : "none";
+  cvFiltrer();
+}
+function cvLignes(){ return document.querySelectorAll("#cv_corps tr[data-statut]"); }
+function cvChoisir(b){
+  var t = document.querySelectorAll(".cv-fb");
+  for(var i = 0; i < t.length; i++){ t[i].classList.remove("on"); }
+  b.classList.add("on");
+  CV_FILTRE = b.dataset.f;
+  cvFiltrer();
+}
+function cvTrier(th){
+  var cle = th.dataset.tri;
+  CV_SENS = (CV_TRI === cle) ? -CV_SENS : 1;
+  CV_TRI = cle;
+  var ths = document.querySelectorAll(".cv-tri");
+  for(var i = 0; i < ths.length; i++){ ths[i].classList.remove("actif"); }
+  th.classList.add("actif");
+  var corps = document.getElementById("cv_corps");
+  var lignes = [];
+  var brut = cvLignes();
+  for(var j = 0; j < brut.length; j++){ lignes.push(brut[j]); }
+  var nombre = (cle === "jours");
+  lignes.sort(function(a, b){
+    var x = a.dataset[cle] || "", y = b.dataset[cle] || "";
+    if(nombre){ return (parseFloat(x || 0) - parseFloat(y || 0)) * CV_SENS; }
+    return x.localeCompare(y) * CV_SENS;
+  });
+  for(var k = 0; k < lignes.length; k++){ corps.appendChild(lignes[k]); }
+}
+function cvFiltrer(){
+  var q = (document.getElementById("cv_q").value || "").toLowerCase().trim();
+  var bornes = cvBornes();
+  var lignes = cvLignes();
+  var n = 0, signees = 0, attente = 0, urgentes = 0, horsPeriode = 0;
+  for(var i = 0; i < lignes.length; i++){
+    var tr = lignes[i], ok = true;
+    if(CV_FILTRE === "signee" && tr.dataset.statut !== "signee") ok = false;
+    if(CV_FILTRE === "attente" && tr.dataset.statut !== "attente") ok = false;
+    if(CV_FILTRE === "non_envoyee" && tr.dataset.statut !== "non_envoyee") ok = false;
+    if(CV_FILTRE === "urgent" && tr.dataset.urgent !== "oui") ok = false;
+    if(CV_FILTRE === "anomalie" && tr.dataset.anomalie !== "oui") ok = false;
+    if(CV_FILTRE.indexOf("formation:") === 0 && tr.dataset.formation !== CV_FILTRE.slice(10)) ok = false;
+    var d = tr.dataset.debut || "";
+    // Comptabilise separement ce que masque le filtre de periode, pour pouvoir
+    // le dire : un tableau vide qui contredit ses compteurs fait douter de tout.
+    if((bornes.du && (!d || d < bornes.du)) || (bornes.au && (!d || d > bornes.au))){
+      ok = false; horsPeriode++;
+    }
+    if(q && (tr.dataset.rech || "").indexOf(q) === -1) ok = false;
+    tr.style.display = ok ? "" : "none";
+    if(!ok) continue;
+    n++;
+    if(tr.dataset.statut === "signee") signees++;
+    if(tr.dataset.statut === "attente") attente++;
+    if(tr.dataset.urgent === "oui") urgentes++;
+  }
+  document.getElementById("k_total").textContent = n;
+  document.getElementById("k_signees").textContent = signees;
+  document.getElementById("k_attente").textContent = attente;
+  document.getElementById("k_urgentes").textContent = urgentes;
+  var pied = document.getElementById("cv_pied");
+  if(n === 0 && horsPeriode > 0){
+    pied.innerHTML = 'Aucune convention sur cette période — <b>' + horsPeriode
+      + '</b> masquée(s) par le filtre. '
+      + '<a href="#" onclick="cvToutVoir();return false;" style="color:var(--accent)">Voir toutes les sessions</a>';
+  } else {
+    pied.textContent = n + " ligne(s) affichée(s) · " + signees + " signée(s) · " + attente + " en attente"
+      + (horsPeriode ? " · " + horsPeriode + " hors période" : "");
+  }
+}
+var RL_MAIL = "", RL_SESSION = "";
+function rlFermer(){ document.getElementById("rl_voile").style.display = "none"; }
+function rlOuvrir(h){ document.getElementById("rl_modale").innerHTML = h; document.getElementById("rl_voile").style.display = "flex"; }
+function rlFerme(){ return '<div class="rl-pied"><button class="btn btn-ghost" onclick="rlFermer()">Fermer</button></div>'; }
+function cvRelancer(bouton){
+  RL_MAIL = bouton.dataset.mail || "";
+  RL_SESSION = bouton.dataset.session || "";
+  rlOuvrir('<div class="rl-t">Vérification…</div>');
+  fetch("/session/" + RL_SESSION + "/relance/impact?mail=" + encodeURIComponent(RL_MAIL))
+  .then(function(r){return r.json()}).then(function(j){
+    if(!j.ok){ rlOuvrir('<div class="rl-t">' + (j.message || "Erreur") + '</div>' + rlFerme()); return; }
+    var h = '<div class="rl-t">Relancer pour la signature</div><div class="rl-st">' + j.nom + ' · ' + j.mail + '</div>';
+    h += '<div class="rl-bloc rl-neutre"><div class="rl-l"><i class="ti ti-mail-forward"></i><span>';
+    h += (j.depuis === null || j.depuis === undefined) ? "Convention envoyée (date inconnue)" : ("Convention envoyée il y a <b>" + j.depuis + " jour(s)</b>");
+    h += '</span></div>';
+    if(j.nb > 0){ h += '<div class="rl-l"><i class="ti ti-history"></i><span><b>' + j.nb + ' relance(s) déjà envoyée(s)</b> : ' + j.dates.join(", ") + '</span></div>'; }
+    else { h += '<div class="rl-l"><i class="ti ti-history"></i><span>Aucune relance envoyée jusqu\'ici</span></div>'; }
+    h += '</div>';
+    if(j.recent){ h += '<div class="rl-bloc rl-orange"><div class="rl-l"><i class="ti ti-alert-triangle"></i><span><b>Dernière relance il y a ' + j.dernier_jours + ' jour(s).</b> C\'est récent.</span></div></div>'; }
+    h += '<div class="rl-bloc rl-vert"><div class="rl-l"><i class="ti ti-send"></i><span>Le mail part immédiatement avec le lien de signature.</span></div></div>';
+    h += '<div class="rl-pied"><button class="btn btn-ghost" onclick="rlFermer()">Annuler</button>';
+    h += '<button class="btn rl-ok" onclick="cvEnvoyer(this)"><i class="ti ti-send"></i>Envoyer la relance</button></div>';
+    rlOuvrir(h);
+  }).catch(function(e){ rlOuvrir('<div class="rl-t">Erreur : ' + e + '</div>' + rlFerme()); });
+}
+function cvEnvoyer(bouton){
+  bouton.disabled = true;
+  bouton.innerHTML = "Envoi…";
+  var fd = new FormData();
+  fd.append("mail", RL_MAIL);
+  fetch("/session/" + RL_SESSION + "/relance", {method: "POST", body: fd})
+  .then(function(r){return r.json()}).then(function(j){
+    if(!j.ok){ rlOuvrir('<div class="rl-t">Relance non envoyée</div><div class="rl-bloc rl-orange">' + (j.message || "Erreur") + '</div>' + rlFerme()); return; }
+    var h = '<div class="rl-t">Relance envoyée</div><div class="rl-st">' + j.nom + '</div>';
+    h += '<div class="rl-l"><i class="ti ti-circle-check" style="color:var(--success)"></i><span>Relance n°' + j.numero + '</span></div>';
+    h += '<div class="rl-pied"><button class="btn btn-primary" onclick="window.location.href=window.location.pathname">Fermer</button></div>';
+    rlOuvrir(h);
+  }).catch(function(e){ bouton.disabled = false; alert("Erreur : " + e); });
+}
+document.addEventListener("click", function(e){ if(e.target && e.target.id === "rl_voile") rlFermer(); });
+document.addEventListener("keydown", function(e){ if(e.key === "Escape") rlFermer(); });
+cvFiltrer();
+</script>
+{% endblock %}

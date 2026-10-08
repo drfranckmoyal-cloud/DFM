@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+{% block titre %}Messagerie{% endblock %}
+{% block entete %}Messagerie{% endblock %}
+{% block sous_entete %}Communications vers vos contacts — annonces, actualités, relances{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" href="/contacts"><i class="ti ti-database"></i>Bases de données</a>
+{% endblock %}
+{% block corps %}
+<style>
+.ms-b{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.ms-t{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600;margin-bottom:12px}
+.ms-f{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.ms-p{border:1px solid var(--border);background:var(--bg);color:var(--muted);border-radius:20px;
+  padding:6px 14px;font-size:12.5px;cursor:pointer;font-family:inherit}
+.ms-p.on{background:var(--accent);border-color:transparent;color:#fff}
+.ms-sep{width:1px;height:20px;background:var(--border);margin:0 5px}
+.ms-fam{font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:0 4px}
+/* LE COMPTEUR dit d'ou vient l'ecart. Un nombre qu'on ne peut pas expliquer
+   n'inspire pas confiance quand l'action est irreversible. */
+.ms-n{display:flex;align-items:baseline;gap:10px;margin-top:14px;padding-top:13px;border-top:1px solid var(--border)}
+.ms-n b{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums}
+.ms-n span{font-size:13px;color:var(--muted)}
+.ms-d{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.7}
+.ms-d em{color:var(--danger);font-style:normal}
+.ms-champ{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;
+  background:var(--bg);color:var(--text);font-size:13.5px;font-family:inherit}
+.ms-ap{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.ms-ap-t{padding:8px 13px;border-bottom:1px solid #e9ecf3;font-size:10.5px;text-transform:uppercase;
+  letter-spacing:1px;color:#8a90a2;background:#f7f8fb}
+.ms-ap iframe{width:100%;border:none;min-height:400px;display:block;background:#fff}
+.ms-pied{margin-top:10px;padding:11px 13px;border:1px dashed var(--border);border-radius:8px;
+  font-size:11.5px;color:var(--muted);line-height:1.6}
+.ms-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px;
+  padding-top:14px;border-top:1px solid var(--border)}
+.ms-j{display:grid;grid-template-columns:130px minmax(0,1fr) 92px 104px;gap:12px;align-items:center;
+  padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
+.ms-j:last-child{border-bottom:none}
+.ms-j-d{color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
+.ms-etat{font-size:11px;padding:2px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted)}
+.ms-etat.encours{border-color:var(--warn);color:var(--warn)}
+html[data-sombre] a.ms-lien{color:var(--accent)}
+@media(max-width:760px){.ms-j{grid-template-columns:1fr}}
+</style>
+
+<div class="ms-b">
+  <div class="ms-t">Destinataires</div>
+  <div class="ms-f" id="ms_filtres">
+    <button class="ms-p on" data-g="qualite" data-v="">Toute la base</button>
+    <button class="ms-p" data-g="qualite" data-v="apprenant">Apprenants</button>
+    <button class="ms-p" data-g="qualite" data-v="prospect">Prospects</button>
+    {% if fonctions %}<div class="ms-sep"></div><span class="ms-fam">Fonction</span>
+    {% for f in fonctions %}<button class="ms-p" data-g="fonction" data-v="{{ f }}">{{ f }}</button>{% endfor %}
+    {% endif %}
+    {% if marqueurs %}<div class="ms-sep"></div><span class="ms-fam">Marqueurs</span>
+    {% for m in marqueurs %}<button class="ms-p" data-g="m" data-v="{{ m.cle }}">{{ m.libelle }}</button>{% endfor %}
+    {% endif %}
+  </div>
+  <div class="ms-n"><b id="ms_nb">—</b><span>destinataire(s)</span></div>
+  <div class="ms-d" id="ms_detail">Chargement…</div>
+</div>
+
+<div class="ms-b">
+  <div class="ms-t">Message</div>
+  <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:11px">
+    <button class="btn btn-ghost" onclick="msModeles()"><i class="ti ti-file-text"></i>Choisir un message</button>
+    <a class="btn btn-ghost" href="/templates/communication/nouveau"><i class="ti ti-plus"></i>Composer un message</a>
+  </div>
+  <div id="ms_choisi" style="display:none">
+    <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+      <b style="font-size:14px" id="ms_titre">—</b>
+      <a class="ms-lien" id="ms_modifier" href="#">modifier ce message</a>
+    </div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:11px">
+      Objet : <span id="ms_objet_v">—</span>
+      <span id="ms_pieces"></span></div>
+    <div class="ms-ap"><div class="ms-ap-t">Aperçu — tel qu'il partira</div>
+      <iframe id="ms_frame" title="Aperçu du message"></iframe></div>
+  </div>
+  <div id="ms_vide" style="font-size:13px;color:var(--muted);padding:14px 0">
+    Choisissez un message enregistré, ou composez-en un nouveau.
+  </div>
+  <div class="ms-pied">
+    <i class="ti ti-lock" style="font-size:13px"></i>
+    Un pied est ajouté automatiquement à chaque envoi : identité de l'organisme, mention
+    d'origine et lien de désinscription. Il ne peut être ni modifié ni retiré.
+  </div>
+  <div class="ms-actions">
+    <button class="btn" onclick="msEssai(this)"><i class="ti ti-send"></i>M'envoyer un essai</button>
+    <button class="btn" id="ms_envoyer" onclick="msEnvoyer(this)" disabled
+            style="opacity:.5"><i class="ti ti-mail-forward"></i>Envoyer la campagne</button>
+    <span style="font-size:12px;color:var(--muted)" id="ms_garde">L'essai est obligatoire avant l'envoi.</span>
+  </div>
+</div>
+
+<div class="ms-b">
+  <div class="ms-t">Campagnes envoyées</div>
+  {% for c in campagnes %}
+  <div class="ms-j">
+    <span class="ms-j-d">{{ c.quand }}</span>
+    <span>{{ c.objet }}
+      {% if c.etat != 'terminee' %}<span class="ms-etat encours">interrompue</span>{% endif %}
+    </span>
+    <span class="ms-j-d">{{ c.servis|length }} / {{ c.vises|length }}</span>
+    <a class="ms-lien" href="/messagerie/campagne/{{ c.id }}" target="_blank" rel="noopener">voir le message</a>
+  </div>
+  {% else %}
+  <div style="padding:16px 0;color:var(--muted);font-size:13px">Aucune campagne envoyée pour l'instant.</div>
+  {% endfor %}
+</div>
+
+<script>
+var MS_ESSAI_FAIT = false;
+
+function msEtat(){
+  var e = {qualite: "", fonction: "", m: []};
+  document.querySelectorAll("#ms_filtres .ms-p.on").forEach(function(b){
+    var g = b.getAttribute("data-g"), v = b.getAttribute("data-v");
+    if(g === "m"){ e.m.push(v); } else { e[g] = v; }
+  });
+  return e;
+}
+
+// Les filtres d'un meme groupe s'excluent ; les marqueurs se cumulent et se
+// combinent en ET avec le reste — meme regle que l'ecran Contacts.
+document.querySelectorAll("#ms_filtres .ms-p").forEach(function(b){
+  b.onclick = function(){
+    var g = b.getAttribute("data-g");
+    if(g === "m"){ b.classList.toggle("on"); msCompter(); return; }
+
+    // Groupes exclusifs — qualite, fonction. RECLIQUER SUR UN CHOIX DEJA ACTIF
+    // le retire : sans cela « Chirurgien-dentiste » restait selectionne pour
+    // toujours, faute de bouton neutre dans ce groupe.
+    var actif = b.classList.contains("on");
+    var groupe = document.querySelectorAll('#ms_filtres .ms-p[data-g="' + g + '"]');
+    groupe.forEach(function(x){ x.classList.remove("on"); });
+    if(!actif){
+      b.classList.add("on");
+    } else {
+      // Le groupe a-t-il un choix neutre — « Toute la base » ? On y revient,
+      // plutot que de laisser la barre sans aucun bouton allume.
+      var neutre = document.querySelector('#ms_filtres .ms-p[data-g="' + g + '"][data-v=""]');
+      if(neutre){ neutre.classList.add("on"); }
+    }
+    msCompter();
+  };
+});
+
+function msCompter(){
+  var e = msEtat();
+  var fd = new FormData();
+  fd.append("qualite", e.qualite); fd.append("fonction", e.fonction);
+  fd.append("m", e.m.join(","));
+  document.getElementById("ms_nb").textContent = "…";
+  fetch("/messagerie/compter", {method:"POST", body:fd})
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if(!j.ok){ document.getElementById("ms_detail").textContent = j.message || ""; return; }
+      var b = j.bilan;
+      document.getElementById("ms_nb").textContent = b.destinataires;
+      var bouts = [b.base + " dans la sélection"];
+      if(b.desinscrits) bouts.push("<em>" + b.desinscrits + " désinscrit(s), exclus</em>");
+      if(b.sans_adresse) bouts.push(b.sans_adresse + " sans adresse");
+      if(b.doublons) bouts.push(b.doublons + " doublon(s) d'adresse");
+      document.getElementById("ms_detail").innerHTML = bouts.join(" · ");
+    });
+}
+
+var MS_MODELE = null;
+
+function msMessage(){
+  return MS_MODELE ? {objet: MS_MODELE.objet, corps: MS_MODELE.corps} : {objet: "", corps: ""};
+}
+
+function msEssai(bouton){
+  var m = msMessage();
+  if(!m.objet || !m.corps){
+    dfmInfo("Aucun message", "<p>Choisissez un message, ou composez-en un.</p>", "danger");
+    return;
+  }
+  bouton.disabled = true;
+  var avant = bouton.innerHTML;
+  bouton.innerHTML = "Envoi…";
+  var e = msEtat();
+  var fd = new FormData();
+  fd.append("objet", m.objet); fd.append("corps", m.corps);
+  fd.append("pieces", JSON.stringify((MS_MODELE && MS_MODELE.pieces) || []));
+  fd.append("qualite", e.qualite); fd.append("fonction", e.fonction); fd.append("m", e.m.join(","));
+  fetch("/messagerie/essai", {method:"POST", body:fd})
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      bouton.disabled = false; bouton.innerHTML = avant;
+      if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+      MS_ESSAI_FAIT = true;
+      var b = document.getElementById("ms_envoyer");
+      b.disabled = false; b.style.opacity = "1";
+      document.getElementById("ms_garde").textContent = "Essai envoyé à " + j.adresse + ".";
+    });
+}
+
+function msEnvoyer(bouton){
+  if(!MS_ESSAI_FAIT) return;
+  var m = msMessage();
+  var e = msEtat();
+  var nb = document.getElementById("ms_nb").textContent;
+  dfmFenetre({titre: "Envoyer cette campagne", sous: "Un message parti ne se rappelle pas",
+    corps: '<p style="font-size:13.5px;line-height:1.7">Vous allez écrire à <b>' + nb
+         + ' personne(s)</b>.</p><p style="font-size:13px;color:var(--muted);line-height:1.7">'
+         + 'Objet : « ' + m.objet.replace(/</g, "&lt;") + ' »<br>'
+         + 'L\'envoi dure environ ' + Math.ceil(parseInt(nb || 0) / 50) + ' minute(s). '
+         + 'Vous pouvez quitter cet écran, il se poursuit.</p>',
+    boutons: [{libelle: "Annuler", style: "neutre"},
+              {libelle: "Envoyer", style: "primaire", action: function(){
+      var fd = new FormData();
+      fd.append("objet", m.objet); fd.append("corps", m.corps);
+      fd.append("pieces", JSON.stringify((MS_MODELE && MS_MODELE.pieces) || []));
+      fd.append("qualite", e.qualite); fd.append("fonction", e.fonction); fd.append("m", e.m.join(","));
+      fetch("/messagerie/envoyer", {method:"POST", body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(j){
+          if(!j.ok){ dfmInfo("Impossible", "<p>" + (j.message || "") + "</p>", "danger"); return; }
+          location.reload();
+        });
+    }}]});
+}
+
+function msModeles(){
+  fetch("/messagerie/modeles").then(function(r){ return r.json(); }).then(function(j){
+    var l = (j.modeles || []);
+    if(!l.length){
+      dfmInfo("Aucun modèle", "<p>Créez-en un depuis l'écran Templates, famille Communications.</p>");
+      return;
+    }
+    // On garde la liste en memoire et on passe par un INDEX : glisser le corps
+    // du message dans un attribut onclick casserait au premier guillemet.
+    window.MS_MODELES = l;
+    var html = l.map(function(m, i){
+      return '<button class="btn btn-ghost" style="display:block;width:100%;text-align:left;margin-bottom:7px" '
+           + 'onclick="msPoser(' + i + ')"><b>' + m.titre.replace(/</g, "&lt;") + '</b>'
+           + '<br><span style="font-size:12px;color:var(--muted)">' + m.objet.replace(/</g, "&lt;")
+           + '</span></button>';
+    }).join("");
+    dfmFenetre({titre: "Choisir un modèle", sous: "Il remplacera le message en cours",
+                garder: true, corps: html,
+                boutons: [{libelle: "Annuler", style: "neutre"}]});
+  });
+}
+function msPoser(i){
+  var m = (window.MS_MODELES || [])[i];
+  if(!m) return;
+  MS_MODELE = m;
+  document.getElementById("ms_titre").textContent = m.titre;
+  document.getElementById("ms_objet_v").textContent = m.objet;
+  document.getElementById("ms_modifier").href = "/templates/communication/" + m.id;
+  var pj = (m.pieces || []).filter(function(p){ return (p.mode || "jointe") === "jointe"; });
+  document.getElementById("ms_pieces").textContent = pj.length
+    ? " · " + pj.length + " pièce(s) jointe(s)" : "";
+  document.getElementById("ms_choisi").style.display = "block";
+  document.getElementById("ms_vide").style.display = "none";
+  // L'apercu passe par le serveur : meme moteur que l'envoi, jamais une
+  // seconde implementation qui finirait par diverger.
+  var fd = new FormData(); fd.append("blocs", JSON.stringify(m.blocs || []));
+  fetch("/messagerie/apercu", {method:"POST", body:fd})
+    .then(function(r){ return r.text(); })
+    .then(function(h){ document.getElementById("ms_frame").srcdoc = h; });
+  dfmFermer();
+  // Le message a change : l'essai precedent ne prouve plus rien.
+  MS_ESSAI_FAIT = false;
+  var b = document.getElementById("ms_envoyer");
+  b.disabled = true; b.style.opacity = ".5";
+  document.getElementById("ms_garde").textContent = "L'essai est obligatoire avant l'envoi.";
+}
+
+msCompter();
+</script>
+{% endblock %}

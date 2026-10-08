@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Registre des réclamations</title>
+<style>
+@page{size:A4;margin:14mm}
+*{box-sizing:border-box}
+body{margin:0;background:#f4f5f8;color:#1a1d2e;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.55;font-size:13px}
+.page{max-width:820px;margin:0 auto;background:#fff;padding:36px 42px 50px}
+.entete{border-bottom:2px solid #1a1d2e;padding-bottom:15px;margin-bottom:20px}
+.org{font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:#6b7280}
+h1{font-size:22px;margin:9px 0 4px;font-weight:600}
+.sous{font-size:13px;color:#3d4250;max-width:64ch}
+h2{font-size:11.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:#6b7280;margin:26px 0 10px;padding-bottom:5px;border-bottom:1px solid #e5e8f0}
+.note{background:#f7f8fb;border-left:3px solid #d1d5e0;padding:12px 15px;font-size:11.5px;color:#5b6172;margin-bottom:16px;max-width:76ch;line-height:1.65}
+.trio{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.bloc{border:1px solid #e5e8f0;border-radius:8px;padding:13px 12px;text-align:center}
+.bloc-l{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px}
+.bloc-v{font-size:26px;font-weight:600;line-height:1.2;margin-top:4px;font-variant-numeric:tabular-nums}
+.vert{color:#0f9e6a}.rouge{color:#d03b3b}.gris{color:#6b7280}
+.r{border:1px solid #e5e8f0;border-radius:9px;padding:15px 17px;margin-bottom:12px;page-break-inside:avoid}
+.r-t{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;margin-bottom:9px}
+.r-n{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#6b7280}
+.r-o{font-size:14.5px;font-weight:600;flex:1;min-width:0}
+.r-e{font-size:10.5px;font-weight:600;padding:2px 10px;border-radius:20px;white-space:nowrap}
+.e-ok{background:#eafaf3;color:#0f6e56}
+.e-en{background:#fdf2e2;color:#a06a14}
+.e-ko{background:#fdeaea;color:#8a2020}
+.r-l{display:grid;grid-template-columns:150px 1fr;gap:4px 14px;font-size:12.5px;margin-top:3px}
+.r-c{color:#6b7280}
+.r-x{white-space:pre-wrap}
+.r-vide{color:#8a90a2;font-style:italic}
+.jalons{display:flex;gap:0;margin:12px 0 4px;font-size:11px}
+.j{flex:1;padding:7px 9px;border:1px solid #e5e8f0;border-right:none;background:#fbfcfe}
+.j:last-child{border-right:1px solid #e5e8f0}
+.j b{display:block;font-size:12.5px;font-weight:600;margin-top:2px}
+.j-l{color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+.pied{margin-top:30px;padding-top:13px;border-top:1px solid #e5e8f0;font-size:10px;color:#8a90a2;line-height:1.7}
+.barre{position:fixed;top:16px;right:16px;display:flex;gap:10px;align-items:center;z-index:5}
+.imprimer{background:#4f7ef8;color:#fff;border:none;border-radius:8px;padding:11px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 3px 12px rgba(0,0,0,.18);white-space:nowrap}
+.retour{background:#fff;color:#3d4250;border:1px solid #d1d5e0;border-radius:8px;padding:11px 16px;font-size:13px;cursor:pointer;font-family:inherit;text-decoration:none;white-space:nowrap}
+@media print{.barre{display:none}body{background:#fff}.page{padding:0;max-width:none}h2{page-break-after:avoid}}
+</style>
+</head>
+<body>
+<div class="barre">
+  <a class="retour" href="/reclamations">Retour au registre</a>
+  <button class="imprimer" onclick="window.print()">Imprimer ou enregistrer en PDF</button>
+</div>
+<div class="page">
+
+  <div class="entete">
+    <div class="org">{{ marque }}{% if raison_sociale and raison_sociale != marque %} · {{ raison_sociale }}{% endif %}{% if siret %} · SIRET {{ siret }}{% endif %}</div>
+    <h1>Registre des réclamations</h1>
+    <div class="sous">Réclamations reçues, leur traitement et leur clôture — indicateur 31.
+      Édité le {{ edite }}.</div>
+  </div>
+
+  <div class="note">
+    <b>Comment une réclamation nous parvient.</b> Un formulaire en ligne, ouvert à tous —
+    apprenant, structure cliente, formateur, financeur — dont le lien figure dans le mail
+    d'attestation adressé à chaque participant{% if contact %}, et l'adresse
+    <b>{{ contact }}</b>{% endif %}. Chaque dépôt est horodaté et versé à ce registre.
+    Nous accusons réception et répondons sous <b>{{ delai }} jours</b>.
+  </div>
+
+  <div class="trio">
+    <div class="bloc"><div class="bloc-l">Reçues</div>
+      <div class="bloc-v">{{ bilan.total }}</div></div>
+    <div class="bloc"><div class="bloc-l">Closes</div>
+      <div class="bloc-v vert">{{ bilan.closes }}</div></div>
+    <div class="bloc"><div class="bloc-l">En cours</div>
+      <div class="bloc-v {{ 'gris' if not bilan.ouvertes }}">{{ bilan.ouvertes }}</div></div>
+    <div class="bloc"><div class="bloc-l">Délai moyen</div>
+      <div class="bloc-v">{% if bilan.delai_moyen is not none %}{{ bilan.delai_moyen }}<span style="font-size:14px"> j</span>{% else %}—{% endif %}</div></div>
+  </div>
+
+  {% if bilan.en_retard %}
+  <div class="note" style="border-left-color:#d03b3b;color:#8a2020">
+    <b>{{ bilan.en_retard }} réclamation{{ 's' if bilan.en_retard > 1 }} au-delà du délai annoncé.</b>
+    Ce registre les fait apparaître plutôt que de les taire&nbsp;: un retard assumé et daté
+    se défend, un retard découvert le jour du contrôle, non.
+  </div>
+  {% endif %}
+
+  <h2>{{ liste|length }} réclamation{{ 's' if liste|length > 1 }}{% if not liste %} — registre ouvert et tenu{% endif %}</h2>
+
+  {% for r in liste %}
+  <div class="r">
+    <div class="r-t">
+      <span class="r-n">{{ r.numero }}</span>
+      <span class="r-o">{{ r.objet }}</span>
+      {% if r.en_retard %}<span class="r-e e-ko">Hors délai — {{ r.jours }} j</span>
+      {% elif r.ouverte %}<span class="r-e e-en">En cours{% if r.jours is not none %} — {{ r.jours }} j{% endif %}</span>
+      {% else %}<span class="r-e e-ok">Close en {{ r.jours }} j</span>{% endif %}
+    </div>
+
+    <div class="jalons">
+      <div class="j"><span class="j-l">Reçue</span><b>{{ r.recue_fr or '—' }}</b></div>
+      <div class="j"><span class="j-l">Accusé de réception</span><b>{{ r.accusee_fr or '—' }}</b></div>
+      <div class="j"><span class="j-l">Close</span><b>{{ r.close_fr or '—' }}</b></div>
+      <div class="j"><span class="j-l">Issue</span><b>{{ r.issue_libelle or '—' }}</b></div>
+    </div>
+
+    <div class="r-l">
+      <span class="r-c">Origine</span><span>{{ r.origine_libelle }}</span>
+      <span class="r-c">De</span><span>{{ r.qui or '—' }}{% if r.mail %} · {{ r.mail }}{% endif %}</span>
+      {% if r.session %}<span class="r-c">Session concernée</span><span>{{ r.session }}</span>{% endif %}
+      <span class="r-c">Ce qui est reproché</span>
+      <span class="r-x">{% if r.description %}{{ r.description }}{% else %}<span class="r-vide">Non consigné</span>{% endif %}</span>
+      <span class="r-c">Traitement</span>
+      <span class="r-x">{% if r.traitement %}{{ r.traitement }}{% else %}<span class="r-vide">En cours</span>{% endif %}</span>
+      {% if r.amelioration %}
+      <span class="r-c">Suite donnée</span><span class="r-x">{{ r.amelioration }}</span>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="note">
+    Aucune réclamation n'a été reçue à ce jour. Le canal de dépôt est en place et le registre
+    est tenu&nbsp;: c'est ce qui est attendu, l'indicateur 31 ne demandant pas l'absence de
+    réclamation mais la capacité à en traiter une.
+  </div>
+  {% endfor %}
+
+  <div class="pied">
+    Registre édité depuis DFM le {{ edite }} — il restitue les réclamations telles
+    qu'elles ont été enregistrées, sans sélection ni tri par issue.<br>
+    Une réclamation close reste au registre&nbsp;: rien n'en est retiré.<br>
+    {{ marque }}{% if siret %} · SIRET {{ siret }}{% endif %}
+  </div>
+</div>
+</body>
+</html>

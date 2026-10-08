@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Politique de conservation des données</title>
+<style>
+@page{size:A4;margin:14mm}
+*{box-sizing:border-box}
+body{margin:0;background:#f4f5f8;color:#1a1d2e;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.55;font-size:13px}
+.page{max-width:800px;margin:0 auto;background:#fff;padding:36px 42px 50px}
+.entete{border-bottom:2px solid #1a1d2e;padding-bottom:15px;margin-bottom:20px}
+.org{font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:#6b7280}
+h1{font-size:22px;margin:9px 0 4px;font-weight:600}
+.sous{font-size:13px;color:#3d4250;max-width:62ch}
+h2{font-size:11.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:#6b7280;margin:26px 0 10px;padding-bottom:5px;border-bottom:1px solid #e5e8f0}
+.of{font-size:11.5px;color:#5b6172;margin-bottom:12px}
+.note{background:#f7f8fb;border-left:3px solid #d1d5e0;padding:11px 14px;font-size:11.5px;color:#5b6172;margin-bottom:14px;max-width:74ch}
+.att{background:#fff8ec;border-left:3px solid #e08a1e;padding:11px 14px;font-size:12px;color:#8a5a12;margin-bottom:14px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;font-weight:600;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.6px;padding:6px 8px 6px 0;border-bottom:1px solid #e5e8f0}
+td{padding:10px 8px 10px 0;border-bottom:1px solid #eef0f5;vertical-align:top}
+tr:last-child td{border-bottom:none}
+.c-t{font-weight:600;font-size:13px}
+.c-q{color:#5b6172;font-size:11.5px;margin-top:2px}
+.c-p{color:#8a90a2;font-size:11px;margin-top:3px;font-style:italic}
+.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.duree{font-size:16px;font-weight:600}
+.ok{color:#0f9e6a;font-weight:600}
+.hs{color:#d03b3b;font-weight:600}
+.gris{color:#8a90a2}
+.pied{margin-top:30px;padding-top:13px;border-top:1px solid #e5e8f0;font-size:10px;color:#8a90a2;line-height:1.7}
+/* Une barre plutot que deux positions absolues : les boutons se chevauchaient
+   des que la largeur de l un d eux changeait. */
+.barre{position:fixed;top:16px;right:16px;display:flex;gap:10px;align-items:center;z-index:5}
+.imprimer{background:#4f7ef8;color:#fff;border:none;border-radius:8px;padding:11px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 3px 12px rgba(0,0,0,.18);white-space:nowrap}
+.retour{background:#fff;color:#3d4250;border:1px solid #d1d5e0;border-radius:8px;padding:11px 16px;font-size:13px;cursor:pointer;font-family:inherit;text-decoration:none;white-space:nowrap}
+@media print{.barre{display:none}body{background:#fff}.page{padding:0;max-width:none}h2{page-break-after:avoid}}
+</style>
+</head>
+<body>
+<div class="barre">
+  <a class="retour" href="/parametres">Retour aux réglages</a>
+  <button class="imprimer" onclick="window.print()">Imprimer ou enregistrer en PDF</button>
+</div>
+<div class="page">
+
+  <div class="entete">
+    <div class="org">Document interne · édité le {{ edite }}</div>
+    <h1>Politique de conservation des données</h1>
+    <div class="sous">Durées de conservation déclarées pour chaque catégorie de données
+      traitées, et état réel des données détenues à la date d'édition.</div>
+  </div>
+
+  <div class="note">
+    <b>Aucune suppression n'est automatique.</b> DFM ne purge rien de lui-même et
+    aucune purge n'est prévue&nbsp;: sur des pièces de formation, un effacement
+    déclenché par une règle serait irrattrapable. Les durées ci-dessous sont des
+    <b>engagements</b>&nbsp;: c'est en les regardant que vous décidez, catégorie par
+    catégorie, ce qui doit être retiré. Cet écran existe pour rendre cette décision
+    possible — sans lui, la durée déclarée resterait invérifiable.
+  </div>
+
+  {% for o in etat %}
+  <h2>{{ o.marque }}</h2>
+  <div class="of">
+    {% if o.raison_sociale %}{{ o.raison_sociale }}{% endif %}
+    {% if o.siret %} · SIRET {{ o.siret }}{% endif %}
+    {% if not o.raison_sociale and not o.siret %}Responsable de traitement{% endif %}
+  </div>
+
+  {% if o.a_traiter %}
+  <div class="att"><b>{{ o.a_traiter }} élément{{ 's' if o.a_traiter > 1 }} au-delà de la durée
+    que vous avez déclarée.</b> Rien n'a été supprimé. À examiner catégorie par catégorie&nbsp;:
+    une durée déclarée et jamais appliquée est plus fragile devant un contrôle qu'une durée
+    plus longue et assumée.</div>
+  {% endif %}
+
+  <table>
+    <thead><tr>
+      <th style="width:52%">Catégorie de données</th>
+      <th class="num">Durée déclarée</th>
+      <th class="num">Détenu</th>
+      <th class="num">Au-delà</th>
+      <th class="num">Le plus ancien</th>
+    </tr></thead>
+    <tbody>
+    {% for c in o.categories %}
+      <tr>
+        <td>
+          <div class="c-t">{{ c.titre }}</div>
+          <div class="c-q">{{ c.quoi }}</div>
+          <div class="c-p">{{ c.pourquoi }}</div>
+        </td>
+        {% if c.lisible %}
+        <td class="num"><span class="duree">{{ c.mois }}</span> mois
+          {% if c.en_annees %}<br><span class="gris">{{ c.en_annees }}</span>{% endif %}</td>
+        <td class="num">{{ c.total }}</td>
+        <td class="num">{% if c.depasses %}<span class="hs">{{ c.depasses }}</span>
+          {% else %}<span class="ok">0</span>{% endif %}</td>
+        <td class="num gris">{{ c.plus_ancien[:10] or '—' }}</td>
+        {% else %}
+        <td class="num"><span class="duree">{{ c.mois }}</span> mois</td>
+        <td colspan="3" class="gris">Non mesurable : {{ c.souci }}</td>
+        {% endif %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endfor %}
+
+  <div class="pied">
+    Les durées se modifient dans DFM, écran Réglages, section « Conservation des données ».<br>
+    Le décompte « au-delà » compare la date de chaque élément à la durée déclarée le jour
+    de l'édition ; il ne préjuge d'aucune obligation légale, qui peut être plus longue —
+    les pièces comptables notamment.<br>
+    Édité depuis DFM le {{ edite }}.
+  </div>
+</div>
+</body>
+</html>
