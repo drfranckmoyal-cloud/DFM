@@ -35,15 +35,22 @@
       <div class="pastille"><div></div></div>
       <div><div class="nom">DFM</div><div class="sous">Dental Formation Manager</div></div>
     </div>
+    {% if comptes %}
+    <label for="ident">Identifiant</label>
+    <input id="ident" name="identifiant" type="text" autofocus autocomplete="username"
+           autocapitalize="off" spellcheck="false">
+    {% endif %}
     <label for="mdp">Mot de passe</label>
-    <input id="mdp" name="mot_de_passe" type="password" autofocus autocomplete="current-password">
+    <input id="mdp" name="mot_de_passe" type="password" {% if not comptes %}autofocus{% endif %}
+           autocomplete="current-password">
     <input type="hidden" name="suite" value="{{ suite }}">
     <button type="submit">Ouvrir DFM</button>
     {% if souci %}<div class="souci">{{ souci }}</div>{% endif %}
     <div class="note">
       Cet outil contient des données personnelles et les pièces que vous devrez
       présenter en audit. Mot de passe oublié&nbsp;: lancez
-      <code>python3 mot_de_passe.py</code> sur la machine.
+      {% if comptes %}<code>venv/bin/python utilisateur.py --mot-de-passe &lt;identifiant&gt;</code>
+      {% else %}<code>python3 mot_de_passe.py</code>{% endif %} sur la machine.
     </div>
   </form>
 </body>

@@ -8911,12 +8911,54 @@ def _garde():
     if request.path in _LIBRES or request.path.startswith("/static/"):
         return None
     if _session.get("ouvert"):
+        # QUI AGIT, pose pour la duree de la requete. C'est ce nom que le
+        # journal inscrira dans chaque entree ecrite d'ici la reponse — et
+        # qu'il scellera avec elle. Vide tant qu'aucun compte n'existe : une
+        # entree sans auteur se lit « DFM », ce qui est la verite.
+        try:
+            import journal as _j
+            _j.poser_auteur(_session.get("nom") or "")
+        except Exception:
+            pass
+        if _session.get("role") == "assistante" and _reserve_au_gerant(request.path):
+            if request.headers.get("X-Requested-With") or request.method != "GET":
+                return jsonify({"ok": False, "message":
+                                "Réservé au gérant : votre compte ne peut pas faire cela."}), 403
+            return ("<!doctype html><meta charset=utf-8><title>DFM — réservé</title>"
+                    "<body style=\"font:16px/1.6 system-ui;max-width:32em;margin:6em auto\">"
+                    "<h1 style=\"font-size:1.3em\">Cet écran est réservé au gérant</h1>"
+                    "<p>Votre compte donne accès à tout le travail courant, mais pas "
+                    "aux réglages qui engagent l'organisme ni aux comptes.</p>"
+                    "<p><a href=\"/\">Revenir à DFM</a></p>"), 403
         return None
     # Une requete de fond doit recevoir un refus lisible, pas une page HTML :
     # sans cela l'ecran affiche « erreur inattendue » au lieu de « reconnectez-vous ».
     if request.headers.get("X-Requested-With") or request.method != "GET":
         return jsonify({"ok": False, "message": "Session expirée. Rechargez la page."}), 401
     return redirect("/connexion?suite=" + request.path)
+
+
+# CE QU'UNE ASSISTANTE NE TOUCHE PAS. La liste est volontairement COURTE : tout
+# le quotidien lui reste ouvert — mails, conventions, règlements, documents,
+# questionnaires, contacts. Ne sont fermés que les réglages qui engagent
+# l'organisme devant un tiers, les comptes eux-mêmes, et les deux suppressions
+# qui effacent un dossier entier.
+#
+# UNE RESTRICTION LARGE N'AURAIT RIEN PROTÉGÉ. Elle aurait été contournée dès la
+# première semaine en se connectant au compte du gérant « pour aller plus vite »,
+# et les deux comptes n'en auraient plus fait qu'un.
+_RESERVE_GERANT = ("/comptes", "/parametres", "/profil", "/profils", "/conservation")
+
+
+def _reserve_au_gerant(chemin):
+    if chemin.startswith(_RESERVE_GERANT):
+        return True
+    morceaux = [m for m in chemin.split("/") if m]
+    # « /session/<code>/supprimer » et « /formations/<code>/supprimer », et eux
+    # seuls : « /session/<code>/emargement/supprimer » retire une feuille vierge,
+    # ce qui est du quotidien et doit rester ouvert.
+    return (len(morceaux) == 3 and morceaux[2] == "supprimer"
+            and morceaux[0] in ("session", "formations"))
 
 
 @app.route("/connexion", methods=["GET", "POST"])
@@ -8926,7 +8968,34 @@ def connexion():
         suite = "/"          # jamais de redirection vers un autre site
     if not _acces.protege():
         return redirect(suite)
+    # LA BASCULE SE FAIT A L'EXISTENCE DU PREMIER COMPTE, et pas avant : tant
+    # qu'il n'y en a aucun, DFM demande le seul mot de passe d'installation,
+    # exactement comme depuis le 05/08/2026. Personne ne se retrouve devant un
+    # champ qu'il n'attendait pas, et surtout personne n'est enferme dehors.
+    comptes = _acces.comptes_ouverts()
     if request.method == "POST":
+        if comptes:
+            u = _acces.authentifier(request.form.get("identifiant") or "",
+                                    request.form.get("mot_de_passe") or "")
+            if u:
+                _session.permanent = True
+                _session["ouvert"] = True
+                _session["qui"] = u.get("identifiant") or ""
+                _session["nom"] = u.get("nom") or u.get("identifiant") or ""
+                _session["role"] = u.get("role") or _acces.ROLE_DEFAUT
+                _acces.noter_connexion(_session["qui"])
+                try:
+                    import journal
+                    journal.poser_auteur(_session["nom"])
+                    journal.ecrire("Connexion à DFM", "", "", "", "")
+                except Exception:
+                    pass
+                return redirect(suite)
+            # Le meme message pour un identifiant inconnu et pour un mot de
+            # passe faux : dire lequel des deux est en cause revient a confirmer
+            # qu'un identifiant existe.
+            return render_template("connexion.html", suite=suite, comptes=True,
+                                   souci="Identifiant ou mot de passe incorrect."), 401
         if _acces.verifier(request.form.get("mot_de_passe") or ""):
             _session.permanent = True
             _session["ouvert"] = True
@@ -8936,9 +9005,68 @@ def connexion():
             except Exception:
                 pass
             return redirect(suite)
-        return render_template("connexion.html", suite=suite,
+        return render_template("connexion.html", suite=suite, comptes=False,
                                souci="Mot de passe incorrect."), 401
-    return render_template("connexion.html", suite=suite, souci="")
+    return render_template("connexion.html", suite=suite, comptes=comptes, souci="")
+
+
+@app.route("/comptes")
+def page_comptes():
+    return render_template("comptes.html", comptes=_acces.utilisateurs(),
+                           roles=_acces.ROLES, moi=_session.get("qui") or "",
+                           protege=_acces.protege())
+
+
+@app.route("/comptes/creer", methods=["POST"])
+def creer_compte():
+    f = request.form
+    ok, message = _acces.creer_utilisateur(
+        f.get("identifiant") or "", f.get("nom") or "",
+        f.get("mot_de_passe") or "", f.get("role") or _acces.ROLE_DEFAUT)
+    if ok:
+        try:
+            journal.ecrire("Compte créé", (f.get("nom") or "").strip(),
+                           "identifiant « %s », rôle %s"
+                           % (_acces._nettoyer_identifiant(f.get("identifiant")),
+                              _acces.ROLES.get(f.get("role") or "", "?")))
+        except Exception:
+            pass
+    return jsonify({"ok": ok, "message": message})
+
+
+@app.route("/comptes/modifier", methods=["POST"])
+def modifier_compte():
+    f = request.form
+    i = f.get("identifiant") or ""
+    champs = {}
+    if f.get("nom") is not None and f.get("nom") != "":
+        champs["nom"] = f.get("nom")
+    if f.get("role"):
+        champs["role"] = f.get("role")
+    if f.get("actif") in ("0", "1"):
+        champs["actif"] = f.get("actif") == "1"
+    if f.get("mot_de_passe"):
+        champs["mot_de_passe"] = f.get("mot_de_passe")
+    ok, message = _acces.modifier_utilisateur(i, **champs)
+    if ok:
+        try:
+            quoi = ", ".join(k if k != "mot_de_passe" else "mot de passe" for k in champs)
+            journal.ecrire("Compte modifié", i, "ce qui change : " + (quoi or "rien"))
+        except Exception:
+            pass
+    return jsonify({"ok": ok, "message": message})
+
+
+@app.route("/comptes/supprimer", methods=["POST"])
+def supprimer_compte():
+    i = request.form.get("identifiant") or ""
+    ok, message = _acces.supprimer_utilisateur(i)
+    if ok:
+        try:
+            journal.ecrire("Compte supprimé", i, "")
+        except Exception:
+            pass
+    return jsonify({"ok": ok, "message": message})
 
 
 @app.route("/deconnexion")

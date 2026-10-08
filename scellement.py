@@ -80,7 +80,7 @@ def cle():
 LARGEUR = 9             # colonnes A a I : le contenu scelle, hors scelle lui-meme
 
 
-def empreinte(rang, valeurs, precedent):
+def empreinte(rang, valeurs, precedent, auteur=""):
     """Le scelle d'une ligne : son rang, son contenu, et son ancetre.
 
     Le rang entre dans le calcul pour que retirer une ligne — ce qui decale
@@ -95,6 +95,18 @@ def empreinte(rang, valeurs, precedent):
     """
     plates = [str(v or "") for v in (valeurs or [])][:LARGEUR]
     plates += [""] * (LARGEUR - len(plates))
+    # L'AUTEUR N'ENTRE DANS LE CALCUL QUE S'IL EST RENSEIGNE — 08/10/2026, avec
+    # l'arrivee des comptes utilisateurs. Les 917 entrees ecrites avant n'en
+    # portent pas : ajouter une colonne, meme vide, aurait ajoute un separateur
+    # au corps hache et invalide d'un seul coup TOUS les scelles existants —
+    # c'est-a-dire detruit la preuve qu'on cherche justement a renforcer.
+    #
+    # En ne l'ajoutant que lorsqu'il existe, une ligne ancienne se recalcule
+    # exactement comme avant, et une ligne nouvelle scelle aussi son auteur.
+    # Effacer apres coup l'auteur d'une ligne recente, ou en inventer un sur une
+    # ligne ancienne, change le corps hache : les deux se voient.
+    if str(auteur or "").strip():
+        plates.append(str(auteur).strip())
     corps = "\x1f".join([str(rang)] + plates + [str(precedent or "")])
     return hmac.new(cle(), corps.encode("utf-8"), hashlib.sha256).hexdigest()[:_LONGUEUR]
 

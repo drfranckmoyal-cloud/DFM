@@ -331,6 +331,7 @@ white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
   <a class="nav-item {% if request.path.startswith('/formateur') %}active{% endif %}" href="/formateurs" title="Qui intervient, et ce qui prouve sa competence — indicateur 21"><i class="ti ti-users"></i>Profils formateurs</a>
   <a class="nav-item {% if request.path.startswith('/document') %}active{% endif %}" href="/documents" title="Tous vos documents : programmes, RIB, reglements, pieces jointes"><i class="ti ti-folders"></i>Documents</a>
   <a class="nav-item {% if request.path.startswith('/parametres') %}active{% endif %}" href="/parametres" title="Reglages de l application"><i class="ti ti-settings"></i>Paramètres</a>
+  {% if session.get('role') != 'assistante' %}<a class="nav-item {% if request.path.startswith('/comptes') %}active{% endif %}" href="/comptes" title="Qui peut ouvrir DFM"><i class="ti ti-users"></i>Comptes</a>{% endif %}
   {% if request.headers.get('X-Forwarded-Proto') or request.headers.get('X-Forwarded-For') %}
   <a class="nav-item nav-portail" href="/portail"
      title="Revenir au portail CEMEDIS Formations — de la, OPCO Watch">

@@ -57,6 +57,11 @@ CREATE TABLE IF NOT EXISTS journal (
     montant      TEXT NOT NULL DEFAULT '',
     details      TEXT NOT NULL DEFAULT '',
     scelle       TEXT NOT NULL DEFAULT '',
+    -- QUI a declenche l'action. Vide pour tout ce qui precede les comptes
+    -- utilisateurs (08/10/2026) et pour le traitement automatique. Ajoute EN
+    -- FIN DE TABLE pour qu'une base migree et une base neuve aient le meme
+    -- ordre de colonnes : ALTER TABLE ajoute toujours a la fin.
+    auteur       TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (organisme, rang)
 );
 CREATE INDEX IF NOT EXISTS journal_session ON journal (organisme, code_session);
@@ -140,6 +145,15 @@ def _conn():
             if not _SCHEMA_POSE.is_set():
                 c.executescript(SCHEMA)
                 c.executescript(SCHEMA_SUIVI)
+                # La colonne « auteur » sur une base anterieure au 08/10/2026.
+                # CREATE TABLE IF NOT EXISTS ne touche pas une table existante :
+                # sans cet ALTER, les installations en service n'auraient jamais
+                # la colonne et l'ecriture du journal echouerait a chaque entree.
+                try:
+                    c.execute("ALTER TABLE journal ADD COLUMN"
+                              " auteur TEXT NOT NULL DEFAULT ''")
+                except Exception:
+                    pass          # la colonne est deja la
                 c.commit()
                 _SCHEMA_POSE.set()
     return c
@@ -161,7 +175,7 @@ CHAMPS_JOURNAL = ("horodateur", "date", "heure", "type_action", "praticien",
                   "code_session", "detail", "montant", "details", "scelle")
 
 
-def journal_ajouter(organisme, valeurs, rang=None, scelle=""):
+def journal_ajouter(organisme, valeurs, rang=None, scelle="", auteur=""):
     """Ajoute une entree et rend son rang.
 
     `valeurs` est la ligne telle qu'elle part aussi dans le classeur : neuf
@@ -181,9 +195,9 @@ def journal_ajouter(organisme, valeurs, rang=None, scelle=""):
     plates += [""] * (9 - len(plates))
     c.execute(
         "INSERT OR REPLACE INTO journal (organisme, rang, horodateur, date, heure,"
-        " type_action, praticien, code_session, detail, montant, details, scelle)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-        [organisme, rang] + plates + [scelle])
+        " type_action, praticien, code_session, detail, montant, details, scelle,"
+        " auteur) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        [organisme, rang] + plates + [scelle, str(auteur or "").strip()])
     c.commit()
     return rang
 

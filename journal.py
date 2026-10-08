@@ -144,8 +144,22 @@ def _organisme(code_session=""):
         return "mon-organisme"
 
 
+# QUI AGIT, pour la duree d'une requete. Pose par DFM a chaque requete web
+# depuis le compte connecte ; laisse vide par les scripts du traitement, qui
+# n'ont pas d'utilisateur — et une entree sans auteur se lit alors « DFM »,
+# ce qui est la verite plutot qu'un nom emprunte.
+AUTEUR = ""
+
+
+def poser_auteur(nom):
+    """Dit au journal au nom de qui les prochaines entrees seront ecrites."""
+    global AUTEUR
+    AUTEUR = str(nom or "").strip()
+
+
 def ecrire(type_action, praticien="", detail="", montant="", code_session="", details=""):
     maintenant = datetime.now()
+    auteur = (AUTEUR or "").strip()
     ligne = [
         maintenant.strftime("%Y-%m-%d %H:%M:%S"),
         maintenant.strftime("%d/%m/%Y"),
@@ -172,7 +186,7 @@ def ecrire(type_action, praticien="", detail="", montant="", code_session="", de
     import scellement
     org = _organisme(code_session)
     try:
-        rang = base.journal_ajouter(org, ligne)
+        rang = base.journal_ajouter(org, ligne, auteur=auteur)
     except Exception as e:
         print(f"   (journal non ecrit : {e})")
         return
@@ -188,7 +202,7 @@ def ecrire(type_action, praticien="", detail="", montant="", code_session="", de
         else:
             avant = base.journal_ligne(org, rang - 1) or {}
             precedent = avant.get("scelle") or ""
-        scelle = scellement.empreinte(rang, ligne, precedent)
+        scelle = scellement.empreinte(rang, ligne, precedent, auteur)
         base.journal_sceller(org, rang, scelle)
     except Exception as e:
         print(f"   (journal ecrit mais non scelle : {e})")
@@ -376,7 +390,14 @@ def _valeurs_base(organisme):
         if not l:
             sortie.append([])          # trou : une ligne vide, comme dans la feuille
             continue
-        sortie.append([l[c] for c in base.CHAMPS_JOURNAL])
+        # L'auteur voyage EN ONZIEME position, apres le scelle : les dix
+        # premieres gardent leur index, donc la verification en dessous — et
+        # tout ce qui lit le journal — ne bouge pas d'une ligne.
+        try:
+            a = l["auteur"] or ""
+        except Exception:
+            a = ""
+        sortie.append([l[c] for c in base.CHAMPS_JOURNAL] + [a])
     return sortie
 
 
@@ -423,7 +444,7 @@ def verifier(feuille=None):
             if not brute or not str(brute[0] if brute else "").strip():
                 continue
             total += 1
-            complete = list(brute) + [""] * (10 - len(brute))
+            complete = list(brute) + [""] * (11 - len(brute))
             pose = (complete[9] or "").strip()
             if not pose:
                 # Non scellee : n'atteste rien, ne rompt rien. Elle est comptee
@@ -433,8 +454,9 @@ def verifier(feuille=None):
                 precedent = scellement._RACINE
             else:
                 avant = valeurs[i - 1] if i >= 1 else []
-                precedent = (list(avant) + [""] * 10)[9].strip()
-            attendu = scellement.empreinte(rang, complete[:9], precedent)
+                precedent = (list(avant) + [""] * 11)[9].strip()
+            attendu = scellement.empreinte(rang, complete[:9], precedent,
+                                           complete[10])
             if pose != attendu and rupture is None:
                 rupture = {"rang": rang,
                            "quand": complete[1] or complete[0],

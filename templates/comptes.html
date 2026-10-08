@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block titre %}Comptes{% endblock %}
+{% block entete %}Comptes{% endblock %}
+{% block sous_entete %}Qui peut ouvrir DFM, et jusqu'où{% endblock %}
+
+{% block corps %}
+{% include "_relief.html" %}
+<style>
+  .cp-grille{display:grid;grid-template-columns:2fr 1fr;gap:18px;align-items:start}
+  @media (max-width:1100px){ .cp-grille{grid-template-columns:1fr} }
+  .cp-t{width:100%;border-collapse:collapse}
+  .cp-t th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--muted);font-weight:600;padding:0 10px 10px}
+  .cp-t td{padding:13px 10px;border-top:1px solid var(--border);vertical-align:middle}
+  .cp-nom{font-weight:600;font-size:13px}
+  .cp-id{font-size:11px;color:var(--muted)}
+  .cp-r{font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);
+    background:var(--fond);color:var(--texte)}
+  .cp-moi{font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(79,126,248,.16);
+    color:#4f7ef8;margin-left:7px;vertical-align:1px}
+  .cp-off{opacity:.5}
+  .cp-act{display:flex;gap:6px;justify-content:flex-end}
+  .cp-b{font-size:11px;padding:6px 9px;border-radius:8px;border:1px solid var(--border);
+    background:transparent;color:var(--texte);cursor:pointer}
+  .cp-b:hover{background:var(--survol)}
+  .cp-b.dan:hover{background:rgba(208,59,59,.14);color:#d03b3b;border-color:rgba(208,59,59,.4)}
+  .cp-form label{display:block;font-size:11px;color:var(--muted);margin:12px 0 5px}
+  .cp-form input,.cp-form select{width:100%;padding:9px 11px;border-radius:9px;
+    border:1px solid var(--border);background:var(--fond);color:var(--texte);font-size:13px}
+  .cp-form button{width:100%;margin-top:16px;padding:11px;border:none;border-radius:9px;
+    background:#4f7ef8;color:#fff;font-size:13px;font-weight:600;cursor:pointer}
+  .cp-msg{margin-top:12px;padding:10px 12px;border-radius:9px;font-size:12px;display:none}
+  .cp-msg.ok{display:block;background:rgba(43,158,99,.14);color:#2b9e63}
+  .cp-msg.ko{display:block;background:rgba(208,59,59,.14);color:#d03b3b}
+  .cp-vide{padding:26px 10px;color:var(--muted);font-size:13px;line-height:1.7}
+</style>
+
+<div class="cp-grille">
+
+  <div class="table-wrap" style="padding:18px 20px">
+    <div style="font-weight:600;margin-bottom:14px">Les comptes</div>
+    {% if comptes %}
+    <table class="cp-t">
+      <thead><tr><th>Personne</th><th style="width:150px">Rôle</th>
+        <th style="width:150px">Dernière connexion</th><th></th></tr></thead>
+      <tbody>
+      {% for u in comptes %}
+        <tr class="{% if not u.actif %}cp-off{% endif %}" data-id="{{ u.identifiant }}">
+          <td>
+            <div class="cp-nom">{{ u.nom }}{% if u.identifiant == moi %}<span class="cp-moi">vous</span>{% endif %}</div>
+            <div class="cp-id">{{ u.identifiant }}{% if not u.actif %} · désactivé{% endif %}</div>
+          </td>
+          <td>
+            <select class="cp-r" onchange="cpRole(this)">
+              {% for cle, libelle in roles.items() %}
+              <option value="{{ cle }}" {% if u.role == cle %}selected{% endif %}>{{ libelle }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td style="font-size:12px;color:var(--muted)">{{ u.derniere_connexion or "jamais" }}</td>
+          <td>
+            <div class="cp-act">
+              <button class="cp-b" onclick="cpMotDePasse(this)">Mot de passe</button>
+              <button class="cp-b" onclick="cpActif(this, {{ 0 if u.actif else 1 }})">{{ "Désactiver" if u.actif else "Réactiver" }}</button>
+              <button class="cp-b dan" onclick="cpSupprimer(this)">Supprimer</button>
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="cp-vide">
+      Aucun compte pour l'instant. DFM demande donc seulement le mot de passe
+      d'installation, comme il l'a toujours fait, et le journal inscrit
+      «&nbsp;DFM&nbsp;» comme auteur de chaque action.<br><br>
+      <b>Créer le premier compte bascule DFM sur les comptes</b>&nbsp;: l'écran de
+      connexion demandera alors un identifiant, et chaque entrée du journal portera
+      le nom de la personne qui l'a déclenchée. Le premier compte créé est gérant.
+    </div>
+    {% endif %}
+    <div id="cp-msg" class="cp-msg"></div>
+  </div>
+
+  <div class="table-wrap cp-form" style="padding:18px 20px">
+    <div style="font-weight:600">Ajouter quelqu'un</div>
+    <label for="cp-nom">Nom affiché</label>
+    <input id="cp-nom" placeholder="Franck Moyal">
+    <label for="cp-ident">Identifiant</label>
+    <input id="cp-ident" placeholder="franck" autocapitalize="off" spellcheck="false">
+    <label for="cp-role">Rôle</label>
+    <select id="cp-role">
+      {% for cle, libelle in roles.items() %}<option value="{{ cle }}">{{ libelle }}</option>{% endfor %}
+    </select>
+    <label for="cp-mdp">Mot de passe (10 caractères minimum)</label>
+    <input id="cp-mdp" type="password" autocomplete="new-password">
+    <button onclick="cpCreer()">Créer le compte</button>
+    <div style="margin-top:16px;font-size:11px;color:var(--muted);line-height:1.65">
+      <b>Gérant</b>&nbsp;: tout, y compris les comptes, les paramètres, l'identité de
+      l'organisme et la suppression d'une session.<br>
+      <b>Assistante</b>&nbsp;: tout le travail courant — inscriptions, conventions,
+      règlements, documents, questionnaires, contacts — mais ni les réglages qui
+      engagent l'organisme, ni les comptes.<br><br>
+      DFM refuse de retirer le dernier gérant actif&nbsp;: sans lui, plus personne ne
+      pourrait gérer les comptes depuis l'écran.
+    </div>
+  </div>
+
+</div>
+
+<script>
+function cpDire(ok, texte){
+  var z = document.getElementById("cp-msg");
+  z.className = "cp-msg " + (ok ? "ok" : "ko");
+  z.textContent = texte;
+  if(ok){ setTimeout(function(){ location.reload(); }, 700); }
+}
+function cpEnvoyer(url, donnees){
+  var corps = new URLSearchParams(donnees);
+  fetch(url, {method:"POST", headers:{"X-Requested-With":"fetch",
+    "Content-Type":"application/x-www-form-urlencoded"}, body:corps})
+    .then(function(r){ return r.json(); })
+    .then(function(j){ cpDire(j.ok, j.message || ""); })
+    .catch(function(){ cpDire(false, "DFM n'a pas répondu."); });
+}
+function cpId(bouton){ return bouton.closest("tr").dataset.id; }
+function cpCreer(){
+  cpEnvoyer("/comptes/creer", {
+    nom: document.getElementById("cp-nom").value,
+    identifiant: document.getElementById("cp-ident").value,
+    role: document.getElementById("cp-role").value,
+    mot_de_passe: document.getElementById("cp-mdp").value});
+}
+function cpRole(select){
+  cpEnvoyer("/comptes/modifier", {identifiant: select.closest("tr").dataset.id,
+                                  role: select.value});
+}
+function cpActif(bouton, actif){
+  cpEnvoyer("/comptes/modifier", {identifiant: cpId(bouton), actif: String(actif)});
+}
+function cpMotDePasse(bouton){
+  var m = prompt("Nouveau mot de passe pour « " + cpId(bouton) + " »\n(10 caractères minimum)");
+  if(m === null){ return; }
+  cpEnvoyer("/comptes/modifier", {identifiant: cpId(bouton), mot_de_passe: m});
+}
+function cpSupprimer(bouton){
+  var i = cpId(bouton);
+  if(!confirm("Supprimer le compte « " + i + " » ?\n\nSes actions passées restent au journal, "
+            + "avec son nom : supprimer un compte n'efface rien de ce qu'il a fait.")){ return; }
+  cpEnvoyer("/comptes/supprimer", {identifiant: i});
+}
+</script>
+{% endblock %}

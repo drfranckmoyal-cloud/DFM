@@ -102,3 +102,171 @@ def secret():
 
 def duree():
     return _DUREE
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  LES COMPTES — 08/10/2026
+# ═══════════════════════════════════════════════════════════════════════
+#
+# CE MODULE DISAIT, TROIS MOIS DURANT, QU'INVENTER DES COMPTES SERAIT
+# CONSTRUIRE POUR UN BESOIN QUI N'EXISTE PAS. C'etait vrai : un proprietaire,
+# une installation. Le besoin existe maintenant pour deux raisons, et c'est
+# pour elles seules qu'on les ajoute :
+#
+#   1. Le journal d'audit disait « DFM a fait », jamais « untel a fait ». Une
+#      piste d'audit sans auteur prouve qu'une action a eu lieu, pas qui en
+#      repond.
+#   2. Une installation livree a quelqu'un d'autre a plusieurs mains dessus,
+#      et toutes n'ont pas a toucher l'identite de l'organisme ni ses comptes.
+#
+# RIEN NE CHANGE TANT QU'AUCUN COMPTE N'EXISTE. L'ecran de connexion continue
+# de ne demander qu'un mot de passe, exactement comme avant. La bascule se fait
+# a la creation du premier compte, et pas une seconde plus tot : personne ne
+# doit se retrouver devant un champ « identifiant » qu'il ne s'attendait pas a
+# voir, et surtout pas enferme dehors.
+
+ROLES = {
+    "gerant": "Gérant",          # tout, y compris les comptes et l'identite
+    "assistante": "Assistante",  # tout le quotidien, rien de structurel
+}
+ROLE_DEFAUT = "assistante"
+
+
+def _nettoyer_identifiant(valeur):
+    garde = "".join(c for c in (valeur or "").strip().lower()
+                    if c.isalnum() or c in "._-")
+    return garde[:32]
+
+
+def _bruts():
+    d = _charger()
+    liste = d.get("utilisateurs")
+    return liste if isinstance(liste, list) else []
+
+
+def _poser(liste):
+    d = _charger()
+    d["utilisateurs"] = liste
+    _ecrire(d)
+
+
+def utilisateurs():
+    """Les comptes, sans rien qui ressemble a un secret."""
+    return [{k: v for k, v in u.items() if k not in ("sel", "empreinte")}
+            for u in _bruts()]
+
+
+def comptes_ouverts():
+    """Y a-t-il au moins un compte actif ? C'est ce qui decide de la bascule."""
+    return any(u.get("actif", True) for u in _bruts())
+
+
+def utilisateur(identifiant):
+    i = _nettoyer_identifiant(identifiant)
+    for u in _bruts():
+        if u.get("identifiant") == i:
+            return {k: v for k, v in u.items() if k not in ("sel", "empreinte")}
+    return None
+
+
+def _gerants_actifs(liste=None):
+    return [u for u in (liste if liste is not None else _bruts())
+            if u.get("role") == "gerant" and u.get("actif", True)]
+
+
+def creer_utilisateur(identifiant, nom, mot_de_passe, role=ROLE_DEFAUT):
+    """Rend (ok, message)."""
+    from datetime import datetime
+    i = _nettoyer_identifiant(identifiant)
+    if len(i) < 3:
+        return False, "L'identifiant doit faire au moins trois caractères (lettres, chiffres, point, tiret)."
+    if role not in ROLES:
+        return False, "Rôle inconnu."
+    if len(mot_de_passe or "") < 10:
+        return False, "Dix caractères au minimum pour le mot de passe."
+    liste = _bruts()
+    if any(u.get("identifiant") == i for u in liste):
+        return False, "Cet identifiant est déjà pris."
+    sel, h = empreinte(mot_de_passe)
+    liste.append({"identifiant": i, "nom": (nom or "").strip() or i,
+                  "role": role, "actif": True, "sel": sel, "empreinte": h,
+                  "cree_le": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                  "derniere_connexion": ""})
+    _poser(liste)
+    return True, "Compte « %s » créé." % i
+
+
+def modifier_utilisateur(identifiant, nom=None, role=None, actif=None, mot_de_passe=None):
+    """Rend (ok, message). REFUSE DE RETIRER LE DERNIER GERANT — sans quoi
+    l'installation se retrouve sans personne pour gerer les comptes, et il faut
+    repasser par la ligne de commande sur le serveur."""
+    i = _nettoyer_identifiant(identifiant)
+    liste = _bruts()
+    cible = None
+    for u in liste:
+        if u.get("identifiant") == i:
+            cible = u
+            break
+    if cible is None:
+        return False, "Compte inconnu."
+    futur = dict(cible)
+    if nom is not None:
+        futur["nom"] = (nom or "").strip() or i
+    if role is not None:
+        if role not in ROLES:
+            return False, "Rôle inconnu."
+        futur["role"] = role
+    if actif is not None:
+        futur["actif"] = bool(actif)
+    reste = [u for u in liste if u.get("identifiant") != i] + [futur]
+    if not _gerants_actifs(reste):
+        return False, "C'est le dernier gérant actif : DFM refuse de le retirer."
+    if mot_de_passe is not None:
+        if len(mot_de_passe) < 10:
+            return False, "Dix caractères au minimum pour le mot de passe."
+        futur["sel"], futur["empreinte"] = empreinte(mot_de_passe)
+    cible.clear()
+    cible.update(futur)
+    _poser(liste)
+    return True, "Compte « %s » mis à jour." % i
+
+
+def supprimer_utilisateur(identifiant):
+    i = _nettoyer_identifiant(identifiant)
+    liste = _bruts()
+    reste = [u for u in liste if u.get("identifiant") != i]
+    if len(reste) == len(liste):
+        return False, "Compte inconnu."
+    if not _gerants_actifs(reste):
+        return False, "C'est le dernier gérant actif : DFM refuse de le supprimer."
+    _poser(reste)
+    return True, "Compte « %s » supprimé." % i
+
+
+def authentifier(identifiant, mot_de_passe):
+    """Rend la fiche du compte, ou None. Le temps de calcul est le meme pour un
+    identifiant inconnu que pour un mot de passe faux : sans cela, la duree de
+    la reponse dirait quels identifiants existent."""
+    import hmac as _hmac
+    i = _nettoyer_identifiant(identifiant)
+    cible = None
+    for u in _bruts():
+        if u.get("identifiant") == i and u.get("actif", True):
+            cible = u
+            break
+    sel = (cible or {}).get("sel") or "0" * 32
+    _, h = empreinte(mot_de_passe or "", sel)
+    if cible and _hmac.compare_digest(h, cible.get("empreinte") or ""):
+        return {k: v for k, v in cible.items() if k not in ("sel", "empreinte")}
+    return None
+
+
+def noter_connexion(identifiant):
+    from datetime import datetime
+    i = _nettoyer_identifiant(identifiant)
+    liste = _bruts()
+    for u in liste:
+        if u.get("identifiant") == i:
+            u["derniere_connexion"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+            _poser(liste)
+            return
