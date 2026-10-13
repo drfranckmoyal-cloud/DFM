@@ -392,17 +392,42 @@ def suivi_ajouter(organisme, code_session, valeurs, numero=None):
     Comme le journal, le premier numero est 2 : la ligne 1 de l'onglet est
     l'en-tete. Ce decalage circule dans tout DFM sous le nom « _numero ».
     """
-    c = _conn()
-    if numero is None:
-        r = c.execute("SELECT MAX(numero) FROM suivi WHERE organisme=? AND code_session=?",
-                      (organisme, code_session)).fetchone()[0]
-        numero = (r + 1) if r else 2
     import json
+    c = _conn()
+    contenu = json.dumps({k: ("" if v is None else str(v))
+                          for k, v in (valeurs or {}).items()}, ensure_ascii=False)
+
+    # UN NUMERO ATTRIBUE D'OFFICE NE DOIT JAMAIS ECRASER QUELQU'UN — 13/10/2026.
+    #
+    # « INSERT OR REPLACE » sur une place deja prise remplace l'occupant SANS
+    # RIEN DIRE. Tant que le numero vient de MAX+1 cela ne devait pas arriver ;
+    # le 09/10 il est pourtant arrive que quatre inscrits recoivent les numeros
+    # 5 a 8, deja tenus par quatre autres. Dans la base rien n'a bouge, mais le
+    # miroir — qui ecrit A LA LIGNE DU NUMERO — a recouvert quatre personnes
+    # dans le classeur, et c'est ce qui a fait croire a deux listes differentes.
+    #
+    # On n'ecrase donc plus : on INSERE, et si la place est prise on en reprend
+    # une libre. Deux passages simultanes ne peuvent plus se marcher dessus, et
+    # un numero errone coute une place decalee, jamais un inscrit efface.
+    if numero is None:
+        for _essai in range(20):
+            r = c.execute("SELECT MAX(numero) FROM suivi WHERE organisme=? AND code_session=?",
+                          (organisme, code_session)).fetchone()[0]
+            candidat = (r + 1) if r else 2
+            try:
+                c.execute("INSERT INTO suivi (organisme, code_session, numero, donnees)"
+                          " VALUES (?,?,?,?)",
+                          (organisme, code_session, candidat, contenu))
+                c.commit()
+                return int(candidat)
+            except sqlite3.IntegrityError:
+                continue          # quelqu'un vient de prendre la place : on recommence
+        raise RuntimeError("suivi_ajouter : aucune place libre trouvee pour %s/%s"
+                           % (organisme, code_session))
+
+    # Numero IMPOSE par l'appelant : c'est une reecriture voulue, on la respecte.
     c.execute("INSERT OR REPLACE INTO suivi (organisme, code_session, numero, donnees)"
-              " VALUES (?,?,?,?)",
-              (organisme, code_session, int(numero),
-               json.dumps({k: ("" if v is None else str(v))
-                           for k, v in (valeurs or {}).items()}, ensure_ascii=False)))
+              " VALUES (?,?,?,?)", (organisme, code_session, int(numero), contenu))
     c.commit()
     return int(numero)
 
