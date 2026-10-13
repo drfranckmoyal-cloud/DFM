@@ -133,7 +133,33 @@ def traiter(code, demandes):
         print("   AUCUNE demande n'est marquee : le prochain passage reprendra tout.")
         return 0
 
+    # ON RELIT AVANT DE MARQUER — 13/10/2026. Quatre demandes du 09/10 ont ete
+    # marquees « importees » sans que leur ligne existe nulle part : elles ont
+    # disparu des deux cotes a la fois, et personne ne l'a vu pendant cinq
+    # jours. Les sauvegardes l'ont date au jour pres, mais aucune n'a pu les
+    # rendre — elles n'y ont jamais ete.
+    #
+    # La marque dit « cette demande est reprise ». Elle ne doit donc se poser
+    # que sur ce qu'on RETROUVE dans le suivi, pas sur ce qu'on croit y avoir
+    # ecrit. Une demande qu'on ne relit pas n'est pas marquee : elle revient au
+    # passage suivant. Un rate redevient un retard d'une demi-journee, il ne
+    # peut plus etre une perte silencieuse.
+    try:
+        relus = {(l.get("mail") or "").strip().lower()
+                 for l in suivi.lire_lignes_de(code) if l.get("mail")}
+    except Exception as e:
+        print("   RELECTURE IMPOSSIBLE (%s)." % str(e)[:70])
+        print("   AUCUNE demande n'est marquee : le prochain passage reprendra tout.")
+        return 0
+
+    perdues = set()
     for (d, ligne, qui, rappel), numero in zip(a_creer, numeros):
+        courriel = (ligne.get("mail") or "").strip().lower()
+        if courriel and courriel not in relus:
+            perdues.add(d.get("id"))
+            print("   PERDUE : %s a ete ecrit mais ne se relit pas." % qui)
+            print("            Elle n'est pas marquee — le prochain passage la reprendra.")
+            continue
         # LA MARQUE D'ABORD. Si le journal ou la file d'attente echouent ensuite,
         # la ligne de suivi existe deja : la reprendre creerait un doublon.
         try:
@@ -156,7 +182,7 @@ def traiter(code, demandes):
     # rappel n'attend pas une place : elle attend un appel.
     if en_attente:
         for (d, ligne, qui, rappel), numero in zip(a_creer, numeros):
-            if rappel:
+            if rappel or d.get("id") in perdues:
                 continue
             try:
                 suivi.ecrire(numero, "file_attente_le", quand, code)
@@ -168,8 +194,12 @@ def traiter(code, demandes):
     except Exception:
         pass
 
-    print("   -> %d ligne(s) creee(s)." % len(a_creer))
-    return len(a_creer)
+    if perdues:
+        print("   -> %d ligne(s) creee(s), %d NON RETROUVEE(S) et donc non marquee(s)."
+              % (len(a_creer) - len(perdues), len(perdues)))
+    else:
+        print("   -> %d ligne(s) creee(s)." % len(a_creer))
+    return len(a_creer) - len(perdues)
 
 
 def main():
