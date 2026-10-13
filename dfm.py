@@ -98,6 +98,12 @@ ETAPES = [
     # NON BLOQUANTE : une panne de Supabase ne doit pas arreter les conventions,
     # les factures et les attestations de la journee.
     ("Demandes du formulaire", "importer_demandes.py", False),
+    # LE CONTROLE VIENT JUSTE APRES LES DEUX IMPORTS, et il ne repare rien : il
+    # compare ce que le formulaire a recu avec ce que le suivi contient. Le
+    # 09/10/2026, quatre demandes ont ete marquees reprises sans que la fiche
+    # existe, et personne ne l'a su pendant cinq jours — c'est ce silence-la
+    # qu'on supprime, pas la panne. Non bloquant : il parle, il n'arrete rien.
+    ("Controle des inscriptions", "verifier_inscriptions.py", False),
     ("Releve des annulations", "relever_annulations.py", True),
     ("Mails de file d'attente", "envoyer_mail_attente.py", False),
     # Avant l'envoi : le lien de signature doit pouvoir pointer sur le document.
