@@ -247,18 +247,18 @@
     </div>
     <div class="sc-card">
       <div class="sc-titre"><i class="ti ti-link"></i>Liens à coller</div>
-      <div class="sc-info"><i class="ti ti-alert-triangle"></i><span>DFM ne peut créer ni le formulaire Google ni le lien Stripe. Crée-les à la main, puis colle-les ici. Tu peux aussi les ajouter plus tard.</span></div>
+      <div class="sc-info"><i class="ti ti-info-circle"></i><span><b>Ces deux champs sont facultatifs.</b> Les inscriptions arrivent par le formulaire de DFM, qui s'ouvre depuis l'écran de la session&nbsp;: il n'y a rien à créer ni à coller pour cela. Le lien Stripe, lui, se crée à la main et peut être ajouté plus tard.</span></div>
       <div class="sc-info" id="sc_sans_forms" style="display:none"><i class="ti ti-info-circle"></i>
         <span><b>Session client : ni formulaire ni lien de paiement.</b> Les apprenants sont saisis
         ci-dessus, le centre règle sur facture. Ces deux champs restent vides — DFM ne les lira pas.</span></div>
       <div class="sc-f sc-lien sc-vide">
-        <label>Sheet de réponses du formulaire</label>
+        <label>Ancien formulaire Google <span class="sc-opt">facultatif</span></label>
         <div class="sc-boite">
           <input type="text" name="sheet_reponses" placeholder="Colle l'adresse complète du Google Sheet (ou l'identifiant seul)" oninput="majLien(this)" onblur="scVerifierSheet(this)">
           <i class="ti ti-circle-check sc-coche"></i>
         </div>
         <div id="sc_verif_sheet" style="font-size:11px;margin-top:5px"></div>
-        <div class="sc-aide">C'est là que DFM va lire les inscriptions. Sans lui, rien ne remonte. Lien complet ou identifiant : DFM extrait l'identifiant et vérifie le document.</div>
+        <div class="sc-aide"><b>À laisser vide.</b> Ce champ ne sert qu'à reprendre une session encore alimentée par un ancien formulaire Google&nbsp;: DFM y lirait alors les réponses, en plus de celles de son propre formulaire.</div>
       </div>
       <div class="sc-f sc-lien sc-vide">
         <label>Lien de paiement Stripe</label>
@@ -648,7 +648,7 @@ function creer(bouton){
     bouton.innerHTML = "<i class=\"ti ti-rocket\"></i>Créer la session";
     var h = "";
     if(j.ok){
-      dfmBrouillon.enregistre();
+      dfmBrouillon.terminer();
       var gens = (document.getElementById("mode").value === "client") ? apListe() : [];
       if(gens.length){
         var fd = new FormData();
@@ -664,8 +664,11 @@ function creer(bouton){
           }
         });
       }
-      h += "<div style=\"font-size:16px;font-weight:500;margin-bottom:4px\">Session créée</div>";
-      h += "<div style=\"font-size:13px;color:var(--muted);margin-bottom:16px\">" + j.code + "</div>";
+      h += "<div style=\"display:flex;align-items:center;gap:9px;margin-bottom:5px\">"
+         + "<i class=\"ti ti-circle-check\" style=\"font-size:22px;color:var(--success)\"></i>"
+         + "<span style=\"font-size:17px;font-weight:600;color:var(--success)\">La session est créée</span></div>";
+      h += "<div style=\"font-size:13px;color:var(--muted);margin-bottom:16px\">" + j.code
+         + " — elle est enregistrée. Vous pouvez fermer cette fenêtre.</div>";
     } else {
       h += "<div style=\"font-size:16px;font-weight:500;margin-bottom:16px;color:var(--danger)\">" + (j.message || "Échec") + "</div>";
     }
@@ -673,7 +676,7 @@ function creer(bouton){
       h += "<div class=\"sc-et\"><i class=\"ti " + (e.ok ? "ti-circle-check" : "ti-alert-circle") + "\" style=\"color:" + (e.ok ? "var(--success)" : "var(--danger)") + "\"></i><span>" + e.texte + "</span></div>";
     });
     if(j.ok && (j.manquants || []).length){
-      h += "<div class=\"sc-main\" style=\"margin-top:16px\"><div class=\"sc-main-t\"><i class=\"ti ti-hand-click\"></i>Il reste à ajouter</div>";
+      h += "<div class=\"sc-main\" style=\"margin-top:16px\"><div class=\"sc-main-t\"><i class=\"ti ti-hand-click\"></i>Facultatif, quand vous voudrez</div>";
       j.manquants.forEach(function(m){ h += "<div class=\"sc-main-i\"><i class=\"ti ti-point\"></i><span>" + m + "</span></div>"; });
       h += "</div>";
     }

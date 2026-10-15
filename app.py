@@ -955,8 +955,11 @@ def enregistrer_nouvelle_session():
     # qu'il manque quelque chose alors que tout est complet.
     if _mode_demande == "client":
         return jsonify({"ok": True, "code": code, "etapes": etapes, "manquants": []})
-    if not fiche["sheet_reponses"]:
-        manquants.append("le Sheet de reponses du formulaire")
+    # LE SHEET DE REPONSES N'EST PLUS UN MANQUE — 15/10/2026. Les inscriptions
+    # arrivent par le formulaire de DFM depuis la fermeture des formulaires
+    # Google (08/10/2026) : une session neuve n'a aucune raison d'en avoir un.
+    # Le reclamer affichait « il reste a ajouter » sur une session pourtant
+    # complete, et faisait douter que la creation ait reussi.
     if not fiche["stripe_lien"]:
         manquants.append("le lien de paiement Stripe")
     return jsonify({"ok": True, "code": code, "etapes": etapes, "manquants": manquants})

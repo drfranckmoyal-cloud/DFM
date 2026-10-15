@@ -677,6 +677,13 @@ var dfmBrouillon = (function(){
   }
   return {installer: installer, armer: armer, modifie: modifie,
           enregistre: function(){ effacer(); armer(); },
+          // TERMINER, ET NON ENREGISTRER — 15/10/2026. Apres une creation
+          // reussie il n'y a plus rien a conserver : on efface le brouillon ET
+          // on desarme. « enregistre » re-armait, si bien qu'un clic dans un
+          // champ apres coup rappelait « Modifications non enregistrees » —
+          // titre qui, juste apres une creation, laisse croire que rien n'a
+          // ete sauve. C'est exactement ce qui s'est produit.
+          terminer: function(){ effacer(); IGNORER = true; },
           ecarter: effacer};
 })();
 
