@@ -913,9 +913,16 @@ def enregistrer_nouvelle_session():
     if _h1 and _h2:
         fiche["horaires"] = _h1 + " - " + _h2
     etapes = []
-    sheets = service_sheets()
     feuille = COMMUN["sheet_suivi"]
     try:
+        # LE CLASSEUR EST UN MIROIR, PAS UNE CONDITION — 16/10/2026. Cette
+        # ligne vivait HORS du try : ouvrir la connexion Google echouait, et la
+        # creation de session repondait 500 sans rien creer. Or l'autorisation
+        # Google meurt tous les sept jours tant que l'application reste en mode
+        # « Test » dans la console — le jour ou elle tombe, Franck ne pouvait
+        # plus ouvrir une session, pour un onglet de classeur qui ne prouve
+        # rien et que le passage suivant rattrape.
+        sheets = service_sheets()
         meta = sheets.spreadsheets().get(spreadsheetId=feuille).execute()
         existants = [x["properties"]["title"] for x in meta["sheets"]]
         if onglet in existants:
@@ -949,6 +956,35 @@ def enregistrer_nouvelle_session():
         etapes.append({"ok": True, "texte": "Fiche de session enregistree"})
     except Exception as e:
         return jsonify({"ok": False, "message": str(e), "etapes": etapes})
+
+    # LE FORMULAIRE S'OUVRE AVEC LA SESSION — 16/10/2026. Il fallait jusqu'ici
+    # aller l'ouvrir a la main sur l'ecran de la session, et rien ne le disait :
+    # une session creee le 15/10 a eu son lien d'inscription pose sur le site
+    # alors que la page repondait « les inscriptions pour cette formation sont
+    # closes ». Creer une session, c'est vouloir des inscrits ; l'etat normal
+    # d'une session neuve est donc OUVERTE, et c'est la fermer qui demande un
+    # geste. Le bouton de l'ecran reste la pour ca.
+    #
+    # Une session CLIENT n'a pas de formulaire public : ses participants sont
+    # saisis par le centre. On ne publie rien pour elle.
+    if _mode_demande != "client":
+        try:
+            import inscription as _insc
+            _ok_pub, _msg_pub = _insc.publier(code, ouverte=True)
+            etapes.append({"ok": bool(_ok_pub),
+                           "texte": ("Formulaire d'inscription ouvert" if _ok_pub
+                                     else "Formulaire non ouvert : %s" % _msg_pub)})
+            if _ok_pub:
+                journal.ecrire("Formulaire public ouvert", "",
+                               code + " — ouvert a la creation de la session", "", code)
+        except Exception as e:
+            # NON BLOQUANT : la session existe, et le formulaire s'ouvre d'un
+            # clic depuis son ecran. Perdre la session parce que Supabase n'a
+            # pas repondu serait hors de proportion.
+            etapes.append({"ok": False,
+                           "texte": "Formulaire non ouvert (%s) — a ouvrir depuis l'ecran de la session"
+                                    % str(e)[:60]})
+
     manquants = []
     # Une session client n'a ni formulaire ni lien de paiement : le centre
     # fournit sa liste et regle sur facture. Les reclamer laisserait croire
