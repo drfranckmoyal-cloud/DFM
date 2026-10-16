@@ -81,6 +81,12 @@ exports.handler = async (event) => {
           couleur: s.couleur || "#4f7ef8", descriptif: s.descriptif || "",
           restantes: Math.max(0, maxi - prises),
           complet: maxi > 0 && prises >= maxi,
+          // POUR LE SITE DE L'ORGANISME, qui lit cette meme adresse depuis le
+          // 16/10/2026 au lieu de recopier les sessions a la main. La page
+          // d'inscription, elle, ignore ces champs : les ajouter ne lui coute
+          // rien et evite une seconde adresse a maintenir.
+          date_debut: s.date_debut || "", date_fin: s.date_fin || "",
+          places_max: maxi, occupees: prises,
         };
       }),
     });

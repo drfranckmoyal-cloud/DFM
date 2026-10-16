@@ -128,6 +128,11 @@ def publier(code_session, ouverte=True):
             "titre": S.get("titre_complet") or S.get("nom_formation") or "",
             "date_texte": S.get("date_texte") or "",
             "date_debut": S.get("date_debut") or None,
+            # LA DATE DE FIN EST PUBLIEE AUSSI — 16/10/2026. Le site de
+            # l'organisme lit cette table pour afficher ses sessions ; une
+            # donnee structuree d'evenement demande un debut ET une fin, sans
+            # quoi les moteurs de recherche refusent la fiche.
+            "date_fin": S.get("date_fin") or None,
             "lieu": S.get("adresse") or "",
             "tarif": str(S.get("tarif") or ""),
             "couleur": form.get("couleur") or "#4f7ef8",
