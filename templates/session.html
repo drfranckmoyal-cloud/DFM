@@ -182,6 +182,12 @@ html[data-sombre] .jal-rond{background:#20242f}
 .jal-fait .jal-rond{background:var(--success);border-color:var(--success);color:#fff;
   box-shadow:0 2px 6px rgba(15,158,106,.35)}
 .jal-inconnu .jal-rond{border-color:var(--warn);color:var(--warn)}
+/* EN COURS : commence, pas fini. Un trait plein jusqu'ici, un rond cercle de
+   la couleur d'attention — on voit d'un coup d'oeil qu'il reste du monde. */
+.jal-partiel::before{background:linear-gradient(90deg,var(--success) 0 50%,var(--border2) 50% 100%)}
+.jal-partiel .jal-rond{border-color:var(--warn);color:var(--warn);
+  box-shadow:0 1px 3px rgba(214,158,46,.3)}
+.jal-partiel .jal-n{color:var(--text)}
 .jal-n{font-size:10.5px;line-height:1.3;color:var(--muted);letter-spacing:.1px;
   padding:0 1px}
 .jal-fait .jal-n{color:var(--text);font-weight:600}

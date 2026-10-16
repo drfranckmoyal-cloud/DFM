@@ -1250,8 +1250,14 @@ def _jalons_session(code, s):
     jalons = [
         {"libelle": "Questionnaire publié", "court": "Quest. publié", "icone": "ti-upload",
          "etat": reseau(publie), "sur": "la page publique des questionnaires"},
+        # VERT VEUT DIRE « TOUT LE MONDE L'A EU » — 17/10/2026. Ce jalon passait
+        # au vert des le PREMIER rappel parti : le 15/10, sept inscrits sur
+        # dix-sept l'avaient recu et la pastille annoncait l'etape faite. Dix
+        # personnes attendaient encore, et rien ne le disait. Trois etats
+        # desormais, comme pour les attestations : rien, en cours, fait.
         {"libelle": "Rappel J-20 envoyé", "court": "Rappel J-20", "icone": "ti-bell",
-         "etat": "fait" if compte("rappel_le") else "attente",
+         "etat": ("fait" if (n and compte("rappel_le") >= n)
+                  else ("partiel" if compte("rappel_le") else "attente")),
          "date": date_max("rappel_le"),
          "sur": "%d inscrit(s) sur %d" % (compte("rappel_le"), n) if n else ""},
         {"libelle": "Évaluation initiale ouverte", "court": "Éval. initiale", "icone": "ti-school",
@@ -1264,7 +1270,7 @@ def _jalons_session(code, s):
          "etat": "fait" if feuille.get("lien_emargement_signe") else "attente",
          "date": feuille.get("emargement_signe_le") or "", "sur": "scan déposé dans DFM"},
         {"libelle": "Attestations envoyées", "court": "Attestations", "icone": "ti-certificate",
-         "etat": "fait" if (n and att >= n) else "attente",
+         "etat": ("fait" if (n and att >= n) else ("partiel" if att else "attente")),
          "date": date_max("attestation_envoyee_le"),
          "sur": "%d sur %d inscrit(s)" % (att, n) if n else ""},
         {"libelle": "Formation clôturée", "court": "Clôturée", "icone": "ti-archive",
