@@ -29,7 +29,27 @@ if reste < 0:
     exit()
 print("-> Lecture du suivi...")
 lignes = suivi.lire_lignes_de(CODE)
-concernes = [l for l in lignes if l["mail2_envoye_le"] and not l["rappel_le"]]
+# LA CONVOCATION NE DEPEND PLUS DE LA SIGNATURE — 17/10/2026, regle posee par
+# Franck pour TOUTES les sessions et TOUTES les formations.
+#
+# Elle ne partait qu'a ceux dont la confirmation etait deja envoyee, donc qui
+# avaient signe leur convention. Le 15/10, sept inscrits sur dix-sept d'Usures
+# novembre ont recu leurs horaires et leurs articles ; dix sont restes sans
+# rien, a trois semaines de la formation, sans que rien ne le signale.
+#
+# Un praticien qui vient a besoin de savoir OU et QUAND, et de lire ses
+# articles, qu'il ait signe ou non. La signature se reclame par la relance de
+# signature, qui est un autre courrier et continue son travail.
+#
+# Restent ecartes : les annulations, les demandes d'annulation, la file
+# d'attente et les demandes de rappel — aucun de ceux-la n'est attendu en
+# formation, les convoquer serait une erreur.
+concernes = [l for l in lignes
+             if not l["rappel_le"]
+             and not l["annule_le"]
+             and not l["annulation_demandee_le"]
+             and not (l["file_attente_le"] and not l["promu_le"])
+             and "recontact" not in (l["demande"] or "").lower()]
 if not concernes:
     print("-> Aucun rappel a envoyer.")
     exit()
