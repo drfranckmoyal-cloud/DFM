@@ -96,7 +96,31 @@ for ligne in concernes:
     nom_prenom = f"{prenom} {ligne['nom']}".strip()
     print(f"-> Envoi a {nom_prenom}...")
     bloc_reglement = ""
-    if not ligne["paiement_recu_le"]:
+    piece_rib = None
+    # QUI DOIT ENCORE QUELQUE CHOSE ? — 17/10/2026.
+    #
+    # La condition ne regardait que « aucun paiement enregistre ». Le 17/10,
+    # sept des dix convoques d'Usures novembre ont donc recu « ton reglement ne
+    # nous est pas encore parvenu », qui leur reclamait 975 euros : trois
+    # invitees, et quatre inscrits dont le montant du est vide. Un invite ne
+    # doit rien, par definition — c'est deja la regle partout ailleurs dans DFM,
+    # ou son statut est « Invitee » et sa facture « sans objet ». Une ligne sans
+    # montant du ne doit rien non plus.
+    #
+    # LE MONTANT AFFICHE EST CELUI DE LA PERSONNE, plus le tarif de la session.
+    # Les deux se confondent pour un payant ; seul le premier est vrai pour les
+    # autres, et c'est ce melange qui a fait reclamer 975 euros a des invitees.
+    #
+    # SE TAIRE NE PERD RIEN : reclamer un reglement est le travail de la relance
+    # de reglement, qui est un autre courrier et continue le sien. La convocation
+    # ne faisait que le rappeler en passant.
+    _du = str(ligne["montant_du"] or "").strip().replace(",", ".").replace(" ", "")
+    try:
+        _du_nombre = float(_du) if _du else 0.0
+    except ValueError:
+        _du_nombre = 0.0
+    _du_texte = ("%d" % _du_nombre) if _du_nombre == int(_du_nombre) else ("%.2f" % _du_nombre)
+    if not ligne["paiement_recu_le"] and not ligne.get("invite_le") and _du_nombre > 0:
         # PAS DE LIEN, PAS DE BOUTON — 04/10/2026. Ce bouton pointait vers
         # S['stripe_lien'] sans verifier qu'il existe : sur une session creee sans
         # lien de paiement — et rien ne permettait d'en ajouter un apres coup — le
@@ -115,7 +139,7 @@ for ligne in concernes:
         bloc_reglement = f"""
   <div style="background:#fdf6ec;border:1px solid #f5dda6;border-radius:10px;padding:18px;margin:24px 0;">
     <p style="margin:0 0 12px;font-size:14px;"><strong>Ton r&egrave;glement ne nous est pas encore parvenu.</strong><br>
-    Merci de le finaliser avant la formation ({S['tarif']} &euro;, d&eacute;jeuners inclus).</p>
+    Merci de le finaliser avant la formation ({_du_texte} &euro;, d&eacute;jeuners inclus).</p>
 {_bouton_stripe}
     <p style="margin:12px 0 6px;font-size:13px;"><strong>Ou par virement</strong> &mdash; motif : {S['nom_formation']} + Nom Pr&eacute;nom</p>
     <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -128,6 +152,16 @@ for ligne in concernes:
     </table>
     <p style="margin:11px 0 0;font-size:11px;color:#9a7a3f;font-style:italic;">Si c'est une erreur de notre part, n'h&eacute;site pas &agrave; nous le pr&eacute;ciser.</p>
   </div>"""
+        # LE RIB EN PIECE JOINTE, POUR QUI NE L'A JAMAIS RECU — 17/10/2026,
+        # choix de Franck. Le RIB voyage d'ordinaire avec le mail 2, qui attend
+        # la signature : qui n'a pas signe n'a donc jamais recu de quoi payer.
+        # Les coordonnees bancaires sont deja dans le corps du mail juste
+        # au-dessus ; le PDF est ce que reclame une banque ou un comptable.
+        # Inutile de le renvoyer a qui a deja eu le mail 2.
+        if not ligne["mail2_envoye_le"]:
+            piece_rib = _doc.piece("rib", CODE)
+            if not piece_rib:
+                print("   ! RIB introuvable, la convocation part sans.")
     import mails as _mails
     _modele = _mails.pour_formation(S.get("formation", ""), "rappel")
     _ctx = _mails.contexte(S, ligne, {"bloc_reglement": bloc_reglement})
@@ -155,6 +189,12 @@ for ligne in concernes:
         pj = MIMEApplication(contenu, _subtype="pdf")
         pj.add_header("Content-Disposition", "attachment", filename=nom_fichier)
         message.attach(pj)
+    if piece_rib:
+        pj = MIMEApplication(piece_rib, _subtype="pdf")
+        pj.add_header("Content-Disposition", "attachment",
+                      filename="RIB - %s.pdf" % (S.get("organisme") or "organisme"))
+        message.attach(pj)
+        print("   . RIB joint (pas encore recu par mail 2).")
     # L'ENVOI PASSE PAR LA PORTE « courrier », plus par l'API Gmail. C'est
     # l'organisme DE LA SESSION qui decide d'ou part le mail : deux entites,
     # deux adresses, et un mail parti sous la mauvaise identite ne se rattrape pas.
