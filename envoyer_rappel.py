@@ -99,22 +99,24 @@ for ligne in concernes:
     piece_rib = None
     # QUI DOIT ENCORE QUELQUE CHOSE ? — 17/10/2026.
     #
-    # La condition ne regardait que « aucun paiement enregistre ». Le 17/10,
-    # sept des dix convoques d'Usures novembre ont donc recu « ton reglement ne
-    # nous est pas encore parvenu », qui leur reclamait 975 euros : trois
-    # invitees, et quatre inscrits dont le montant du est vide. Un invite ne
-    # doit rien, par definition — c'est deja la regle partout ailleurs dans DFM,
-    # ou son statut est « Invitee » et sa facture « sans objet ». Une ligne sans
-    # montant du ne doit rien non plus.
+    # La condition ne regardait que « aucun paiement enregistre ». Trois
+    # INVITEES d'Usures novembre ont donc recu « ton reglement ne nous est pas
+    # encore parvenu », qui leur reclamait 975 euros pour une formation a
+    # laquelle on les avait conviees. Un invite ne doit rien, par definition :
+    # c'est deja la regle partout ailleurs dans DFM, ou son statut est
+    # « Invitee » et sa facture « sans objet ». La convocation etait la seule a
+    # l'ignorer.
     #
-    # LE MONTANT AFFICHE EST CELUI DE LA PERSONNE, plus le tarif de la session.
-    # Les deux se confondent pour un payant ; seul le premier est vrai pour les
-    # autres, et c'est ce melange qui a fait reclamer 975 euros a des invitees.
-    #
-    # SE TAIRE NE PERD RIEN : reclamer un reglement est le travail de la relance
-    # de reglement, qui est un autre courrier et continue le sien. La convocation
-    # ne faisait que le rappeler en passant.
+    # UN MONTANT DU VIDE NE VEUT PAS DIRE « NE DOIT RIEN » — erreur commise ici
+    # le 17/10 et corrigee le meme jour. Dans DFM, « montant_du » n'est rempli
+    # que par l'ancien import Google... jamais, et par l'enregistrement d'un
+    # reglement, qui le pose au passage. Un inscrit qui n'a pas encore paye a
+    # donc le champ VIDE, et il doit bel et bien le tarif. Tout le reste du code
+    # le sait deja et ecrit « montant_du or tarif » (voir app.py). On s'aligne :
+    # vide, c'est le tarif de la session ; seul un zero explicite est un zero.
     _du = str(ligne["montant_du"] or "").strip().replace(",", ".").replace(" ", "")
+    if not _du:
+        _du = str(S.get("tarif") or "").strip().replace(",", ".").replace(" ", "")
     try:
         _du_nombre = float(_du) if _du else 0.0
     except ValueError:
