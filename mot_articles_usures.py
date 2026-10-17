@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+# ON ECRIT LA DATE, PAS LE JOUR DE LA SEMAINE. Le premier envoi disait
+# « ta convocation de mercredi » alors qu'elle etait partie le JEUDI 15.
+# Une date se verifie, un jour de semaine se devine — et se devine mal.
 """Un mot aux sept convoques du 15/10 : leurs articles n'etaient pas les bons.
 
     venv/bin/python mot_articles_usures.py            # qui, et quoi — sans envoyer
@@ -73,7 +76,7 @@ for ligne in cibles:
         'color:#1a1d26;max-width:34em">'
         '<img src="cid:logo" alt="" style="height:44px;margin-bottom:18px">'
         "<p>Bonjour %s,</p>"
-        "<p>Les articles joints à ta convocation de mercredi n'étaient pas les bons&nbsp;: "
+        "<p>Les articles joints à ta convocation du 15 octobre n'étaient pas les bons&nbsp;: "
         "c'étaient ceux d'une autre formation. Désolé pour la confusion.</p>"
         "<p><b>Voici les quatre articles à lire avant les deux journées sur les usures.</b></p>"
         "<p>Le reste de la convocation — adresse, horaires, modalités d'accès — "
