@@ -24,6 +24,7 @@ import sys
 from datetime import datetime
 
 import inscription as I
+import invitations as _inv
 import journal
 import sessions as _s
 import suivi
@@ -114,9 +115,30 @@ def traiter(code, demandes):
         ligne["horodateur"] = _horodateur(d.get("horodateur"))
         ligne["date_formation"] = S.get("date_texte") or ""
         ligne["montant_du"] = str(S.get("tarif") or "")
+        # CETTE INSCRIPTION REPOND-ELLE A UNE INVITATION ? — 17/10/2026.
+        #
+        # Franck invite quelqu'un sur sa seule adresse ; la personne remplit le
+        # formulaire ordinaire. C'est ICI que les deux se rejoignent : la ligne
+        # nait deja marquee « invitee » et sans somme a payer, donc elle ne
+        # passe jamais par un etat ou on lui reclamerait quoi que ce soit.
+        #
+        # LE REGISTRE EST DANS DFM, PAS DANS LE LIEN : un invite ne peut pas
+        # s'auto-declarer en bricolant l'adresse du formulaire. Voir
+        # invitations.py.
+        invitation = None
+        try:
+            invitation = _inv.pour(code, mail) if mail else None
+        except Exception as e:
+            print("   ! registre des invitations illisible (%s)" % str(e)[:60])
+        if invitation:
+            ligne["invite_le"] = invitation.get("le") or quand
+            ligne["montant_du"] = "0"
         rappel = "recontact" in (ligne["demande"] or "").lower()
-        a_creer.append((d, ligne, qui, rappel))
-        marque = "à recontacter" if rappel else ("file d'attente" if en_attente else "inscrit")
+        a_creer.append((d, ligne, qui, rappel, invitation))
+        if invitation:
+            marque = "INVITE\u00b7E — rien a regler"
+        else:
+            marque = "à recontacter" if rappel else ("file d'attente" if en_attente else "inscrit")
         print("   . %-28s %s" % (qui, marque))
 
     if not a_creer:
@@ -153,7 +175,7 @@ def traiter(code, demandes):
         return 0
 
     perdues = set()
-    for (d, ligne, qui, rappel), numero in zip(a_creer, numeros):
+    for (d, ligne, qui, rappel, invitation), numero in zip(a_creer, numeros):
         courriel = (ligne.get("mail") or "").strip().lower()
         if courriel and courriel not in relus:
             perdues.add(d.get("id"))
@@ -177,12 +199,32 @@ def traiter(code, demandes):
                 journal.ecrire("Nouvelle inscription", qui, d.get("mail") or "", "", code)
         except Exception:
             pass
+        # L'INVITATION SE CONSOMME. Sans cela, la meme adresse reinscrite plus
+        # tard sur une autre session heriterait d'une gratuite qui n'etait pas
+        # pour elle. Elle reste au registre, datee : c'est la trace de qui a
+        # ete invite, par qui, et quand.
+        if invitation:
+            try:
+                _inv.consommer(code, courriel, numero)
+                journal.ecrire("Apprenant invité", qui,
+                               "invité·e le %s, inscription reprise" % str(invitation.get("le") or "")[:10],
+                               "", code)
+            except Exception as e:
+                print("   ATTENTION : %s est invite mais le registre n'a pas suivi (%s)."
+                      % (qui, str(e)[:60]))
 
     # LA FILE D'ATTENTE NE CONCERNE QUE LES CONFIRMATIONS. Une demande de
     # rappel n'attend pas une place : elle attend un appel.
     if en_attente:
-        for (d, ligne, qui, rappel), numero in zip(a_creer, numeros):
+        for (d, ligne, qui, rappel, invitation), numero in zip(a_creer, numeros):
             if rappel or d.get("id") in perdues:
+                continue
+            # UN INVITE N'ATTEND PAS SA PLACE : on l'a invite, il l'a. La file
+            # d'attente protege la capacite contre les inscriptions du public,
+            # pas contre les invites de l'organisme — qui a vu l'avertissement
+            # de depassement au moment ou il envoyait l'invitation.
+            if invitation:
+                print("   %s : invite\u00b7e, donc pas de file d'attente." % qui)
                 continue
             try:
                 suivi.ecrire(numero, "file_attente_le", quand, code)

@@ -26,6 +26,12 @@ USAGES = {
     "invitation": {"nom": "Apprenant invité",
                    "quand": "Part uniquement quand vous marquez quelqu'un comme invité — jamais par le pipeline",
                    "icone": "ti-gift", "couleur": "#d4890a"},
+    # L'INVITATION D'AVANT L'INSCRIPTION. L'autre s'adresse a quelqu'un qui est
+    # deja dans le suivi ; celle-ci part a une simple adresse et porte le
+    # formulaire, parce que la personne n'existe encore nulle part.
+    "invitation-inscription": {"nom": "Invitation à s'inscrire",
+                   "quand": "Part uniquement quand vous invitez quelqu'un par son adresse, depuis la fiche de session",
+                   "icone": "ti-mail-heart", "couleur": "#d4890a"},
 }
 BALISES = [
     ("Praticien", [
@@ -54,6 +60,8 @@ BALISES = [
         ("lien_signature", "Bouton de signature", "https://exemple.test/signature"),
         ("lien_paiement", "Lien de paiement Stripe", "https://exemple.test/paiement"),
         ("lien_annulation", "Lien d'annulation", "https://exemple.test/annulation"),
+        ("lien_inscription", "Lien du formulaire d'inscription",
+         "https://exemple.test/inscription.html"),
     ]),
     ("Organisme", [
         ("organisme", "Raison sociale", "VOTRE SOCIÉTÉ"),
@@ -249,6 +257,8 @@ DEFAUTS = {
  "facture": {"titre": "Facture acquittée — texte d'origine", "objet": "Votre facture · {{titre_formation}}"},
  "attestation": {"titre": "Attestation de formation — texte d'origine", "objet": "Votre attestation · {{titre_formation}}"},
  "invitation": {"titre": "Apprenant invité — texte d'origine",
+                "objet": "Vous êtes invité·e · {{titre_formation}}"},
+ "invitation-inscription": {"titre": "Invitation à s'inscrire — texte d'origine",
                 "objet": "Vous êtes invité·e · {{titre_formation}}"},
 }
 TYPES_BLOCS = {
@@ -507,6 +517,19 @@ BLOCS_DEFAUTS = {
   {"type": "brut", "contenu": "<p style=\"margin:0 0 12px;font-size:14px;line-height:1.55;color:#3d4250;\">Une remarque, une insatisfaction sur le d&eacute;roulement de cette formation ? Dis-le-nous : nous accusons r&eacute;ception et te r&eacute;pondons sous <strong>{{delai_reclamation}} jours</strong>.</p>"},
   {"type": "brut", "contenu": "<p style=\"margin:0;\"><a href=\"{{lien_reclamation}}\" style=\"display:inline-block;background:#4f7ef8;color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:10px 20px;border-radius:7px;\">Adresser une r&eacute;clamation</a></p>"},
   {"type": "brut", "contenu": "</td></tr></table>"},
+ ],
+ # PAS DE {{prenom}} DANS CE MODELE : au moment ou ce mail part, on ne connait
+ # que l'adresse. Le nom, la fonction et les contraintes alimentaires, c'est le
+ # formulaire qui les recueillera — c'est tout l'objet du mail.
+ "invitation-inscription": [
+  {"type": "texte", "contenu": "Bonjour,"},
+  {"type": "texte", "contenu": "Nous avons le plaisir de vous convier à la formation **« {{titre_formation}} »**, qui se tiendra le **{{dates}}**."},
+  {"type": "encadre", "ton": "vert", "contenu": "Vous êtes **cordialement invité·e par {{marque}}** : **aucun règlement** ne vous sera demandé, et la convention que vous signerez portera un montant de **zéro euro**."},
+  {"type": "texte", "contenu": "Il reste un formulaire à remplir pour finaliser votre inscription : c'est lui qui nous donne ce dont nous avons besoin pour établir votre convention, la feuille d'émargement et votre attestation."},
+  {"type": "bouton", "libelle": "Remplir mon inscription", "lien": "{{lien_inscription}}", "couleur": "vert", "sous": "(deux minutes, rien à régler)"},
+  {"type": "texte", "contenu": "Ensuite, tout se déroule normalement : convention de formation, informations pratiques, questionnaires et attestation de fin de formation."},
+  {"type": "texte", "contenu": "En cas de question, répondez simplement à ce mail."},
+  {"type": "signature", "contenu": "Au plaisir de vous accueillir,\n**{{signature}}, {{marque}}**"},
  ],
  "invitation": [
   {"type": "texte", "contenu": "Bonjour **{{prenom}}**,"},

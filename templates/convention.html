@@ -218,6 +218,11 @@
   <tr class="tot"><td>TOTAL GÉNÉRAL (ou Net de taxe si TVA non applicable)</td>
     <td class="m">{{ c.total }} € TTC</td></tr>
 </table>
+{# LA GRATUITE S'ECRIT, elle ne se devine pas d'une colonne de zeros. N'apparait
+   que sur la convention d'un invite : pour un payant, la condition est fausse
+   et le document est exactement celui d'avant. #}
+{% if c.gracieux %}<p><strong>Cette action de formation est offerte au Stagiaire
+  par {{ c.marque }}&nbsp;: aucune somme n'est due.</strong></p>{% endif %}
 
 <h2>Article 5 : Modalités de déroulement et de suivi</h2>
 <p>Le déroulement de la formation se fera de manière présentielle&nbsp;:</p>
@@ -231,8 +236,10 @@
   «&nbsp;Attestation de réalisation de la formation {{ c.titre_formation }}&nbsp;»</p>
 
 <h2>Article 7 : Modalités de règlement</h2>
-<p>Le Client s'engage à régler la totalité des frais de formation au plus tard 20 jours
-  après la fin de la formation.</p>
+{% if c.gracieux %}<p>Sans objet&nbsp;: la formation étant offerte au Stagiaire,
+  aucun règlement n'est attendu.</p>
+{% else %}<p>Le Client s'engage à régler la totalité des frais de formation au plus tard 20 jours
+  après la fin de la formation.</p>{% endif %}
 
 <h2>Article 8 : Dédit ou abandon</h2>
 <p>En cas de dédit par le Client à moins de 20 jours francs avant le début de l'action

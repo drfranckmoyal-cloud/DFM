@@ -242,6 +242,8 @@ def pour(code_session, signature_client="", ligne=None):
         "nb_participants": len(participants),
         "tarif": "%.0f" % unitaire,
         "total": "%.0f" % total,
+        "gracieux": False,      # une convention client n'est jamais gracieuse
+
         "ville": (S.get("ville_organisme") or "Paris"),
         "date_du_jour": datetime.now().strftime("%d/%m/%Y"),
         "signature": sig,
@@ -310,7 +312,16 @@ def _individuelle(S, ligne, signature_client="", code_session=None):
                       % (" et ".join(manque), S.get("marque") or "l'organisme",
                          "les" if len(manque) > 1 else "la"))
 
-    tarif = _nombre(S.get("tarif"))
+    # UN INVITE SIGNE UNE CONVENTION A ZERO EURO — 17/10/2026, regle posee par
+    # Franck. Le tarif vient de la SESSION, mais la gratuite est une propriete
+    # de la PERSONNE : une convention qui annoncerait 975 euros a quelqu'un
+    # d'invite serait fausse, et c'est un acte qu'il signe.
+    #
+    # La meme case commande partout ailleurs : son statut est « Invitee », sa
+    # facture « sans objet », et la convocation ne lui reclame rien. Le document
+    # contractuel ne peut pas etre le seul a l'ignorer.
+    invite = bool(str(ligne.get("invite_le") or "").strip())
+    tarif = 0.0 if invite else _nombre(S.get("tarif"))
     d = _commun(S)
     d.update({
         # Formulations reprises telles quelles de sessions.balises_stagiaire :
@@ -325,6 +336,10 @@ def _individuelle(S, ligne, signature_client="", code_session=None):
         "nb_participants": 1,
         # Un seul stagiaire : le total EST le tarif.
         "tarif": "%.0f" % tarif, "total": "%.0f" % tarif,
+        # Dit au modele d'ecrire la mention de gratuite. Un drapeau plutot
+        # qu'un « si le total vaut zero » dans le gabarit : la raison est ici,
+        # pas dans la mise en page.
+        "gracieux": invite,
         "date_formation": (ligne.get("date_formation") or "").strip() or d["date_formation"],
         "signature": sig, "tampon": tam,
         "signature_client": signature_client or "",

@@ -2832,6 +2832,163 @@ def marquer_invitation(code):
     except Exception:
         pass
     return jsonify({"ok": True, "etapes": etapes, "nom": nom_prenom})
+def _mail_invitation_inscription(S, mail, lien):
+    """Le mail d'invitation a quelqu'un qui n'est pas encore inscrit.
+
+    Son jumeau _mail_invitation s'adresse a une LIGNE du suivi : il connait le
+    prenom, la date, tout. Celui-ci ne connait qu'une adresse — la personne
+    n'existe encore nulle part — et porte le formulaire, qui recueillera le
+    reste. C'est pour cela qu'il a son propre modele dans la bibliotheque.
+    """
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from email.mime.image import MIMEImage
+    import mails as _mails
+    modele = _mails.pour_formation(S.get("formation", ""), "invitation-inscription")
+    rendu = _mails.rendre(modele, _mails.contexte(S, None, {"lien_inscription": lien}))
+    logo_bytes = None
+    try:
+        logo_bytes = __import__("profil").logo(SESSIONS_MOD.organisme_de(S["code"]))
+    except Exception:
+        pass
+    message = MIMEMultipart("related")
+    message["To"] = mail
+    _exp = _mails.expediteur(S)
+    if _exp:
+        message["From"] = _exp
+    message["Subject"] = rendu["objet"]
+    corps = MIMEMultipart("alternative")
+    corps.attach(MIMEText(_mails.poser_logo(rendu["html"], logo_bytes), "html"))
+    message.attach(corps)
+    if logo_bytes:
+        logo = MIMEImage(logo_bytes)
+        logo.add_header("Content-ID", "<logo>")
+        logo.add_header("Content-Disposition", "inline", filename="logo.png")
+        message.attach(logo)
+    courrier.envoyer(message, SESSIONS_MOD.organisme_de(S["code"]))
+
+
+@app.route("/session/<code>/invitations")
+def invitations_session(code):
+    """Les invitations lancees sur cette session, et leur sort.
+
+    Sans cet ecran, une invitation envoyee serait invisible jusqu'a ce que la
+    personne s'inscrive : on ne saurait ni qui a ete invite, ni qui n'a pas
+    repondu.
+    """
+    if code not in SESSIONS:
+        return jsonify({"ok": False, "message": "Session inconnue"})
+    import invitations as _inv
+    try:
+        tout = _inv.lister(code)
+    except Exception as e:
+        return jsonify({"ok": False, "message": str(e)[:140]})
+    return jsonify({"ok": True,
+                    "attente": [{"mail": e["mail"], "le": (e.get("le") or "")[:10],
+                                 "renvois": int(e.get("renvois") or 0)}
+                                for e in tout if not e.get("reprise_le")],
+                    "reprises": len([e for e in tout if e.get("reprise_le")])})
+
+
+@app.route("/session/<code>/inviter", methods=["POST"])
+def inviter_participant(code):
+    """Invite quelqu'un qui n'est pas encore inscrit, sur sa seule adresse.
+
+    LE GESTE EST VOLONTAIREMENT MINUSCULE : une adresse, et c'est tout. La
+    personne remplit elle-meme le formulaire habituel — elle est la seule a
+    connaitre sa fonction, son telephone, ses contraintes alimentaires — et sa
+    ligne nait « invitee », sans somme a payer. On n'a donc rien a saisir a sa
+    place, et rien a corriger apres elle.
+
+    LE REFUS AVANT L'ENVOI PLUTOT QUE LA DECEPTION APRES. Un formulaire ferme
+    ou absent ferait arriver l'invite sur « les inscriptions sont closes » : on
+    verifie d'abord, on envoie ensuite.
+    """
+    if code not in SESSIONS:
+        return jsonify({"ok": False, "message": "Session inconnue"})
+    _g = _of_garde("mail")
+    if _g:
+        return jsonify({"ok": False, "message": _g})
+    _v = _et_verrou(code, "mail")
+    if _v:
+        return jsonify({"ok": False, "message": _v})
+    import inscription as _insc
+    import invitations as _inv
+    import journal
+    S = fiche_session(code)
+    mail = (request.form.get("mail") or "").strip().lower()
+    if not _inv.forme_valide(mail):
+        return jsonify({"ok": False, "message":
+                        "« %s » ne ressemble pas a une adresse mail." % (mail or "")})
+
+    # DEJA DANS LE SUIVI : ce n'est pas le bon geste, et le dire vaut mieux que
+    # de lancer une invitation qui ne produira rien.
+    try:
+        lignes = _lignes_onglet(S)
+    except Exception as e:
+        return jsonify({"ok": False, "message": "Lecture du suivi : " + str(e)[:140]})
+    for l in lignes:
+        if (l.get("mail") or "").strip().lower() != mail:
+            continue
+        qui = ((l.get("prenom") or "") + " " + (l.get("nom") or "")).strip() or mail
+        if l.get("invite_le"):
+            return jsonify({"ok": False, "message":
+                            "%s est deja inscrit\u00b7e sur cette session, et deja invit\u00e9\u00b7e." % qui})
+        return jsonify({"ok": False, "message":
+                        "%s est deja inscrit\u00b7e sur cette session. Pour en faire un\u00b7e invit\u00b7e, "
+                        "cochez sa ligne et utilisez « Apprenant invit\u00e9 » : inviter par adresse "
+                        "ne sert qu'a quelqu'un qui n'est pas encore la." % qui})
+
+    lien = ""
+    try:
+        lien = _insc.lien(code) or ""
+    except Exception:
+        lien = ""
+    if not lien:
+        return jsonify({"ok": False, "message":
+                        "Cette session n'a pas de lien d'inscription. Publiez son formulaire avant d'inviter."})
+    try:
+        ouverte = bool((_insc.etat(code) or {}).get("ouverte"))
+    except Exception:
+        ouverte = True          # on ne bloque pas sur une panne de lecture
+    if not ouverte:
+        return jsonify({"ok": False, "message":
+                        "Le formulaire de cette session est ferm\u00e9 : l'invit\u00e9\u00b7e tomberait sur "
+                        "« inscriptions closes ». Ouvrez-le d'abord."})
+
+    nouvelle, depuis = _inv.poser(code, mail, par=(getattr(journal, "AUTEUR", "") or ""))
+    try:
+        _mail_invitation_inscription(S, mail, lien)
+    except Exception as e:
+        return jsonify({"ok": False, "message":
+                        "Le mail n'est pas parti : %s. L'invitation reste enregistr\u00e9e, "
+                        "vous pouvez r\u00e9essayer." % str(e)[:140]})
+    try:
+        journal.ecrire("Invitation \u00e0 s'inscrire envoy\u00e9e", "", mail, "", code)
+    except Exception:
+        pass
+
+    # LA PLACE EST COMPTEE COMME CELLE DE TOUT LE MONDE. On ne refuse pas une
+    # invitation sur une session pleine — c'est Franck qui invite, et c'est son
+    # choix d'ajouter une place — mais il doit le savoir au moment ou il le fait.
+    actifs = len([l for l in lignes
+                  if not l.get("annule_le") and not l.get("annulation_demandee_le")
+                  and "recontact" not in (l.get("demande") or "").lower()])
+    maxi = 0
+    try:
+        maxi = int(S.get("places_max") or 0)
+    except (TypeError, ValueError):
+        maxi = 0
+    alerte = ""
+    if maxi and actifs >= maxi:
+        alerte = (" Attention : la session affiche %d place(s) sur %d. "
+                  "L'invit\u00e9\u00b7e passera au-dessus de la capacit\u00e9." % (actifs, maxi))
+    message = (("Invitation envoy\u00e9e \u00e0 %s." % mail) if nouvelle
+               else ("Mail renvoy\u00e9 \u00e0 %s (invit\u00e9\u00b7e depuis le %s)." % (mail, depuis[:10])))
+    return jsonify({"ok": True, "message": message + alerte,
+                    "mail": mail, "nouvelle": nouvelle})
+
+
 @app.route("/session/<code>/annulation/impact-groupe", methods=["POST"])
 def impact_annulation_groupe(code):
     """Consequences d'une annulation decidee depuis la liste des inscrits.
