@@ -142,6 +142,47 @@ def calculer_statut(ligne, mode="individuel"):
     if not ligne["paiement_recu_le"]:
         return "En attente reglement"
     return "Reglee"
+def montant_attendu(ligne, tarif_session=None):
+    """Ce que cette personne doit, en euros. Zero pour un invite.
+
+    UNE SEULE REGLE, UN SEUL ENDROIT — 18/10/2026. Elle etait recopiee dans
+    cinq : l'ecran des reglements, le tableau de bord d'une session, l'espace
+    du praticien, la balise {{tarif}} des mails et la convocation. Quatre de
+    ces cinq copies comptaient 975 euros a un invite — et le mail 2 lui a
+    reellement demande de regler. Une regle recopiee est une regle qu'on
+    corrige a quatre endroits sur cinq.
+
+    DEUX CHOSES A SAVOIR, ET LES DEUX SE SONT PAYEES :
+
+    - UN INVITE NE DOIT RIEN. C'est la regle de DFM partout ailleurs : son
+      statut est « Invitee », sa facture « sans objet », sa convention porte
+      zero euro. Les ecrans financiers etaient les derniers a l'ignorer.
+
+    - UN MONTANT VIDE N'EST PAS UN ZERO. « montant_du » n'est ecrit qu'a
+      l'enregistrement d'un reglement, et l'ancien formulaire Google ne le
+      posait jamais. Un inscrit qui n'a pas encore paye a donc le champ VIDE,
+      et il doit le tarif de la session. Seul un zero ECRIT est un zero —
+      l'inverse a ete suppose le 17/10, et quatre inscrits d'Usures novembre
+      ont failli cesser d'etre relances.
+
+    Le tarif de la session se passe en argument : « suivi » ne sait pas lire
+    une session, et n'a pas a l'apprendre pour une division.
+    """
+    import re as _re
+    if str(ligne.get("invite_le") or "").strip():
+        return 0.0
+    brut = str(ligne.get("montant_du") or "").strip()
+    if not brut:
+        brut = str(tarif_session or "").strip()
+    # « 1 234,50 € » doit se lire comme « 975 » : on garde les chiffres, le
+    # separateur et le signe, on jette le reste (euro, espaces fines).
+    propre = _re.sub(r"[^0-9.,-]", "", brut).replace(",", ".")
+    try:
+        return float(propre) if propre not in ("", "-", ".", "-.") else 0.0
+    except ValueError:
+        return 0.0
+
+
 def ecrire(numero_ligne, champ, valeur, code=None):
     """Ecrit une cellule du suivi. Sans code : la session active, comportement
     historique. Avec code : l'onglet de CETTE session — indispensable des que

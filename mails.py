@@ -453,11 +453,12 @@ BLOCS_DEFAUTS = {
   {"type": "texte", "contenu": "**Bonjour {{prenom}},**"},
   {"type": "texte", "contenu": "Ta convention est signée et ton inscription à la formation **« {{titre_formation}} »**, qui aura lieu le **{{dates}}**, est confirmée — merci !"},
   {"type": "texte", "contenu": "Tu trouveras ci-joint ta **convention signée** des deux parties."},
-  {"type": "texte", "contenu": "Il ne te reste plus qu'à régler ta formation (**{{tarif}} €**, déjeuners inclus), jusqu'à **20 jours avant** la formation."},
-  {"type": "texte", "contenu": "*Deux options :*"},
-  {"type": "bouton", "libelle": "Régler ma formation", "lien": "{{lien_paiement}}", "couleur": "violet", "sous": "(paiement par carte bancaire)"},
-  {"type": "texte", "contenu": "**Ou par virement :**\nMotif : {{formation}} + Nom Prénom"},
-  {"type": "tableau", "titre": "", "lignes": [
+  {"type": "encadre", "ton": "vert", "si": "invite", "contenu": "Tu es **invité·e par {{marque}}** : **rien à régler**. Si un message précédent t'a parlé de paiement, il ne te concerne pas."},
+  {"type": "texte", "si": "payant", "contenu": "Il ne te reste plus qu'à régler ta formation (**{{tarif}} €**, déjeuners inclus), jusqu'à **20 jours avant** la formation."},
+  {"type": "texte", "si": "payant", "contenu": "*Deux options :*"},
+  {"type": "bouton", "si": "payant", "libelle": "Régler ma formation", "lien": "{{lien_paiement}}", "couleur": "violet", "sous": "(paiement par carte bancaire)"},
+  {"type": "texte", "si": "payant", "contenu": "**Ou par virement :**\nMotif : {{formation}} + Nom Prénom"},
+  {"type": "tableau", "si": "payant", "titre": "", "lignes": [
      {"cle": "Titulaire", "valeur": "{{organisme}}"},
      {"cle": "IBAN", "valeur": "{{iban}}"},
      {"cle": "BIC", "valeur": "{{bic}}"}]},
@@ -671,6 +672,41 @@ def _jours_de(S):
         return {}
 
 
+def _tarif_de(ligne, S):
+    """Le montant du par CETTE personne, en texte, pour la balise {{tarif}}."""
+    try:
+        import suivi as _suivi
+        v = _suivi.montant_attendu(ligne or {}, (S or {}).get("tarif"))
+    except Exception:
+        return str((ligne or {}).get("montant_du") or (S or {}).get("tarif") or "")
+    return ("%d" % v) if float(v) == int(v) else ("%.2f" % v)
+
+
+def _bloc_retenu(bloc, contexte):
+    """Un bloc marque « si » ne part qu'au bon destinataire.
+
+    POURQUOI CE MECANISME EXISTE — 18/10/2026. Le mail 2 disait « il ne te
+    reste plus qu'a regler ta formation (975 euros) », bouton de paiement et
+    IBAN compris. Il est parti tel quel a CINQ invites, a qui l'on ne demande
+    rien. Mettre le tarif a zero n'aurait pas suffi : c'est la phrase entiere
+    qui n'a rien a faire dans leur courrier.
+
+    « si: payant » disparait pour un invite, « si: invite » n'apparait que pour
+    lui. Un bloc sans « si » part a tout le monde — donc tous les modeles
+    existants, et tous ceux que Franck ecrira sans y penser, se comportent
+    exactement comme avant.
+    """
+    si = str((bloc or {}).get("si") or "").strip().lower()
+    if not si:
+        return True
+    invite = str((contexte or {}).get("est_invite") or "") == "1"
+    if si == "payant":
+        return not invite
+    if si == "invite":
+        return invite
+    return True
+
+
 def contexte(S, ligne=None, extras=None):
     ligne = ligne or {}
     def n(v):
@@ -692,8 +728,13 @@ def contexte(S, ligne=None, extras=None):
         # « duree_heures » de la fiche formation reste le repli, pour les
         # sessions ecrites avant l'existence de la liste.
         "duree": n(_jours_de(S).get("duree_texte") or S.get("duree") or S.get("duree_heures")),
-        "tarif": n(ligne.get("montant_du") or S.get("tarif")),
+        # LE TARIF DE CETTE PERSONNE, pas celui de la session : zero pour un
+        # invite. Meme regle que les ecrans et la convention, un seul endroit.
+        "tarif": _tarif_de(ligne, S),
         "formateur": n(S.get("formateur")),
+        # Pilote les blocs « si: payant » / « si: invite ». Pas une balise a
+        # ecrire dans un modele : un interrupteur interne.
+        "est_invite": ("1" if str((ligne or {}).get("invite_le") or "").strip() else ""),
         "organisme": n(S.get("organisme")),
         "marque": n(S.get("marque") or S.get("organisme")),
         "signature": n(S.get("signature_mail") or S.get("formateur")),
@@ -756,7 +797,8 @@ def remplacer(texte, contexte):
 def rendre(fiche, contexte, promu=False):
     objet = fiche.get("objet_promu") if (promu and fiche.get("objet_promu")) else fiche.get("objet")
     if fiche.get("blocs"):
-        corps = remplacer(html_depuis_blocs(fiche.get("blocs")), contexte)
+        retenus = [b for b in fiche.get("blocs") if _bloc_retenu(b, contexte)]
+        corps = remplacer(html_depuis_blocs(retenus), contexte)
     else:
         corps = remplacer(fiche.get("corps") or "", contexte)
     html = ENVELOPPE.replace("{CORPS}", corps)

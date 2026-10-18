@@ -97,32 +97,13 @@ for ligne in concernes:
     print(f"-> Envoi a {nom_prenom}...")
     bloc_reglement = ""
     piece_rib = None
-    # QUI DOIT ENCORE QUELQUE CHOSE ? — 17/10/2026.
-    #
-    # La condition ne regardait que « aucun paiement enregistre ». Trois
-    # INVITEES d'Usures novembre ont donc recu « ton reglement ne nous est pas
-    # encore parvenu », qui leur reclamait 975 euros pour une formation a
-    # laquelle on les avait conviees. Un invite ne doit rien, par definition :
-    # c'est deja la regle partout ailleurs dans DFM, ou son statut est
-    # « Invitee » et sa facture « sans objet ». La convocation etait la seule a
-    # l'ignorer.
-    #
-    # UN MONTANT DU VIDE NE VEUT PAS DIRE « NE DOIT RIEN » — erreur commise ici
-    # le 17/10 et corrigee le meme jour. Dans DFM, « montant_du » n'est rempli
-    # que par l'ancien import Google... jamais, et par l'enregistrement d'un
-    # reglement, qui le pose au passage. Un inscrit qui n'a pas encore paye a
-    # donc le champ VIDE, et il doit bel et bien le tarif. Tout le reste du code
-    # le sait deja et ecrit « montant_du or tarif » (voir app.py). On s'aligne :
-    # vide, c'est le tarif de la session ; seul un zero explicite est un zero.
-    _du = str(ligne["montant_du"] or "").strip().replace(",", ".").replace(" ", "")
-    if not _du:
-        _du = str(S.get("tarif") or "").strip().replace(",", ".").replace(" ", "")
-    try:
-        _du_nombre = float(_du) if _du else 0.0
-    except ValueError:
-        _du_nombre = 0.0
+    # CE QUE CETTE PERSONNE DOIT ENCORE. La regle vit dans
+    # suivi.montant_attendu, qui la detient pour tout DFM : un invite ne doit
+    # rien, un montant vide vaut le tarif de la session, seul un zero ecrit est
+    # un zero. Elle etait recopiee ici, et s'y est trompee deux fois le 17/10.
+    _du_nombre = suivi.montant_attendu(ligne, S.get("tarif"))
     _du_texte = ("%d" % _du_nombre) if _du_nombre == int(_du_nombre) else ("%.2f" % _du_nombre)
-    if not ligne["paiement_recu_le"] and not ligne.get("invite_le") and _du_nombre > 0:
+    if not ligne["paiement_recu_le"] and _du_nombre > 0:
         # PAS DE LIEN, PAS DE BOUTON — 04/10/2026. Ce bouton pointait vers
         # S['stripe_lien'] sans verifier qu'il existe : sur une session creee sans
         # lien de paiement — et rien ne permettait d'en ajouter un apres coup — le

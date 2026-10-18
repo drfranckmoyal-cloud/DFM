@@ -3594,10 +3594,9 @@ def page_reglements():
                 continue
             if d.get("file_attente_le") and not d.get("promu_le"):
                 continue
-            try:
-                du = float(str(d.get("montant_du") or S.get("tarif") or 0).replace(",", ".") or 0)
-            except Exception:
-                du = 0
+            # UN INVITE NE DOIT RIEN, et un montant vide vaut le tarif.
+            # La regle est dans suivi.montant_attendu, et nulle part ailleurs.
+            du = _suivi.montant_attendu(d, S.get("tarif"))
             try:
                 recu = float(str(d.get("montant_recu") or 0).replace(",", ".") or 0)
             except Exception:
@@ -4859,6 +4858,7 @@ def _qd_questions_cumul(codes):
     sortie.sort(key=lambda x: (x["fin"] if x["fin"] is not None else 999))
     return sortie
 def _qd_operationnel(code):
+    import suivi as _sui
     from connexion import service_sheets
     S = fiche_session(code)
     lignes = _lignes_onglet(S)
@@ -4884,7 +4884,9 @@ def _qd_operationnel(code):
         if l.get("file_attente_le") and not l.get("promu_le"):
             attente.append({"nom": nom, "depuis": (l.get("file_attente_le") or "")[:10]})
             continue
-        du = nb(l.get("montant_du")) or tarif
+        # Meme regle qu'ailleurs : un invite ne doit rien, un montant vide
+        # vaut le tarif de la session. Voir suivi.montant_attendu.
+        du = _sui.montant_attendu(l, S.get("tarif"))
         recu = nb(l.get("montant_recu"))
         participants.append({
             "nom": nom, "mail": (l.get("mail") or "").strip(),
@@ -5436,10 +5438,9 @@ def _ap_dossier(mail):
                 montant = float(str(d.get("montant_recu") or 0).replace(",", ".") or 0)
             except Exception:
                 montant = 0
-            try:
-                du = float(str(d.get("montant_du") or S.get("tarif") or 0).replace(",", ".") or 0)
-            except Exception:
-                du = 0
+            # UN INVITE NE DOIT RIEN, et un montant vide vaut le tarif.
+            # La regle est dans suivi.montant_attendu, et nulle part ailleurs.
+            du = _suivi.montant_attendu(d, S.get("tarif"))
             statut = _suivi.calculer_statut(d)
             docs = []
             if d.get("lien_pdf"):
