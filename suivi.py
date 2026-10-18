@@ -251,11 +251,14 @@ def _miroir(code, maj):
                    for numero, valeurs in maj for c, v in valeurs.items()]
         if not donnees:
             return
-        service_sheets().spreadsheets().values().batchUpdate(
-            spreadsheetId=fiche["sheet_suivi"],
-            body={"valueInputOption": "USER_ENTERED", "data": donnees}).execute()
+        # LA COPIE PART EN FILE, PAS VERS GOOGLE — 18/10/2026. Attendre Google
+        # ici coutait de trois a sept dixiemes de seconde a chaque clic qui
+        # enregistre, pour une copie dont l'echec ne perd rien. Voir miroir.py.
+        import miroir
+        miroir.deposer(_organisme(code), fiche["sheet_suivi"], donnees,
+                       "suivi de %s" % code)
     except Exception as e:
-        print("   (miroir du suivi en retard, donnee bien enregistree : %s)"
+        print("   (copie du suivi non mise en file, donnee bien enregistree : %s)"
               % str(e)[:80])
 
 
@@ -307,11 +310,11 @@ def ajouter_plusieurs(lignes, code=None):
             donnees.append({"range": "'%s'!A%d:%s%d"
                                      % (fiche["onglet_suivi"], numero, derniere, numero),
                             "values": [r]})
-        service_sheets().spreadsheets().values().batchUpdate(
-            spreadsheetId=fiche["sheet_suivi"],
-            body={"valueInputOption": "USER_ENTERED", "data": donnees}).execute()
+        import miroir
+        miroir.deposer(org, fiche["sheet_suivi"], donnees,
+                       "%d inscrit(s) de %s" % (len(donnees), code))
     except Exception as e:
-        print("   (miroir du suivi en retard, inscrits bien enregistres : %s)"
+        print("   (copie du suivi non mise en file, inscrits bien enregistres : %s)"
               % str(e)[:80])
     return numeros
 def marquer(ligne, champ, valeur=None, code=None, detail=""):

@@ -285,6 +285,22 @@ except Exception as _e:
     # Elle ne doit jamais faire echouer la synchronisation des sessions.
     print("   (releve des reclamations impossible : %s)" % _e)
 
+# LE CLASSEUR AVANT DE RENDRE LA MAIN. Les etapes ci-dessus ont mis leurs
+# copies en file plutot que d'attendre Google a chaque ligne : un passage qui
+# journalise cent entrees n'attend plus cent allers-retours. Mais un script
+# s'arrete, lui, et son fil avec : on vide la file ici, une fois, avant de
+# partir. Sans cela les copies attendraient le prochain reveil du serveur.
+try:
+    import miroir as _mir
+    _faites, _restantes, _souci = _mir.rattraper()
+    if _faites or _restantes:
+        print("  Classeur : %d copie(s) versee(s)%s."
+              % (_faites, ", %d encore en attente" % _restantes if _restantes else ""))
+    if _restantes and _souci:
+        print("     Google a repondu : %s" % str(_souci)[:100])
+except Exception as _e:
+    print("  (versement dans le classeur impossible : %s)" % str(_e)[:100])
+
 reussies = len([e for e in rapport["etapes"] if e.get("ok") is True])
 non_exec = len([e for e in rapport["etapes"] if e.get("executee") is False])
 print("-" * 55)

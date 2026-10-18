@@ -407,6 +407,18 @@ tkReleve();
   <button class="sy-b fort" onclick="syRelancer(this)">Relancer le traitement</button>
   <button class="sy-x-f" onclick="syMasquer()" title="Masquer">&times;</button>
 </div>
+{# LE RETARD DU CLASSEUR — 18/10/2026. Les copies vers Google partent en file
+   plutot que de faire attendre chaque clic. Ce bandeau est la contrepartie :
+   il dit quand la file ne se vide plus. Orange et non rouge, parce qu'aucune
+   donnee n'est en jeu — tout est enregistre dans DFM, c'est la RECOPIE qui
+   attend. Il ne parait pas pour une copie en vol : voir
+   miroir.RETARD_VISIBLE_MINUTES. #}
+<div class="sy-bandeau attention" id="mi_bandeau">
+  <i class="ti ti-cloud-off sy-ic"></i>
+  <div class="sy-x"><div class="sy-t" id="mi_titre"></div><div class="sy-d" id="mi_detail"></div></div>
+  <button class="sy-b" onclick="miRattraper(this)">Rattraper le classeur</button>
+  <button class="sy-x-f" onclick="miMasquer()" title="Masquer">&times;</button>
+</div>
 <style>
 .sy-bandeau{display:none;align-items:center;gap:14px;background:#fdeaea;border:1px solid #f0b8b8;
 border-radius:11px;padding:13px 17px;margin:0 0 16px;font-size:12.5px;color:#8a2020}
@@ -559,6 +571,46 @@ function syRelancer(bouton){
   });
 }
 setTimeout(syCharger, 700);
+function miCharger(){
+  fetch("/miroir/etat").then(function(r){return r.json()}).then(function(j){
+    if(!j.ok || !j.a_signaler){ return; }
+    var n = j.attente || 0, bl = j.bloquees || 0;
+    document.getElementById("mi_titre").textContent =
+      "Le classeur Google est en retard de " + n + " écriture" + (n > 1 ? "s" : "");
+    var d = "Rien n'est perdu : tout est enregistré dans DFM, c'est la recopie vers "
+          + "le classeur qui attend.";
+    if(bl){
+      d += " " + bl + " n'y arrive" + (bl > 1 ? "nt" : "") + " pas";
+      if(j.souci && j.souci.souci){ d += " — " + j.souci.souci; }
+      d += ".";
+    } else if(j.retard_minutes){
+      d += " La plus ancienne attend depuis " + j.retard_minutes + " minute"
+         + (j.retard_minutes > 1 ? "s" : "") + ".";
+    }
+    document.getElementById("mi_detail").textContent = d;
+    document.getElementById("mi_bandeau").classList.add("on");
+  }).catch(function(){});
+}
+function miMasquer(){ document.getElementById("mi_bandeau").classList.remove("on"); }
+function miRattraper(bouton){
+  var t = bouton.textContent;
+  bouton.disabled = true;
+  bouton.textContent = "Versement...";
+  fetch("/miroir/rattraper", {method:"POST", headers:{"X-Requested-With":"fetch"}})
+  .then(function(r){ return r.json(); })
+  .then(function(j){
+    bouton.disabled = false;
+    bouton.textContent = t;
+    document.getElementById("mi_detail").textContent = j.message || "";
+    if(j.ok){ setTimeout(miMasquer, 2500); }
+  })
+  .catch(function(){
+    bouton.disabled = false;
+    bouton.textContent = t;
+    document.getElementById("mi_detail").textContent = "DFM n'a pas répondu.";
+  });
+}
+setTimeout(miCharger, 900);
 /* ------------------------------------------------------------------
    Brouillons — module commun aux ecrans de saisie longue.
 

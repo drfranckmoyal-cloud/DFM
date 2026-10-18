@@ -115,6 +115,21 @@ def main():
     except Exception as e:
         print("  Planificateur non demarre : %s" % str(e)[:110])
 
+    # LE FIL DES COPIES, pour la meme raison que le planificateur. C'est lui
+    # qui verse dans le classeur Google ce que les clics y ont mis en file —
+    # et au demarrage, ce qu'un arret a laisse en attente.
+    try:
+        import miroir
+        miroir.demarrer()
+        _e = miroir.etat()
+        if _e.get("attente"):
+            print("  Classeur : %d copie(s) en attente, versement en cours."
+                  % _e["attente"])
+        else:
+            print("  Classeur : a jour, copies en arriere-plan.")
+    except Exception as e:
+        print("  Fil des copies non demarre : %s" % str(e)[:110])
+
     try:
         from waitress import serve
     except ImportError:

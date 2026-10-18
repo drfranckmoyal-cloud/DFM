@@ -123,6 +123,38 @@ CREATE TABLE IF NOT EXISTS suivi (
 CREATE INDEX IF NOT EXISTS suivi_session ON suivi (organisme, code_session, numero);
 """
 
+# LA FILE DES COPIES VERS LE CLASSEUR — 18/10/2026.
+#
+# POURQUOI ELLE EST DANS LA BASE, ET PAS EN MEMOIRE. Jusqu'ici DFM attendait
+# Google avant de repondre : entre six dixiemes et une seconde et demie par
+# clic qui enregistre, pour une copie dont la perte ne perd aucune donnee. La
+# copie part maintenant en arriere-plan — mais une file en memoire seule
+# s'evaporerait au premier redemarrage, et le classeur resterait en retard
+# sans que personne le sache. Ecrite ici, elle survit a tout : au redemarrage,
+# a la panne reseau, a la coupure de courant.
+#
+# CE QU'ELLE REPARE AUSSI. Avant, une copie ratee affichait une ligne dans un
+# journal technique que personne ne lit, et RIEN ne la rattrapait jamais. Elle
+# reste desormais dans cette file jusqu'a ce qu'elle passe.
+#
+# L'ORDRE EST L'IDENTIFIANT. Deux copies qui touchent la meme cellule doivent
+# s'appliquer dans l'ordre ou elles ont ete decidees, sinon la plus ancienne
+# ecrase la plus recente. Un seul fil les traite, par id croissant.
+SCHEMA_MIROIR = """
+CREATE TABLE IF NOT EXISTS miroir_attente (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    organisme     TEXT NOT NULL DEFAULT '',
+    feuille       TEXT NOT NULL,
+    donnees       TEXT NOT NULL,
+    quoi          TEXT NOT NULL DEFAULT '',
+    pose_le       TEXT NOT NULL DEFAULT '',
+    essais        INTEGER NOT NULL DEFAULT 0,
+    dernier_essai TEXT NOT NULL DEFAULT '',
+    souci         TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS miroir_ordre ON miroir_attente (id);
+"""
+
 
 def _conn():
     """La connexion de ce fil. Ouvre la base et pose le schema au besoin."""
@@ -145,6 +177,7 @@ def _conn():
             if not _SCHEMA_POSE.is_set():
                 c.executescript(SCHEMA)
                 c.executescript(SCHEMA_SUIVI)
+                c.executescript(SCHEMA_MIROIR)
                 # La colonne « auteur » sur une base anterieure au 08/10/2026.
                 # CREATE TABLE IF NOT EXISTS ne touche pas une table existante :
                 # sans cet ALTER, les installations en service n'auraient jamais
@@ -430,6 +463,70 @@ def suivi_ajouter(organisme, code_session, valeurs, numero=None):
               " VALUES (?,?,?,?)", (organisme, code_session, int(numero), contenu))
     c.commit()
     return int(numero)
+
+
+def miroir_deposer(organisme, feuille, donnees, quoi=""):
+    """Met une copie en attente et rend son numero d'ordre."""
+    import json
+    from datetime import datetime
+    c = _conn()
+    cur = c.execute("INSERT INTO miroir_attente (organisme, feuille, donnees,"
+                    " quoi, pose_le) VALUES (?,?,?,?,?)",
+                    (organisme or "", feuille,
+                     json.dumps(donnees, ensure_ascii=False), quoi or "",
+                     datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
+    c.commit()
+    return cur.lastrowid
+
+
+def miroir_prochaines(limite=20, essais_max=10):
+    """Les copies a tenter, dans l'ordre. Celles qui ont trop echoue restent
+    en place mais ne bloquent plus la file : voir miroir_etat."""
+    import json
+    c = _conn()
+    lignes = c.execute("SELECT * FROM miroir_attente WHERE essais < ?"
+                       " ORDER BY id LIMIT ?", (essais_max, limite)).fetchall()
+    sortie = []
+    for l in lignes:
+        d = dict(l)
+        try:
+            d["donnees"] = json.loads(d["donnees"])
+        except Exception:
+            d["donnees"] = []
+        sortie.append(d)
+    return sortie
+
+
+def miroir_retirer(ident):
+    """La copie est passee : elle quitte la file."""
+    c = _conn()
+    c.execute("DELETE FROM miroir_attente WHERE id=?", (ident,))
+    c.commit()
+
+
+def miroir_echec(ident, souci):
+    """La copie n'est pas passee : elle reste, et compte son essai."""
+    from datetime import datetime
+    c = _conn()
+    c.execute("UPDATE miroir_attente SET essais=essais+1, dernier_essai=?,"
+              " souci=? WHERE id=?",
+              (datetime.now().strftime("%d/%m/%Y %H:%M:%S"), str(souci)[:300], ident))
+    c.commit()
+
+
+def miroir_etat(essais_max=10):
+    """Ou en est la file : combien en attente, combien bloquees, depuis quand."""
+    c = _conn()
+    r = c.execute("SELECT COUNT(*) n,"
+                  " SUM(CASE WHEN essais >= ? THEN 1 ELSE 0 END) bloquees,"
+                  " MIN(pose_le) plus_vieille"
+                  " FROM miroir_attente", (essais_max,)).fetchone()
+    souci = c.execute("SELECT quoi, souci, essais FROM miroir_attente"
+                      " WHERE souci <> '' ORDER BY id LIMIT 1").fetchone()
+    return {"attente": int(r["n"] or 0),
+            "bloquees": int(r["bloquees"] or 0),
+            "plus_vieille": r["plus_vieille"] or "",
+            "souci": (dict(souci) if souci else {})}
 
 
 def suivi_compte(organisme=None, code_session=None):

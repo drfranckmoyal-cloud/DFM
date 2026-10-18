@@ -8886,6 +8886,45 @@ def etat_profil():
             blocages[quoi] = m
     return jsonify({"ok": True, "pret": e["pret"], "manquants": e["manquants"],
                     "bloquants": e["bloquants"], "actions_bloquees": blocages})
+@app.route("/miroir/etat")
+def etat_miroir():
+    """Le classeur est-il a jour ? Interroge a l'ouverture de chaque page,
+    donc tenu instantane : un COUNT sur une table minuscule."""
+    import miroir
+    return jsonify(dict(miroir.etat(), ok=True))
+
+
+@app.route("/miroir/rattraper", methods=["POST"])
+def rattraper_miroir():
+    """Vide la file des copies en attendant Google, et le dit.
+
+    LE BOUTON EXISTE PARCE QUE L'ATTENTE PEUT ETRE VOULUE. Quand le classeur
+    est en retard, on veut parfois le remettre a jour tout de suite — avant de
+    l'ouvrir devant un auditeur, par exemple — plutot que d'attendre le
+    prochain reveil du fil.
+    """
+    import miroir
+    import journal
+    faites, restantes, souci = miroir.rattraper()
+    if faites:
+        try:
+            journal.ecrire("Classeur remis a jour", "",
+                           "%d copie(s) en attente versees dans le classeur" % faites)
+        except Exception:
+            pass
+    if souci and restantes:
+        return jsonify({"ok": False, "faites": faites, "restantes": restantes,
+                        "message": "%d copie(s) versee(s), %d encore en attente. "
+                                   "Google a repondu : %s" % (faites, restantes, souci)})
+    if restantes:
+        return jsonify({"ok": False, "faites": faites, "restantes": restantes,
+                        "message": "%d copie(s) versee(s), %d encore en attente."
+                                   % (faites, restantes)})
+    return jsonify({"ok": True, "faites": faites, "restantes": 0,
+                    "message": ("Le classeur est a jour : %d copie(s) versee(s)." % faites)
+                               if faites else "Le classeur etait deja a jour."})
+
+
 @app.route("/synchro/etat")
 def etat_synchro():
     import json as _json
@@ -9310,5 +9349,10 @@ if __name__ == "__main__":
                   % " et ".join("%dh%02d" % h for h in _plan.PASSAGE_HEURES))
     except Exception as _e:
         print("  Planificateur non demarre : %s" % str(_e)[:120])
+    try:
+        import miroir as _mir
+        _mir.demarrer()
+    except Exception as _e:
+        print("  Fil des copies non demarre : %s" % str(_e)[:120])
     print("  Ctrl+C pour arreter\n")
     app.run(debug=_debug, port=5001, host=_hote)

@@ -212,13 +212,16 @@ def ecrire(type_action, praticien="", detail="", montant="", code_session="", de
     # scelle — qui porte sur le rang — ne vaudrait plus que pour l'un des deux.
     feuille = _classeur(code_session)
     try:
-        service_sheets().spreadsheets().values().update(
-            spreadsheetId=feuille, range=f"'{ONGLET}'!A{rang}:J{rang}",
-            valueInputOption="USER_ENTERED",
-            body={"values": [ligne + [scelle]]},
-        ).execute()
+        # EN FILE, COMME LE SUIVI — 18/10/2026. Le journal se scelle sur la
+        # base, pas sur ce que Google renvoie : rien ici n'a besoin d'attendre
+        # la reponse du classeur. Voir miroir.py.
+        import miroir
+        miroir.deposer(org, feuille,
+                       [{"range": f"'{ONGLET}'!A{rang}:J{rang}",
+                         "values": [ligne + [scelle]]}],
+                       "journal, entree %s" % rang)
     except Exception as e:
-        print(f"   (miroir Google en retard, entree bien enregistree : {str(e)[:90]})")
+        print(f"   (copie du journal non mise en file, entree bien enregistree : {str(e)[:90]})")
 
 
 # Rang et empreinte de la derniere ligne scellee par CE processus, par feuille.
