@@ -465,6 +465,19 @@ def suivi_ajouter(organisme, code_session, valeurs, numero=None):
     return int(numero)
 
 
+def journal_dates(organisme):
+    """Les seules dates du journal d'un organisme, pour compter des anciennetes.
+
+    La politique de conservation lisait ces dates DANS LE CLASSEUR GOOGLE —
+    vingt mille lignes de la colonne A, par organisme, a chaque ouverture de
+    l'ecran : 1,8 seconde sur les 2,3 que prenait la page. Elles sont ici,
+    dans la table qui fait foi.
+    """
+    c = _conn()
+    return [r["date"] for r in c.execute(
+        "SELECT date FROM journal WHERE organisme=? AND date <> ''", (organisme,))]
+
+
 def miroir_deposer(organisme, feuille, donnees, quoi=""):
     """Met une copie en attente et rend son numero d'ordre."""
     import json

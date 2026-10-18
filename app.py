@@ -25,6 +25,87 @@ app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.jinja_env.auto_reload = True
 
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
+
+# LES FICHIERS DE /static SONT GARDES UN AN PAR LE NAVIGATEUR — 18/10/2026.
+#
+# C'est sans risque UNIQUEMENT parce que leur adresse porte une empreinte de
+# leur contenu : « /static/dfm.css?v=a1b2c3d4e5 ». Une modification change
+# l'empreinte, donc l'adresse, donc le navigateur reprend le fichier. Sans
+# cette empreinte, un an de cache voudrait dire un an de style perime.
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 31536000
+
+_EMPREINTES = {}
+
+
+def statique(nom):
+    """L'adresse d'un fichier de /static, suivie de l'empreinte de son contenu.
+
+    Calculee une fois par demarrage : le fichier ne change pas en service, et
+    un deploiement relance DFM. En developpement, le rechargeur de Flask
+    relance aussi le processus a chaque modification.
+    """
+    empreinte = _EMPREINTES.get(nom)
+    if empreinte is None:
+        import hashlib
+        try:
+            with open(os.path.join(DOSSIER, "static", nom), "rb") as f:
+                empreinte = hashlib.sha256(f.read()).hexdigest()[:10]
+        except Exception:
+            empreinte = ""          # fichier absent : on sert l'adresse nue
+        _EMPREINTES[nom] = empreinte
+    return "/static/%s%s" % (nom, ("?v=" + empreinte) if empreinte else "")
+
+
+app.jinja_env.globals["statique"] = statique
+
+
+@app.after_request
+def _comprimer_statique(reponse):
+    """Comprime le style et le script de /static. nginx ne le fait pas ici.
+
+    POURQUOI C'EST DFM QUI LE FAIT. nginx a « gzip on » mais pas de
+    « gzip_types » : il ne comprime donc que le HTML, et le fichier de style
+    partait brut — 37 Ko au lieu de 8. Changer la conf de nginx demande les
+    droits root, que l'utilisateur de DFM n'a pas (et ce n'est pas a Franck de
+    manipuler ca). Quelques millisecondes de compression ici, une fois par an
+    et par navigateur puisque ces fichiers sont ensuite gardes en cache.
+
+    NE TOUCHE QUE /static ET QUE LE TEXTE. Le HTML est deja comprime par
+    nginx, et comprimer deux fois ne gagnerait rien.
+    """
+    try:
+        if not request.path.startswith("/static/"):
+            return reponse
+        if reponse.status_code != 200:
+            return reponse
+        if reponse.headers.get("Content-Encoding"):
+            return reponse
+        type_ = (reponse.mimetype or "")
+        if type_ not in ("text/css", "application/javascript", "text/javascript"):
+            return reponse
+        if "gzip" not in (request.headers.get("Accept-Encoding") or ""):
+            # Un navigateur qui ne sait pas lire du comprime recoit le fichier
+            # nu : on ajoute quand meme Vary, sinon un cache intermediaire
+            # servirait la mauvaise version a l'autre.
+            reponse.headers["Vary"] = "Accept-Encoding"
+            return reponse
+        import gzip as _gz
+        # FLASK SERT CES FICHIERS EN FLUX DIRECT (send_file), et un flux ne se
+        # lit pas : il faut le dire avant de demander le contenu, sinon
+        # get_data() refuse. Trente-sept kilo-octets en memoire, le temps de
+        # les comprimer.
+        reponse.direct_passthrough = False
+        brut = reponse.get_data()
+        comprime = _gz.compress(brut, 6)
+        if len(comprime) >= len(brut):
+            return reponse            # deja minimal : on ne gagne rien
+        reponse.set_data(comprime)
+        reponse.headers["Content-Encoding"] = "gzip"
+        reponse.headers["Content-Length"] = str(len(comprime))
+        reponse.headers["Vary"] = "Accept-Encoding"
+    except Exception:
+        pass                          # un fichier non comprime reste servi
+    return reponse
 MOIS_COURT = ["", "jan", "fév", "mar", "avr", "mai", "juin",
               "juil", "août", "sep", "oct", "nov", "déc"]
 _SYMBOLES = {"EUR": "€", "CHF": "CHF", "CAD": "$"}
@@ -3780,6 +3861,23 @@ def executer_groupe(code):
     except Exception:
         pass
     return jsonify({"ok": True, "envoyes": envoyes, "etapes": etapes})
+def _sessions_publiques():
+    """Les lignes « Sessions_publiques » de TOUTES les sessions, en un appel.
+
+    POURQUOI — 18/10/2026. L'ecran des taches les demandait UNE PAR SESSION :
+    cinq allers-retours vers Supabase, 0,73 des 0,75 seconde que prenait la
+    page. La table se lit entiere en un seul appel, et on choisit ensuite.
+
+    Rend un dictionnaire {code_session: ligne}. Vide si Supabase ne repond pas
+    — l'appelant se comporte alors comme avant devant une session absente.
+    """
+    try:
+        lignes = _sb("Sessions_publiques?select=session_code,participants,ouvert")
+    except Exception:
+        return {}
+    return {(l.get("session_code") or ""): l for l in (lignes or [])}
+
+
 def _sb(chemin, methode="GET", corps=None, prefer=None):
     import json as _json
     import urllib.request
@@ -4333,6 +4431,7 @@ def liste_taches():
     from datetime import datetime as dt, timedelta
     taches = []
     aujourdhui = dt.now()
+    publiques = _sessions_publiques()      # un seul appel, plus un par session
     for code in SESSIONS:
         try:
             S = fiche_session(code)
@@ -4342,13 +4441,10 @@ def liste_taches():
                 if d < aujourdhui - timedelta(days=45) or d > aujourdhui + timedelta(days=120):
                     continue
             planning, auto, envois = _q_reglages(code)
-            try:
-                r = _sb("Sessions_publiques?session_code=eq." + code + "&select=ouvert")
-                ouvert = (r[0].get("ouvert") or {}) if r else {}
-            except Exception:
-                continue
+            r = publiques.get(code)
             if not r:
                 continue
+            ouvert = r.get("ouvert") or {}
             for quoi in _Q_TYPES:
                 if envois.get(quoi) or ouvert.get(quoi):
                     continue
@@ -4402,14 +4498,16 @@ def liste_taches():
     return jsonify({"ok": True, "taches": taches})
 def _q_auto():
     from datetime import datetime as dt
+    publiques = _sessions_publiques()      # un seul appel, plus un par session
     for code in list(SESSIONS):
         try:
             planning, auto, envois = _q_reglages(code)
             if not any(auto.get(t) for t in _Q_TYPES):
                 continue
-            r = _sb("Sessions_publiques?session_code=eq." + code + "&select=participants,ouvert")
-            if not r:
+            ligne_pub = publiques.get(code)
+            if not ligne_pub:
                 continue
+            r = [ligne_pub]
             for quoi in _Q_TYPES:
                 if not auto.get(quoi) or envois.get(quoi):
                     continue

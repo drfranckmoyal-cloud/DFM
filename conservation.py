@@ -78,33 +78,53 @@ def _plus_vieux(dates):
     return min(valides)[1] if valides else ""
 
 
-def _journal(feuille, mois):
-    from connexion import service_sheets
+def _journal(organisme, mois):
+    """L'anciennete des entrees du journal, lue DANS LA BASE — 18/10/2026.
+
+    Elle etait lue dans le classeur Google : vingt mille lignes de la colonne A
+    par organisme, a chaque ouverture de l'ecran. 1,8 seconde sur les 2,3 que
+    prenait la page, pour compter des dates que la base porte deja — et que
+    c'est elle qui fait foi, le classeur n'etant qu'une copie.
+    """
+    import base
     try:
-        v = service_sheets().spreadsheets().values().get(
-            spreadsheetId=feuille, range="'Journal'!A2:A20000").execute().get("values", [])
+        dates = base.journal_dates(organisme)
     except Exception as e:
         return {"lisible": False, "souci": str(e)[:140]}
-    ages = [(_mois_depuis(x[0]), x[0]) for x in v if x and str(x[0]).strip()]
+    ages = [(_mois_depuis(d), d) for d in dates if str(d or "").strip()]
     return {"lisible": True, "total": len(ages),
             "depasses": len([m for m, _ in ages if m is not None and m > mois]),
             "plus_ancien": _plus_vieux(ages)}
 
 
-def _reponses(codes, mois):
-    """Les questionnaires Supabase des sessions de CET organisme.
+def _questionnaires():
+    """Tous les questionnaires, UNE SEULE FOIS pour tous les organismes.
 
-    Supabase est commun aux deux organismes : filtrer sur leurs codes de session
-    est le seul moyen de ne pas compter les reponses du voisin.
+    Ils etaient demandes a Supabase une fois PAR ORGANISME, alors que la table
+    est commune et qu'on la filtre ensuite sur les codes de session. Deux
+    organismes faisaient donc deux fois le meme aller-retour reseau.
     """
     try:
         import config
         from supabase import create_client
         sb = create_client(config.SUPABASE_URL, config.SUPABASE_KEY)
         r = sb.table("Questionnaires").select("created_at,session_code").execute()
-        lignes = r.data or []
+        return r.data or [], ""
     except Exception as e:
-        return {"lisible": False, "souci": str(e)[:140]}
+        return [], str(e)[:140]
+
+
+def _reponses(codes, mois, tout=None, souci_sb=""):
+    """Les questionnaires des sessions de CET organisme.
+
+    Supabase est commun aux deux organismes : filtrer sur leurs codes de session
+    est le seul moyen de ne pas compter les reponses du voisin.
+    """
+    if tout is None:
+        tout, souci_sb = _questionnaires()
+    if souci_sb:
+        return {"lisible": False, "souci": souci_sb}
+    lignes = tout
     ages = [(_mois_depuis(x.get("created_at")), x.get("created_at"))
             for x in lignes if (x.get("session_code") or "") in codes]
     return {"lisible": True, "total": len(ages),
@@ -141,11 +161,13 @@ def etat():
     import profil
     import sessions as _s
 
+    # Une seule interrogation de Supabase pour tous les organismes.
+    questionnaires, souci_sb = _questionnaires()
+
     sortie = []
     for p in profil.lister():
         ident = p["id"] if isinstance(p, dict) else p
         fiche = profil.charger(ident) or {}
-        feuille = fiche.get("sheet_suivi") or ""
         siennes = [f for c, f in _s.SESSIONS.items()
                    if (f.get("organisme") or "") == ident]
         codes = {c for c, f in _s.SESSIONS.items() if (f.get("organisme") or "") == ident}
@@ -154,10 +176,9 @@ def etat():
         for cle, defaut, titre, quoi, pourquoi in CATEGORIES:
             mois = _duree(cle, defaut)
             if cle == "conservation_journal":
-                m = _journal(feuille, mois) if feuille else {"lisible": False,
-                                                             "souci": "aucun classeur de suivi"}
+                m = _journal(ident, mois)
             elif cle == "conservation_reponses":
-                m = _reponses(codes, mois)
+                m = _reponses(codes, mois, questionnaires, souci_sb)
             else:
                 m = _sessions(siennes, mois)
             lignes.append({"cle": cle, "titre": titre, "quoi": quoi, "pourquoi": pourquoi,
