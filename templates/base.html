@@ -4,10 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block titre %}Dashboard{% endblock %} · DFM</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.1.0/dist/tabler-icons.min.css">
+{# LES POLICES SONT CHEZ NOUS — 18/10/2026. DFM les prenait chez Google et chez
+   jsdelivr, par des feuilles de style QUI BLOQUENT l'affichage de la page : la
+   police d'icones pesait 218 Ko de style et 809 Ko de police pour 204 icones,
+   et celle d'Inter etait revalidee chez Google chaque jour. Un seul fichier,
+   servi par DFM, garde un an. Voir static/polices.css. #}
+<link rel="stylesheet" href="{{ statique('polices.css') }}">
 <link rel="stylesheet" href="{{ statique('dfm.css') }}">
 
 {% if of_actif %}<style>:root{--accent:{{ of_actif.couleur }}}</style>{% endif %}

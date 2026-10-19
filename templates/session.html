@@ -2196,8 +2196,12 @@ document.addEventListener("keydown", function(e){ if(e.key === "Escape") grFerme
 </div>
 <div id="qz_cache" style="display:none"></div>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+{# CES DEUX BIBLIOTHEQUES SONT CHEZ NOUS — 18/10/2026, memes versions qu'avant
+   (qrcodejs 1.0.0, JSZip 3.10.1, prises sur cdnjs). La fiche de session est la
+   page la plus ouverte de DFM : elle n'a pas a attendre un tiers pour
+   s'afficher, et un tiers indisponible ne doit pas la figer. #}
+<script src="{{ statique('qrcode.min.js') }}"></script>
+<script src="{{ statique('jszip.min.js') }}"></script>
 <script>
 var QZ = null;
 var QZ_CODE = window.location.pathname.split("/session/")[1].split("/")[0];
