@@ -32,6 +32,13 @@ import suivi
 ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
 CODE = ARGS[0] if ARGS else None
 
+# CE QUI N'A PAS PU ETRE ECRIT. Un echec d'ecriture s'affichait a l'ecran mais
+# le script sortait quand meme par zero : l'etape apparaissait EN VERT dans le
+# traitement, alors qu'une inscription n'avait pas ete creee. C'est ainsi que
+# le defaut du 17/10 a vecu un jour — seul le controle, juste apres, l'a dit.
+# Une etape qui n'a pas fait son travail doit le declarer.
+ECHECS = []
+
 # Les champs du formulaire, et leur colonne dans le suivi. Nommes plutot que
 # recopies par position : une question deplacee ne doit rien decaler.
 CHAMPS = ("nom", "prenom", "mail", "telephone", "ville", "demande", "connu_par",
@@ -149,10 +156,19 @@ def traiter(code, demandes):
         return 0
 
     try:
-        numeros = suivi.ajouter_plusieurs([l for _d, l, _q, _r in a_creer], code)
+        # LES CINQ ELEMENTS, PAS QUATRE. Le 17/10/2026, l'invitation a ete
+        # ajoutee au tuple et CE deballage-ci a ete oublie : il est ecrit dans
+        # une liste en comprehension, que la relecture n'a pas vue. Resultat,
+        # « too many values to unpack » a chaque import, et Talia GUEZ est
+        # restee un jour sans fiche. Les garde-fous du 13/10 ont tenu — elle
+        # n'a pas ete marquee reprise, et le controle l'a nommee — mais le
+        # defaut etait la.
+        numeros = suivi.ajouter_plusieurs([l for _d, l, _q, _r, _i in a_creer], code)
     except Exception as e:
         print("   ECHEC de l'ecriture dans le suivi : %s" % str(e)[:160])
         print("   AUCUNE demande n'est marquee : le prochain passage reprendra tout.")
+        ECHECS.append("%s : %d demande(s) non ecrite(s) — %s"
+                      % (code, len(a_creer), str(e)[:90]))
         return 0
 
     # ON RELIT AVANT DE MARQUER — 13/10/2026. Quatre demandes du 09/10 ont ete
@@ -172,6 +188,7 @@ def traiter(code, demandes):
     except Exception as e:
         print("   RELECTURE IMPOSSIBLE (%s)." % str(e)[:70])
         print("   AUCUNE demande n'est marquee : le prochain passage reprendra tout.")
+        ECHECS.append("%s : suivi illisible apres ecriture — %s" % (code, str(e)[:90]))
         return 0
 
     perdues = set()
@@ -179,6 +196,7 @@ def traiter(code, demandes):
         courriel = (ligne.get("mail") or "").strip().lower()
         if courriel and courriel not in relus:
             perdues.add(d.get("id"))
+            ECHECS.append("%s : %s ecrit mais introuvable a la relecture" % (code, qui))
             print("   PERDUE : %s a ete ecrit mais ne se relit pas." % qui)
             print("            Elle n'est pas marquee — le prochain passage la reprendra.")
             continue
@@ -285,7 +303,15 @@ def main():
         print("   Elles restent en attente : a traiter a la main.")
 
     print("\n-> Termine : %d inscription(s) reprise(s)." % total)
+    if ECHECS:
+        print()
+        print("-> %d ECHEC(S) : des demandes recues n'ont PAS de fiche." % len(ECHECS))
+        for x in ECHECS:
+            print("   . %s" % x)
+        print("   Ce sont de vraies personnes qui attendent une convention.")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
