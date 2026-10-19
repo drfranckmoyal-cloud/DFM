@@ -5,6 +5,12 @@ import re
 import struct
 _FICHIER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mails.json")
 USAGES = {
+    # LE PREMIER MOT QU'ON LUI ADRESSE, et le seul qui ne depende de rien. Voir
+    # accuser_reception.py : il part de la demande recue, sans passer par le
+    # suivi, donc meme un DFM casse l'envoie.
+    "accuse-reception": {"nom": "Demande bien reçue",
+                  "quand": "Part dans les dix minutes qui suivent l'envoi du formulaire",
+                  "icone": "ti-mail-check", "couleur": "#0f9e6a"},
     "signature": {"nom": "Convention à signer",
                   "quand": "Part dès l'import d'une inscription confirmée",
                   "icone": "ti-writing-sign", "couleur": "#4f7ef8"},
@@ -256,6 +262,8 @@ DEFAUTS = {
  "rappel": {"titre": "Rappel J-20 — texte d'origine", "objet": "Votre formation approche · {{titre_formation}}"},
  "facture": {"titre": "Facture acquittée — texte d'origine", "objet": "Votre facture · {{titre_formation}}"},
  "attestation": {"titre": "Attestation de formation — texte d'origine", "objet": "Votre attestation · {{titre_formation}}"},
+ "accuse-reception": {"titre": "Demande bien reçue — texte d'origine",
+                "objet": "Votre demande d'inscription est bien arrivée · {{formation}}"},
  "invitation": {"titre": "Apprenant invité — texte d'origine",
                 "objet": "Vous êtes invité·e · {{titre_formation}}"},
  "invitation-inscription": {"titre": "Invitation à s'inscrire — texte d'origine",
@@ -518,6 +526,17 @@ BLOCS_DEFAUTS = {
   {"type": "brut", "contenu": "<p style=\"margin:0 0 12px;font-size:14px;line-height:1.55;color:#3d4250;\">Une remarque, une insatisfaction sur le d&eacute;roulement de cette formation ? Dis-le-nous : nous accusons r&eacute;ception et te r&eacute;pondons sous <strong>{{delai_reclamation}} jours</strong>.</p>"},
   {"type": "brut", "contenu": "<p style=\"margin:0;\"><a href=\"{{lien_reclamation}}\" style=\"display:inline-block;background:#4f7ef8;color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:10px 20px;border-radius:7px;\">Adresser une r&eacute;clamation</a></p>"},
   {"type": "brut", "contenu": "</td></tr></table>"},
+ ],
+ # CE MAIL EST LE FILET DE SECURITE DE L'INSCRITE. Sa derniere phrase n'est pas
+ # une politesse : c'est elle qui fait de chaque inscrite une deuxieme paire
+ # d'yeux. Le 18/10/2026, Talia GUEZ est restee un jour sans fiche et n'avait
+ # AUCUNE trace de son inscription — donc aucune raison de relancer.
+ "accuse-reception": [
+  {"type": "texte", "contenu": "Bonjour **{{prenom}}**,"},
+  {"type": "texte", "contenu": "Nous avons bien reçu votre demande d'inscription à la formation **« {{titre_formation}} »** du **{{dates}}**."},
+  {"type": "texte", "contenu": "Vous recevrez votre **convention de formation à signer** dans les prochains jours."},
+  {"type": "encadre", "ton": "bleu", "contenu": "Si rien ne vous parvient **d'ici une semaine**, répondez simplement à ce message : c'est qu'il y a eu un souci de notre côté."},
+  {"type": "signature", "contenu": "À bientôt,\n**{{signature}}, {{marque}}**"},
  ],
  # PAS DE {{prenom}} DANS CE MODELE : au moment ou ce mail part, on ne connait
  # que l'adresse. Le nom, la fonction et les contraintes alimentaires, c'est le

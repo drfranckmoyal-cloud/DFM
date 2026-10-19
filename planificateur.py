@@ -153,6 +153,12 @@ def _guetter_inscriptions():
     qui = ", ".join(sorted({((e.get("prenom") or "") + " " + (e.get("nom") or "")).strip()
                             for e in attente})[:4])
     _noter("%d demande(s) d'inscription a reprendre : %s" % (len(attente), qui))
+    # D'ABORD DIRE A LA PERSONNE QUE SA DEMANDE EST ARRIVEE. Cet envoi ne
+    # depend ni du suivi ni du classeur : il part meme si tout le reste est
+    # casse. C'est le seul courrier dont on soit sur.
+    ok_ar, lignes_ar = _lancer("accuser_reception.py")
+    for l in lignes_ar[-2:]:
+        _noter("   %s" % l[:150])
     ok, lignes = _lancer("importer_demandes.py")
     for l in lignes[-3:]:
         _noter("   %s" % l[:150])

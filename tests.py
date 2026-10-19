@@ -40,6 +40,21 @@ def verifier(nom, condition, vu=""):
         _ECHECS.append(nom)
 
 
+def _corps_html(message):
+    """Le texte HTML d'un mail, quel que soit son emboitement.
+
+    Les mails de DFM sont des multipart « related » qui contiennent un
+    multipart « alternative » qui contient le HTML. Demander le contenu du
+    premier niveau rend None — erreur commise deux fois en ecrivant ces tests.
+    """
+    for part in message.walk():
+        if part.get_content_type() == "text/html":
+            charge = part.get_payload(decode=True)
+            if charge:
+                return charge.decode("utf-8", "replace")
+    return ""
+
+
 def _isoler():
     """Base temporaire et portes reseau bouchees. Rien ne sort de ce test."""
     import connexion
@@ -227,11 +242,7 @@ def tests_alerte_inscriptions():
     envoyes = []
     courrier.envoyer = lambda message, organisme: envoyes.append(
         {"a": message["To"], "objet": message["Subject"],
-         # DECODE : le corps part en quoted-printable, donc « Talia GUEZ »
-         # s'y lit tel quel mais les accents non. On decode pour tester le
-         # texte reel, celui que la personne lira.
-         "corps": message.get_payload()[0].get_payload(decode=True).decode("utf-8"),
-         "of": organisme})
+         "corps": _corps_html(message), "of": organisme})
     profil.charger = lambda i: {"mail_contact": "contact-%s@essai.test" % i,
                                 "marque": "Marque " + i}
     v.MEMOIRE = os.path.join(tempfile.mkdtemp(prefix="dfm-alerte-"), "etat.json")
@@ -271,12 +282,100 @@ def tests_alerte_inscriptions():
              [m["a"] for m in envoyes])
 
 
+def tests_accuse_reception():
+    """L'ACCUSE DE RECEPTION. Le seul courrier qui ne depende de rien : ni du
+    suivi, ni du classeur. Il aurait fonctionne le 18/10 avec le code casse."""
+    print("\n  L'ACCUSE DE RECEPTION A L'INSCRITE")
+    _isoler()
+    import accuser_reception as ar
+    import courrier
+    import inscription as I
+    import journal
+    import mails as _mails
+    import profil
+    import sessions as _s
+
+    _s.SESSIONS[FICHE["code"]] = dict(FICHE)
+    _s.session = lambda c=None: dict(FICHE)
+    _s.organisme_de = lambda c=None: "mon-organisme"
+    profil.logo = lambda o=None: None
+    journal.ecrire = lambda *a, **k: None
+    envoyes = []
+    casse = {"actif": False}
+
+    def faux_envoi(message, organisme):
+        if casse["actif"]:
+            raise RuntimeError("Gmail indisponible (essai)")
+        envoyes.append({"a": message["To"], "objet": message["Subject"],
+                        "corps": _corps_html(message)})
+    courrier.envoyer = faux_envoi
+    ar.REGISTRE = os.path.join(tempfile.mkdtemp(prefix="dfm-ar-"), "registre.json")
+    ar.SIMULATION = False       # il envoie par defaut ; on l'explicite ici
+
+    anciennes = [_demande("ANCIEN", "Paul", "paul@essai.test", ident=1)]
+    I._sb = lambda chemin: list(anciennes)
+
+    # 1. PREMIER PASSAGE : on prend date, on n'ecrit a personne.
+    ar.main()
+    verifier("au premier passage, aucun mail", envoyes == [], envoyes)
+    verifier("mais les demandes connues sont enregistrees",
+             ar._registre() == {"1"}, ar._registre())
+
+    # 2. UNE NOUVELLE DEMANDE EST ACCUSEE
+    anciennes.append(_demande("GUEZ", "Talia", "talia@essai.test", ident=2))
+    ar.main()
+    verifier("la nouvelle demande recoit un accuse", len(envoyes) == 1, len(envoyes))
+    if envoyes:
+        m = envoyes[0]
+        verifier("adresse a la bonne personne", m["a"] == "talia@essai.test", m["a"])
+        verifier("l'objet dit que c'est arrive", "bien arriv" in m["objet"], m["objet"])
+        verifier("son prenom y est", "Talia" in m["corps"])
+        verifier("le titre de la formation y est", "Essai" in m["corps"])
+        verifier("et LA PHRASE QUI SAUVE : relancer si rien n'arrive",
+                 "d'ici une semaine" in m["corps"])
+        verifier("aucune balise oubliee", "{{" not in m["corps"])
+
+    # 3. PAS DEUX FOIS
+    del envoyes[:]
+    ar.main()
+    verifier("un accuse ne part jamais deux fois", envoyes == [], envoyes)
+
+    # 4. UNE DEMANDE TROP VIEILLE N'EST PAS ACCUSEE SIX MOIS APRES
+    vieille = _demande("VIEUX", "Jean", "jean@essai.test", ident=3)
+    vieille["horodateur"] = "2026-01-05T10:00:00+00:00"
+    anciennes.append(vieille)
+    ar.main()
+    verifier("une demande de plus de sept jours n'est pas accusee", envoyes == [], envoyes)
+    verifier("mais elle est enregistree, pour ne plus etre reexaminee",
+             "3" in ar._registre())
+
+    # 5. UNE SESSION INCONNUE N'EMPECHE PAS D'ACCUSER : la personne n'y est pour rien
+    del envoyes[:]
+    orpheline = _demande("ORPHELIN", "Lea", "lea@essai.test", ident=4)
+    orpheline["code_session"] = "session-disparue"
+    anciennes.append(orpheline)
+    ar.main()
+    verifier("une demande sur session inconnue est accusee quand meme",
+             len(envoyes) == 1, len(envoyes))
+
+    # 6. LE PLUS IMPORTANT : UN ENVOI RATE N'EST PAS ENREGISTRE.
+    del envoyes[:]
+    casse["actif"] = True
+    anciennes.append(_demande("RATE", "Marie", "marie@essai.test", ident=5))
+    ar.main()
+    casse["actif"] = False
+    verifier("un envoi rate ne compte pas comme accuse", "5" not in ar._registre(),
+             ar._registre())
+    ar.main()
+    verifier("et il repart au passage suivant", len(envoyes) == 1, len(envoyes))
+
+
 def main():
     print()
     print("  LES TESTS DE DFM")
     print("  " + "-" * 56)
     for essai in (tests_import, tests_montant_attendu, tests_file_du_classeur,
-                  tests_alerte_inscriptions):
+                  tests_alerte_inscriptions, tests_accuse_reception):
         try:
             essai()
         except Exception as e:

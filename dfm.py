@@ -6,6 +6,24 @@ from datetime import datetime
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 RAPPORT = os.path.join(DOSSIER, "derniere_synchro.json")
 
+# CE FICHIER SE LANCE, IL NE S'IMPORTE PAS — garde posee le 19/10/2026.
+#
+# Son travail est ecrit au premier niveau : conventions, factures, rappels,
+# attestations partent au CHARGEMENT du module. Un « import dfm » tape pour
+# lire la liste des etapes a donc lance tout le traitement, hors de ses
+# horaires. Ce jour-la rien n'est parti — le passage de 8h30 avait deja tout
+# fait deux heures plus tot — mais a une autre heure, des dizaines de courriers
+# auraient pu partir d'un geste qui se croyait anodin.
+#
+# Refuser franchement vaut mieux qu'un traitement complet par surprise. Pour
+# lire les etapes sans rien declencher, ouvrez le fichier : elles sont dans
+# ETAPES, juste en dessous.
+if __name__ != "__main__":
+    raise ImportError(
+        "dfm.py se LANCE, il ne s'importe pas : « import dfm » executerait "
+        "tout le traitement — conventions, factures, rappels, attestations. "
+        "Lancez-le par « python3 dfm.py », ou lisez ETAPES dans le fichier.")
+
 # --------------------------------------------------------------------------
 # UN SEUL PIPELINE A LA FOIS
 #
@@ -97,6 +115,12 @@ ETAPES = [
     #
     # NON BLOQUANTE : une panne de Supabase ne doit pas arreter les conventions,
     # les factures et les attestations de la journee.
+    # L'ACCUSE DE RECEPTION AVANT L'IMPORT, et ce n'est pas un detail d'ordre.
+    # Il ne depend NI du suivi NI du classeur : il lit la demande recue et il
+    # repond. Le 18/10/2026, l'import etait casse et Talia GUEZ est restee un
+    # jour sans fiche — cet accuse, lui, serait parti. Place apres l'import, il
+    # aurait herite de sa panne.
+    ("Accuse de reception", "accuser_reception.py", False),
     ("Demandes du formulaire", "importer_demandes.py", False),
     # LE CONTROLE VIENT JUSTE APRES LES DEUX IMPORTS, et il ne repare rien : il
     # compare ce que le formulaire a recu avec ce que le suivi contient. Le
