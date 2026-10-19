@@ -70,6 +70,33 @@ if [ -n "$CASSES" ]; then
 fi
 echo "  Tout compile sur le Mac."
 
+# 1 bis. LES TESTS. LA SYNTAXE NE PROUVE RIEN — eprouve le 18/10/2026.
+#
+# Une modification de l'import des demandes a laisse un deballage de tuple a
+# quatre elements la ou il en fallait cinq. Le fichier COMPILAIT parfaitement,
+# le controle ci-dessus n'a rien dit, et le code est parti. L'import echouait
+# pour tout le monde : Talia GUEZ, inscrite le 18/10 a 11h56, est restee un
+# jour sans fiche. Franck ne l'a su qu'en lisant un bandeau.
+#
+# Les memes tests, sur ce meme defaut, font echouer NEUF controles en trois
+# secondes. Il n'y a aucune raison de deployer sans les avoir passes.
+#
+# POUR OUTREPASSER, EN TOUTE CONNAISSANCE : DFM_SANS_TESTS=1 ./deployer.sh
+# Ce n'est pas la pour etre utilise ; c'est pour qu'un jour de panne du test
+# lui-meme ne bloque pas un correctif urgent. Le refus le rappelle.
+if [ -f tests.py ] && [ -z "${DFM_SANS_TESTS:-}" ]; then
+  if ! SORTIE=$(${PYTHON:-venv/bin/python} tests.py 2>&1); then
+    echo "  LES TESTS ECHOUENT. RIEN N'A ETE ENVOYE."
+    echo "$SORTIE" | grep -E "RATE|CONTROLE|a leve" | sed 's/^/      /'
+    echo ""
+    echo "      Corrigez, ou, en connaissance de cause : DFM_SANS_TESTS=1 ./deployer.sh"
+    exit 1
+  fi
+  echo "  $(echo "$SORTIE" | grep -oE '[0-9]+ controles' | head -1), tous au vert."
+elif [ -n "${DFM_SANS_TESTS:-}" ]; then
+  echo "  TESTS VOLONTAIREMENT SAUTES (DFM_SANS_TESTS)."
+fi
+
 # 2. CE QUI CHANGERAIT, avant de changer quoi que ce soit.
 CHANGES=$(rsync -an --out-format="%n" "${REGLES[@]}" ./ "$SERVEUR:$DISTANT/" 2>/dev/null \
           | grep -v '/$' | grep -v '^$')

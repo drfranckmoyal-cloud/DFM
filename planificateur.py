@@ -121,7 +121,48 @@ def _guetter():
             if lignes:
                 _noter("%s · %s — %s" % (code, script.replace(".py", ""), lignes[-1][:150]))
         avances += 1
+    avances += _guetter_inscriptions()
     return avances
+
+
+def _guetter_inscriptions():
+    """Les inscriptions du formulaire, toutes les dix minutes — 19/10/2026.
+
+    POURQUOI CE GUET EXISTE. L'import ne tournait qu'aux deux passages
+    complets, 8h30 et 13h30. Quelqu'un qui s'inscrivait a 11h56 n'avait donc
+    pas de fiche avant 13h30 — et si l'import echouait, il n'y avait pas de
+    fiche du tout, pendant des heures, sans que personne le sache. C'est
+    arrive : Talia GUEZ, inscrite le 18/10 a 11h56, est restee un jour.
+
+    Une inscription a maintenant AU PIRE DIX MINUTES de retard. Et quand la
+    reprise echoue, le controle qui suit previent Franck par mail au lieu
+    d'attendre qu'il lise un bandeau.
+
+    ON NE FAIT RIEN S'IL N'Y A RIEN. Un appel a la boite aux lettres, et on
+    s'arrete : ni import, ni controle, ni journal. Aucun mail de formation ne
+    part d'ici — l'import ne cree que des fiches, les courriers sont d'autres
+    etapes, aux passages complets.
+    """
+    try:
+        import inscription as I
+        attente = I.en_attente()
+    except Exception:
+        return 0                      # Supabase injoignable : le passage complet reessaiera
+    if not attente:
+        return 0
+    qui = ", ".join(sorted({((e.get("prenom") or "") + " " + (e.get("nom") or "")).strip()
+                            for e in attente})[:4])
+    _noter("%d demande(s) d'inscription a reprendre : %s" % (len(attente), qui))
+    ok, lignes = _lancer("importer_demandes.py")
+    for l in lignes[-3:]:
+        _noter("   %s" % l[:150])
+    # LE CONTROLE JUSTE APRES, TOUJOURS : c'est lui qui compare ce que le
+    # formulaire a recu et ce que le suivi contient, et qui alerte par mail.
+    ok_ctrl, lignes_ctrl = _lancer("verifier_inscriptions.py")
+    if not ok_ctrl:
+        for l in lignes_ctrl[-4:]:
+            _noter("   CONTROLE : %s" % l[:150])
+    return 1
 
 
 def _creneau(maintenant, heure, minute):
