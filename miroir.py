@@ -184,6 +184,21 @@ def _boucle():
             # plus et personne ne le verrait avant longtemps.
             print("   (fil des copies : %s)" % str(e)[:90])
             time.sleep(5)
+        # IL NE GARDE PAS SA CONNEXION ENTRE DEUX TOURS — 21/10/2026.
+        #
+        # Ce fil est le premier element de DFM a vivre des heures d'affilee, et
+        # c'est lui qui a signale le premier « database disk image is malformed »
+        # le 20/10 a 17h25. Avant lui, toutes les connexions de DFM etaient
+        # courtes, le temps d'une page. Une connexion gardee des heures est
+        # exposee a tout ce qui peut arriver au fichier pendant ce temps.
+        #
+        # Il la rend donc a chaque tour. La reouverture ne coute presque rien —
+        # le schema n'est pose qu'une fois par processus — et elle borne
+        # l'exposition a une minute au lieu d'une journee.
+        try:
+            base.fermer()
+        except Exception:
+            pass
 
 
 def demarrer():
