@@ -370,12 +370,122 @@ def tests_accuse_reception():
     verifier("et il repart au passage suivant", len(envoyes) == 1, len(envoyes))
 
 
+def tests_connexion_perimee():
+    """LA BASE QUI SE CASSE SOUS LES PIEDS DU PROCESSUS.
+
+    Incident du 20/10/2026 : six heures de « database disk image is malformed »
+    a chaque lecture, plus aucun inscrit a l'ecran, alors que le FICHIER etait
+    sain — c'etait la connexion du processus qui etait morte. Une relance a
+    tout remis, mais personne n'etait la pour relancer."""
+    print("\n  UNE CONNEXION PERIMEE SE REMPLACE TOUTE SEULE")
+    import sqlite3
+    base = _isoler()
+    base.suivi_ajouter("mon-organisme", "essai", {"nom": "DURAND"})
+    verifier("la lecture marche au depart",
+             len(base.suivi_lire("mon-organisme", "essai")) == 1)
+
+    class ConnexionMorte:
+        """Se plaint comme SQLite quand le fichier a change sous elle."""
+        def execute(self, *a, **k):
+            raise sqlite3.DatabaseError("database disk image is malformed")
+        def commit(self):
+            raise sqlite3.DatabaseError("database disk image is malformed")
+        def close(self):
+            pass
+
+    depart = base._RECYCLAGES[0]
+    base._LOCAL.conn = ConnexionMorte()
+    lignes = base.suivi_lire("mon-organisme", "essai")
+    verifier("malgre une connexion morte, la lecture aboutit", len(lignes) == 1, lignes)
+    verifier("et la connexion a bien ete remplacee",
+             base._RECYCLAGES[0] == depart + 1, base._RECYCLAGES[0] - depart)
+
+    # suivi_poser MET A JOUR la ligne, il n'en cree pas une seconde : on
+    # verifie donc que le champ a bien change, pas qu'une ligne s'est ajoutee.
+    # suivi_lire rend [(numero, {champs}), ...]
+    numero = base.suivi_lire("mon-organisme", "essai")[0][0]
+    base._LOCAL.conn = ConnexionMorte()
+    base.suivi_poser("mon-organisme", "essai", numero, {"nom": "MARTIN"})
+    champs = dict(base.suivi_lire("mon-organisme", "essai"))[numero]
+    verifier("une ECRITURE aussi se rejoue", champs.get("nom") == "MARTIN", champs)
+
+    # UNE VRAIE ERREUR NE DOIT PAS ETRE AVALEE : on ne rejoue que la connexion
+    # perimee, pas un defaut de code.
+    class ConnexionBancale:
+        def execute(self, *a, **k):
+            raise sqlite3.DatabaseError("no such table: inexistante")
+        def commit(self):
+            pass
+        def close(self):
+            pass
+    base._LOCAL.conn = ConnexionBancale()
+    remontee = False
+    try:
+        base.suivi_lire("mon-organisme", "essai")
+    except sqlite3.DatabaseError:
+        remontee = True
+    base._jeter()
+    verifier("une autre erreur de base remonte, elle n'est pas cachee", remontee)
+    verifier("la lecture remarche apres",
+             len(base.suivi_lire("mon-organisme", "essai")) == 1)
+
+
+def tests_guet_de_sante():
+    """DFM CRIE-T-IL QUAND IL NE LIT PLUS SES DONNEES ?
+
+    Le 20/10/2026, il est reste muet six heures. Ce guet est la pour que ca ne
+    se reproduise pas."""
+    print("\n  LE GUET DE SANTE DE LA BASE")
+    base = _isoler()
+    import alerte
+    import planificateur as plan
+
+    appels = []
+    alerte.prevenir = lambda cle, objet, paras, **k: appels.append(
+        {"cle": cle, "objet": objet, "paras": paras, "quoi": k.get("quoi_faire", "")}) or "contact@essai.test"
+    oublis = []
+    alerte.oublier = lambda cle: oublis.append(cle)
+
+    # 1. TOUT VA BIEN : pas d'alerte, et la memoire est effacee.
+    plan._guetter_sante()
+    verifier("base lisible : aucune alerte", appels == [], appels)
+    verifier("et la memoire de l'alerte est effacee", "base-illisible" in oublis, oublis)
+
+    # 2. LA BASE NE REPOND PLUS : on ecrit a Franck.
+    import sqlite3
+    vrai = base.suivi_compte
+    base.suivi_compte = lambda *a, **k: (_ for _ in ()).throw(
+        sqlite3.DatabaseError("database disk image is malformed"))
+    del appels[:]
+    plan._guetter_sante()
+    base.suivi_compte = vrai
+    verifier("base illisible : une alerte part", len(appels) == 1, len(appels))
+    if appels:
+        a = appels[0]
+        verifier("sous la bonne cle", a["cle"] == "base-illisible", a["cle"])
+        verifier("l'objet est explicite", "ne répond plus" in a["objet"], a["objet"])
+        verifier("elle dit que les inscrits n'apparaissent plus",
+                 any("inscrits" in p for p in a["paras"]))
+        verifier("elle rassure sur les donnees",
+                 any("Rien n'est perdu" in p for p in a["paras"]))
+        verifier("et elle dit quoi faire", "Verifier que DFM va bien" in a["quoi"], a["quoi"])
+
+    # 3. LES RECYCLAGES EN SERIE SE SIGNALENT AUSSI
+    del appels[:]
+    base._RECYCLAGES[0] = 25
+    plan._guetter_sante()
+    base._RECYCLAGES[0] = 0
+    verifier("une serie de reouvertures se signale",
+             any(x["cle"] == "connexions-recyclees" for x in appels), [x["cle"] for x in appels])
+
+
 def main():
     print()
     print("  LES TESTS DE DFM")
     print("  " + "-" * 56)
     for essai in (tests_import, tests_montant_attendu, tests_file_du_classeur,
-                  tests_alerte_inscriptions, tests_accuse_reception):
+                  tests_alerte_inscriptions, tests_accuse_reception,
+                  tests_connexion_perimee, tests_guet_de_sante):
         try:
             essai()
         except Exception as e:

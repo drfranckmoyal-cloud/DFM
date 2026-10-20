@@ -22,6 +22,7 @@ LE CLASSEUR GOOGLE RESTE TENU A JOUR, en miroir. DFM n'y lit plus, mais continue
 d'y ecrire : l'habitude d'ouvrir le classeur est conservee, et un defaut apres
 bascule se rattrape. Le miroir se coupe d'un reglage, pas d'une reecriture.
 """
+import functools
 import os
 import sqlite3
 import threading
@@ -198,6 +199,68 @@ def fermer():
     if c is not None:
         c.close()
         _LOCAL.conn = None
+
+
+# --------------------------------------------------------------------------
+# QUAND LA CONNEXION SE CASSE SOUS NOS PIEDS
+#
+# INCIDENT DU 20/10/2026, 17h00 - 23h40. DFM a repondu « database disk image
+# is malformed » a chaque lecture pendant SIX HEURES. Plus aucun inscrit,
+# plus aucune session a l'ecran. Le fichier, lui, etait parfaitement sain :
+# controle d'integrite « ok », les 1067 entrees et les 61 inscrits se lisaient
+# tous depuis une connexion NEUVE. C'etait la connexion du processus qui etait
+# morte — le fichier avait change sous elle.
+#
+# Une simple relance a tout remis. Mais personne n'etait la pour relancer, et
+# rien ne l'a dit : six heures de DFM muet, decouvertes parce que Franck a
+# voulu travailler.
+#
+# CE QUE FAIT CETTE GARDE. Sur ce message-la, et sur lui seul, on jette la
+# connexion du fil et on rejoue l'operation UNE fois. Si le fichier est
+# vraiment abime, la seconde tentative echoue aussi et l'erreur remonte comme
+# avant : on ne cache rien, on se remet seulement d'une connexion perimee.
+#
+# POURQUOI PAS UN CONTROLE A CHAQUE APPEL. Il faudrait lire une page de donnees
+# pour savoir si la connexion tient — soit une requete inutile des milliers de
+# fois par ecran. Rejouer sur l'erreur ne coute rien tant qu'il n'y a pas
+# d'erreur.
+# --------------------------------------------------------------------------
+
+_RECYCLAGES = [0]        # combien de fois on a du rouvrir. Lu par etat().
+
+
+def _connexion_perimee(souci):
+    """Est-ce une connexion morte, ou un vrai defaut du fichier ?"""
+    m = str(souci).lower()
+    return "malformed" in m or "disk image" in m or "not a database" in m
+
+
+def _jeter():
+    """Oublie la connexion de ce fil, sans bruit. La suivante sera neuve."""
+    c = getattr(_LOCAL, "conn", None)
+    _LOCAL.conn = None
+    if c is not None:
+        try:
+            c.close()
+        except Exception:
+            pass
+
+
+def _resistant(f):
+    """Rejoue une fois sur une connexion neuve si la base se plaint."""
+    @functools.wraps(f)
+    def enveloppe(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except sqlite3.DatabaseError as e:
+            if not _connexion_perimee(e):
+                raise
+            _RECYCLAGES[0] += 1
+            print("   (base : connexion perimee, on rouvre et on recommence — %s)"
+                  % str(e)[:70])
+            _jeter()
+            return f(*args, **kwargs)
+    return enveloppe
 
 
 # --------------------------------------------------------------------------
@@ -565,3 +628,20 @@ def etat():
             "journal": {o: journal_compte(o) for o in organismes_du_journal()},
             "sessions": len(etats()),
             "suivi": {"%s/%s" % (o, c): n for o, c, n in suivi_sessions()}}
+
+
+# TOUTES LES PORTES DE LA BASE PASSENT PAR LA GARDE. Enveloppees ici, a la fin,
+# plutot que decorees une par une : aucune ligne de leur corps ne change, et
+# l'oubli d'une nouvelle fonction se voit a cet endroit unique.
+for _nom in ("journal_ajouter", "journal_sceller", "journal_lire", "journal_ligne",
+             "journal_toutes", "journal_dernier_rang", "journal_compte",
+             "journal_dates", "organismes_du_journal",
+             "etat_lire", "etat_poser", "etat_poser_plusieurs", "etat_supprimer", "etats",
+             "suivi_lire", "suivi_ligne", "suivi_poser", "suivi_ajouter",
+             "suivi_compte", "suivi_sessions",
+             "miroir_deposer", "miroir_prochaines", "miroir_retirer",
+             "miroir_echec", "miroir_etat"):
+    if _nom in globals():
+        globals()[_nom] = _resistant(globals()[_nom])
+    else:                     # un nom qui n'existe plus : on veut le savoir
+        raise RuntimeError("base.py : fonction a proteger introuvable — %s" % _nom)

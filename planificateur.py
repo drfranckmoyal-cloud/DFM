@@ -121,8 +121,70 @@ def _guetter():
             if lignes:
                 _noter("%s · %s — %s" % (code, script.replace(".py", ""), lignes[-1][:150]))
         avances += 1
+    _guetter_sante()
     avances += _guetter_inscriptions()
     return avances
+
+
+def _guetter_sante():
+    """DFM lit-il encore ses donnees ? — 20/10/2026.
+
+    L'INCIDENT QUI A IMPOSE CE GUET. De 17h00 a 23h40, la base a repondu
+    « database disk image is malformed » a chaque lecture : plus un inscrit,
+    plus une session a l'ecran. Le fichier etait sain — c'etait la connexion du
+    processus qui etait morte — et une relance a tout remis. Mais rien ne l'a
+    dit pendant six heures, et c'est Franck qui l'a decouvert en voulant
+    travailler.
+
+    Depuis, base.py rouvre une connexion perimee toute seule. Ce guet est la
+    pour le cas ou cela ne suffit pas : il LIT, vraiment, toutes les dix
+    minutes, et si la lecture echoue il ecrit a Franck.
+
+    IL NE JOURNALISE PAS SON ECHEC : le journal est dans la base. Quand c'est
+    la base qui ne repond plus, le mail est le seul chemin qui reste.
+    """
+    import alerte
+    try:
+        import base
+        inscrits = base.suivi_compte()
+        entrees = base.journal_compte()
+    except Exception as e:
+        _noter("LA BASE NE REPOND PLUS : %s" % str(e)[:120])
+        alerte.prevenir(
+            "base-illisible",
+            "DFM — la base de données ne répond plus",
+            ["<b>DFM n'arrive plus à lire ses données.</b> Les inscrits et les "
+             "sessions n'apparaissent donc plus à l'écran.",
+             "Message de la base&nbsp;: <code>%s</code>" % str(e)[:160],
+             "Rien n'est perdu pour autant&nbsp;: les sauvegardes de nuit sont "
+             "intactes, et dans la plupart des cas le fichier lui-même est sain — "
+             "c'est la connexion du programme qui est à remplacer."],
+            quoi_faire="Double-cliquez «&nbsp;7 — Verifier que DFM va bien&nbsp;». "
+                       "Si le souci persiste, une relance de DFM suffit presque "
+                       "toujours&nbsp;: dites-le-moi.")
+        return
+    # TOUT VA BIEN : on efface la memoire de l'alerte, pour qu'une rechute
+    # reparte tout de suite au lieu d'attendre six heures.
+    alerte.oublier("base-illisible")
+    # ET ON SURVEILLE LES RECYCLAGES. Un remplacement de connexion de temps en
+    # temps est normal apres un deploiement ; une serie dit qu'autre chose
+    # abime la base, et cela doit se savoir avant la panne franche.
+    try:
+        import base
+        n = base._RECYCLAGES[0]
+    except Exception:
+        n = 0
+    if n >= 20:
+        alerte.prevenir(
+            "connexions-recyclees",
+            "DFM — la base se coupe et se rouvre souvent",
+            ["DFM a du rouvrir sa connexion a la base <b>%d fois</b> depuis son "
+             "demarrage. Il s'en remet seul a chaque fois, et rien n'est perdu, "
+             "mais cette repetition n'est pas normale." % n,
+             "Pour information&nbsp;: %d inscrits et %d entrees de journal se "
+             "lisent correctement en ce moment." % (inscrits, entrees)],
+            quoi_faire="Rien d'urgent. A me signaler pour que je cherche la cause.",
+            heures=24)
 
 
 def _guetter_inscriptions():
