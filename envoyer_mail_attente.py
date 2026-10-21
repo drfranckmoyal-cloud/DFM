@@ -44,8 +44,18 @@ _CLOTUREE = _STATUT in ("cloturee", "terminee")
 _CONTACT = S.get("mail_contact") or ""
 _ENCADRE = _ENCADRE_CLOS if _CLOTUREE else _ENCADRE_COMPLET
 _SUITE = _SUITE_CLOS if _CLOTUREE else _SUITE_COMPLET
+# UN PROMU N'ATTEND PLUS — 21/10/2026.
+#
+# La selection ne regardait que « mise en file d'attente » et « mail pas encore
+# envoye ». Or une place peut se liberer AVANT que ce mail ne parte : c'est
+# arrive a Fiona CHETOUANE, mise en file le 20/10 a 17h00, promue par Franck le
+# soir meme a 23h42, et prevenue le lendemain a 8h38 qu'elle etait en file
+# d'attente — une minute avant de recevoir sa convention a signer.
+#
+# Annoncer une attente a quelqu'un qui n'attend plus, c'est inquieter pour rien
+# et se contredire dans la minute.
 a_prevenir = [l for l in lignes if l["file_attente_le"] and not l["mail_attente_le"]
-              and not l["annule_le"]]
+              and not l["promu_le"] and not l["annule_le"]]
 if not a_prevenir:
     print("-> Personne a prevenir.")
     exit()

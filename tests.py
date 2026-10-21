@@ -166,6 +166,21 @@ def tests_import():
         verifier("et elle est en file d'attente", bool(paul["file_attente_le"]),
                  paul["file_attente_le"])
 
+    # 5 bis. UN PROMU N'EST PLUS EN FILE D'ATTENTE. Fiona CHETOUANE a recu
+    #        « vous etes en file d'attente » une minute avant sa convention,
+    #        parce que la selection ignorait la promotion.
+    lignes_fa = suivi.lire_lignes_de(FICHE["code"])
+    paul = next(l for l in lignes_fa if l["nom"] == "TARD")
+    suivi.ecrire(paul["_numero"], "promu_le", "21/10/2026 09:00", FICHE["code"])
+    relu = next(l for l in suivi.lire_lignes_de(FICHE["code"]) if l["nom"] == "TARD")
+    a_prevenir = [l for l in suivi.lire_lignes_de(FICHE["code"])
+                  if l["file_attente_le"] and not l["mail_attente_le"]
+                  and not l["promu_le"] and not l["annule_le"]]
+    verifier("la promotion est enregistree", bool(relu["promu_le"]), relu["promu_le"])
+    verifier("et un promu n'est plus prevenu qu'il attend",
+             all(l["nom"] != "TARD" for l in a_prevenir),
+             [l["nom"] for l in a_prevenir])
+
     # 6. LE PLUS IMPORTANT : SI L'ECRITURE RATE, RIEN N'EST MARQUE.
     #    C'est ce qui a sauve Talia GUEZ : sa demande revenait a chaque passage.
     del marquees[:]
