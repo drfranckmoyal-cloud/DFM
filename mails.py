@@ -93,12 +93,34 @@ BALISES = [
         ("intro", "Phrase d'accroche, varie selon le cas", "<p>Merci pour votre inscription.</p>"),
     ]),
 ]
+# L'EN-TETE DES MAILS — « option A, le filet irise », choisie le 21/10/2026.
+#
+# Le logo, centre et aux vraies proportions, puis un filet aux couleurs de
+# l'organisme a la place de l'ancien trait gris. Le corps du mail, lui, n'a pas
+# bouge d'une ligne : c'etait la demande.
+#
+# LE FILET EST ECRIT DEUX FOIS, ET CE N'EST PAS UNE MALADRESSE. « background »
+# pose une couleur unie, que TOUTES les messageries savent afficher ;
+# « background-image » pose le degrade par-dessus, pour celles qui savent le
+# dessiner. Outlook ignore la seconde ligne et garde la premiere : il montre un
+# filet uni au lieu d'un filet irise, jamais un trou. C'est la seule facon
+# d'avoir un degrade sans passer par une image — et une image de plus, c'est
+# une piece jointe de plus dans chaque mail, et un filet qui disparait chez qui
+# bloque les images.
+#
+# « font-size:0; line-height:0 » : sans eux, plusieurs messageries donnent a ce
+# bloc de 4 px la hauteur d'une ligne de texte vide.
+#
+# Les deux couleurs viennent du PROFIL DE L'ORGANISME (voir contexte()) : DSF
+# aura les siennes sans qu'on touche a ce gabarit.
 ENVELOPPE = ('<div style="font-family: \'Helvetica Neue\', Arial, sans-serif; max-width: 560px;'
              ' margin: 0 auto; color: #2b2f3a; line-height: 1.6;">\n'
-             '  <div style="padding: 20px 0 4px;">\n'
+             '  <div style="padding: 30px 0 18px;">\n'
              '    <img src="cid:logo" alt="{{marque}}" style="height: 60px;">\n'
              '  </div>\n'
-             '  <div style="height:1px; background:#e6e9f2; margin: 8px 0 24px;"></div>\n'
+             '  <div style="height:4px; font-size:0; line-height:0; border-radius:2px;'
+             ' margin: 0 0 26px; background:{{couleur_filet}};'
+             ' background-image:{{degrade_filet}};"></div>\n'
              '{CORPS}\n'
              '</div>')
 # --------------------------------------------------------------------------
@@ -124,7 +146,15 @@ ENVELOPPE = ('<div style="font-family: \'Helvetica Neue\', Arial, sans-serif; ma
 # Un fichier remplace par un autre rapport se redimensionne donc tout seul.
 _MOTIF_LOGO = re.compile(r"<img[^>]*?cid:logo[^>]*?>", re.I)
 _MOTIF_ALT = re.compile(r'alt\s*=\s*"([^"]*)"', re.I)
-HAUTEUR_LOGO = 60          # hauteur visee, en pixels
+# OPTION A, 21/10/2026 : le logo passe de 60 a 136 px de haut.
+#
+# POURQUOI SI GRAND. Franck : « j'aimerais un en-tete un peu plus joli avec le
+# logo plus visible ». A 60 px de haut dans un fichier CARRE, la marque elle-
+# meme ne mesurait que 27 px — c'est la remarque ecrite juste au-dessus, qui
+# datait de l'ancien fichier. Avec un logo aux vraies proportions (large), 136
+# de haut donne 260 de large : la largeur maximale ci-dessous prend alors le
+# relais, et c'est elle qui commande. Un logo carre, lui, reste carre a 136.
+HAUTEUR_LOGO = 136         # hauteur visee, en pixels
 LARGEUR_MAX_LOGO = 260     # au-dela, c'est la largeur qui commande
 
 
@@ -178,9 +208,12 @@ def html_logo(octets, alt="", source="cid:logo"):
     if not t:
         return ""
     l, h = t
+    # « margin:0 auto » CENTRE le logo : l'image est en display:block — un
+    # text-align sur le parent ne la bougerait pas — et Outlook, qui ignore
+    # beaucoup de choses, respecte les marges automatiques sur une image.
     return ('<img src="%s" alt="%s" width="%d" height="%d" '
             'style="width:%dpx; height:%dpx; max-width:%dpx; display:block; '
-            'border:0; outline:none; text-decoration:none; '
+            'margin:0 auto; border:0; outline:none; text-decoration:none; '
             '-ms-interpolation-mode:bicubic;">' % (source, alt, l, h, l, h, l))
 
 
@@ -691,6 +724,32 @@ def _jours_de(S):
         return {}
 
 
+def _couleur_filet(S):
+    """(couleur unie, degre) du filet de l'en-tete, pour CET organisme.
+
+    LA COULEUR UNIE EST LE REPLI D'OUTLOOK, le degrade est pour les autres :
+    voir ENVELOPPE. Les deux se lisent dans le profil de l'organisme —
+    « couleur_mail » et « degrade_mail » — pour qu'un second organisme ait les
+    siennes sans qu'on touche au gabarit.
+
+    SANS RIEN DANS LE PROFIL, on retombe sur la couleur d'accent de
+    l'organisme, celle qui colore deja ses ecrans. Jamais sur une couleur
+    ecrite en dur ici : un filet aux couleurs de Smileclub dans un mail de DSF
+    serait une faute, pas un detail.
+    """
+    defaut = "#4B6BCD"
+    try:
+        import profil
+        import sessions as _s
+        ident = _s.organisme_de((S or {}).get("code") or "") or ""
+        fiche = profil.charger(ident) or {}
+    except Exception:
+        fiche = {}
+    couleur = (fiche.get("couleur_mail") or fiche.get("couleur") or defaut).strip()
+    degrade = (fiche.get("degrade_mail") or "").strip() or "none"
+    return couleur, degrade
+
+
 def _tarif_de(ligne, S):
     """Le montant du par CETTE personne, en texte, pour la balise {{tarif}}."""
     try:
@@ -751,6 +810,10 @@ def contexte(S, ligne=None, extras=None):
         # invite. Meme regle que les ecrans et la convention, un seul endroit.
         "tarif": _tarif_de(ligne, S),
         "formateur": n(S.get("formateur")),
+        # LE FILET DE L'EN-TETE, aux couleurs de l'organisme. Deux balises
+        # internes, pas des balises a ecrire dans un modele.
+        "couleur_filet": _couleur_filet(S)[0],
+        "degrade_filet": _couleur_filet(S)[1],
         # Pilote les blocs « si: payant » / « si: invite ». Pas une balise a
         # ecrire dans un modele : un interrupteur interne.
         "est_invite": ("1" if str((ligne or {}).get("invite_le") or "").strip() else ""),

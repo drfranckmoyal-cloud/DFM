@@ -479,13 +479,88 @@ def tests_guet_de_sante():
              any(x["cle"] == "connexions-recyclees" for x in appels), [x["cle"] for x in appels])
 
 
+def tests_entete_des_mails():
+    """L'EN-TETE DES MAILS — « option A », choisie par Franck le 21/10/2026.
+
+    Ce qui est verifie ici n'est pas le gout, c'est ce qui casse en vrai :
+    les dimensions qu'Outlook exige, le repli du degrade, et le fait que le
+    filet suive l'organisme au lieu d'etre ecrit en dur."""
+    print("\n  L'EN-TETE DES MAILS")
+    _isoler()
+    import mails as _mails
+    import profil
+    import sessions as _s
+
+    profils = {"mon-organisme": {"marque": "Smileclub Formations",
+                                 "couleur": "#d4890a", "couleur_mail": "#4B6BCD",
+                                 "degrade_mail": "linear-gradient(90deg, #264BC6 0%, #3559C4 100%)"},
+               "dsf": {"marque": "DSF", "couleur": "#4f7ef8"}}
+    profil.charger = lambda i=None: dict(profils.get(i) or {})
+    _s.organisme_de = lambda c=None: "dsf" if c == "chez-dsf" else "mon-organisme"
+    # La vraie fiche de session porte la marque de l'organisme ; celle des
+    # autres essais ne l'a pas, on la pose ici.
+    S = dict(FICHE, code="essai-test26", formation="", marque="Smileclub Formations")
+
+    # UNE IMAGE DE LOGO MINUSCULE MAIS VALIDE : 40 x 20, donc large.
+    import base64
+    logo = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAACgAAAAUCAYAAADIpHLKAAAAHklEQVRIx2NgGAWjYBSMglEw"
+        "CkbBKBgFo2AUjAIaAwAHBgABm1bBpwAAAABJRU5ErkJggg==")
+
+    modele = _mails.pour_formation("", "accuse-reception")
+    html = _mails.poser_logo(
+        _mails.rendre(modele, _mails.contexte(S, {"prenom": "Camille"}))["html"], logo)
+
+    print("    le logo")
+    verifier("il est dans le mail", "cid:logo" in html)
+    verifier("avec ses dimensions en ATTRIBUTS, qu'Outlook exige",
+             'width="' in html and 'height="' in html)
+    verifier("et aussi en style, pour les autres",
+             "width:" in html and "height:" in html)
+    verifier("il est centre", "margin:0 auto" in html)
+    verifier("il porte le nom de l'organisme en texte de remplacement",
+             'alt="Smileclub Formations"' in html, html[html.find("alt="):][:40])
+
+    print("    le filet")
+    verifier("la couleur unie est la, pour Outlook",
+             "background:#4B6BCD" in html, html[html.find("background:"):][:40])
+    verifier("le degrade est la, pour les autres",
+             "background-image:linear-gradient" in html)
+    verifier("l'ancien trait gris a disparu", "background:#e6e9f2" not in html)
+    verifier("il ne grossit pas d'une ligne de texte",
+             "font-size:0" in html and "line-height:0" in html)
+
+    print("    chaque organisme a ses couleurs")
+    html_dsf = _mails.rendre(
+        _mails.pour_formation("", "accuse-reception"),
+        _mails.contexte(dict(S, code="chez-dsf"), {"prenom": "Camille"}))["html"]
+    verifier("DSF a la sienne", "background:#4f7ef8" in html_dsf)
+    verifier("et PAS celle de Smileclub", "#4B6BCD" not in html_dsf)
+    verifier("sans degrade declare, aucun n'est impose",
+             "background-image:none" in html_dsf)
+
+    print("    le corps n'a pas bouge")
+    verifier("le texte du mail est intact", "bien reçu votre demande" in html)
+    verifier("et la phrase qui sert de filet de securite aussi",
+             "d'ici une semaine" in html)
+    verifier("aucune balise oubliee", "{{" not in html and "}}" not in html)
+
+    print("    tous les modeles passent l'enveloppe")
+    for usage in sorted(_mails.USAGES):
+        m = _mails.pour_formation("", usage)
+        h = _mails.rendre(m, _mails.contexte(S, {"prenom": "Camille"}))["html"]
+        verifier("%-24s rendu sans balise oubliee" % usage,
+                 "{{" not in h and "}}" not in h and "cid:logo" in h)
+
+
 def main():
     print()
     print("  LES TESTS DE DFM")
     print("  " + "-" * 56)
     for essai in (tests_import, tests_montant_attendu, tests_file_du_classeur,
                   tests_alerte_inscriptions, tests_accuse_reception,
-                  tests_connexion_perimee, tests_guet_de_sante):
+                  tests_connexion_perimee, tests_guet_de_sante,
+                  tests_entete_des_mails):
         try:
             essai()
         except Exception as e:
