@@ -742,6 +742,171 @@ def tests_garde_fous_de_la_base():
              isinstance(etat, str) and etat != "ok", etat[:50])
 
 
+def tests_session_cycle():
+    """Un cycle : cinq modules de trois jours sur l'annee, depuis cinq dates.
+
+    LE DEFAUT CORRIGE LE 24/10/2026. Une session ne savait dire ses dates que
+    d'une seule facon : les enumerer. Quinze journees reparties sur douze mois
+    donnaient une phrase illisible, et l'ecran de saisie proposait une case a
+    cocher par jour entre la premiere et la derniere — trois cent trente cases.
+    """
+    import jours as _j
+    print()
+    print("  LA SESSION « CYCLE »")
+
+    print("    les journees se regroupent en venues")
+    verifier("deux jours qui se suivent font une venue",
+             len(_j.blocs(["2027-02-04", "2027-02-05"])) == 1)
+    verifier("un samedi et un lundi aussi (le dimanche ne coupe pas)",
+             len(_j.blocs(["2027-02-06", "2027-02-08"])) == 1,
+             "%d" % len(_j.blocs(["2027-02-06", "2027-02-08"])))
+    verifier("deux mois d'ecart font deux venues",
+             len(_j.blocs(["2027-01-06", "2027-03-10"])) == 2)
+    verifier("aucune journee, aucune venue", _j.blocs([]) == [])
+
+    print("    cinq dates suffisent a decrire le cycle")
+    modules = [{"titre": "Essentiels", "jours": 3},
+               {"titre": "Composites", "jours": 3},
+               {"titre": "Restaurations antérieures en céramique", "jours": 3},
+               {"titre": "Techniques avancées", "jours": 3},
+               {"titre": "Érosions et usures", "jours": 3}]
+    departs = ["2027-01-06", "2027-03-10", "2027-05-19", "2027-09-22", "2027-12-01"]
+    r = _j.depuis_modules(modules, departs)
+    verifier("quinze journees", len(r["jours"]) == 15, "%d" % len(r["jours"]))
+    verifier("105 heures, la duree du contrat", _j.duree(r["jours"]) == 105,
+             "%s" % _j.duree(r["jours"]))
+    verifier("cinq modules resolus", len(r["modules"]) == 5)
+    verifier("aucun module sans date", r["manquants"] == 0)
+    verifier("les bornes vont de janvier a decembre",
+             _j.bornes(r["jours"]) == ("2027-01-06", "2027-12-03"),
+             str(_j.bornes(r["jours"])))
+    verifier("le module 1 est bien ecrit",
+             r["modules"][0]["texte"] == "du mercredi 6 au vendredi 8 janvier 2027",
+             r["modules"][0]["texte"])
+    verifier("et le premier decembre s'ecrit « 1er »",
+             r["modules"][4]["texte"] == "du mercredi 1er au vendredi 3 décembre 2027",
+             r["modules"][4]["texte"])
+
+    print("    le dimanche n'est jamais compte dans un module")
+    r2 = _j.depuis_modules([{"titre": "Trois jours", "jours": 3}], ["2027-01-09"])
+    verifier("samedi, lundi, mardi — pas le dimanche",
+             r2["jours"] == ["2027-01-09", "2027-01-11", "2027-01-12"],
+             str(r2["jours"]))
+
+    print("    une session en cours de saisie ne casse pas")
+    r3 = _j.depuis_modules(modules, ["2027-01-06", "", "", "", ""])
+    verifier("un seul module date : trois journees", len(r3["jours"]) == 3)
+    verifier("et quatre modules annonces sans date", r3["manquants"] == 4)
+    verifier("le module sans date le dit",
+             "dates à venir" in _j.texte_modules(r3["modules"]),
+             _j.texte_modules(r3["modules"]).splitlines()[1])
+
+    print("    la balise des modules, telle qu'elle partira")
+    t = _j.texte_modules(r["modules"])
+    verifier("cinq lignes", len(t.splitlines()) == 5)
+    verifier("chacune numerotee et datee",
+             t.splitlines()[1] == "2 · Composites — du mercredi 10 au vendredi 12 mars 2027",
+             t.splitlines()[1])
+
+    print("    la phrase des dates reste lisible")
+    verifier("les venues sont enoncees, pas les quinze journees",
+             _j.texte(r["jours"]).startswith("du mercredi 6 au vendredi 8 janvier, du"),
+             _j.texte(r["jours"])[:60])
+    verifier("et l'annee n'est ecrite qu'une fois",
+             _j.texte(r["jours"]).count("2027") == 1,
+             "%d fois" % _j.texte(r["jours"]).count("2027"))
+
+    print("    LES SESSIONS EN SERVICE NE BOUGENT PAS D'UN CARACTERE")
+    for liste, attendu in (
+            (["2027-02-25", "2027-02-26"], "jeudi 25 et vendredi 26 février 2027"),
+            (["2026-10-28", "2026-10-29"], "mercredi 28 et jeudi 29 octobre 2026"),
+            (["2026-12-03", "2026-12-04"], "jeudi 3 et vendredi 4 décembre 2026"),
+            (["2027-02-04", "2027-02-05"], "jeudi 4 et vendredi 5 février 2027"),
+            (["2026-11-04", "2026-11-05"], "mercredi 4 et jeudi 5 novembre 2026"),
+            ([], "")):
+        verifier("« %s »" % (attendu or "aucune journee"),
+                 _j.texte(liste) == attendu, _j.texte(liste))
+    verifier("un jour seul ne change pas",
+             _j.texte(["2026-08-15"]) == "samedi 15 août 2026", _j.texte(["2026-08-15"]))
+    verifier("trois jours contigus non plus",
+             _j.texte(["2026-08-10", "2026-08-11", "2026-08-12"])
+             == "du lundi 10 au mercredi 12 août 2026",
+             _j.texte(["2026-08-10", "2026-08-11", "2026-08-12"]))
+    verifier("deux jours disperses non plus",
+             _j.texte(["2026-08-15", "2026-08-22"])
+             == "samedi 15 et samedi 22 août 2026",
+             _j.texte(["2026-08-15", "2026-08-22"]))
+
+    print("    une session ancienne, sans modules ranges, s'apparie quand meme")
+    a = _j.modules_depuis_jours(r["jours"], modules)
+    verifier("cinq venues appariees", len(a["modules"]) == 5)
+    verifier("aux bons intitules", a["modules"][2]["titre"]
+             == "Restaurations antérieures en céramique", a["modules"][2]["titre"])
+    verifier("et rien a signaler", a["souci"] == "", a["souci"])
+    b = _j.modules_depuis_jours(["2027-01-06", "2027-01-07"], modules)
+    verifier("un desaccord de comptes est DIT, pas devine",
+             "1 venue(s)" in b["souci"] and "5 module(s)" in b["souci"], b["souci"])
+
+    print("    le resume d'une fiche porte les modules ranges")
+    fiche = {"jours": r["jours"], "modules": r["modules"]}
+    res = _j.resume(fiche)
+    verifier("quinze journees, 105 heures", res["nb"] == 15 and res["duree"] == 105)
+    verifier("cinq venues", len(res["blocs"]) == 5)
+    verifier("et la balise toute prete", res["modules_texte"].count("\n") == 4)
+    ancienne = _j.resume({"jours": ["2027-02-04", "2027-02-05"]})
+    verifier("une fiche sans modules n'en invente pas",
+             ancienne["modules"] == [] and ancienne["modules_texte"] == "")
+
+
+def tests_balises_du_cycle():
+    """{{modules}} et {{nb_journees}} : remplies pour un cycle, vides sinon.
+
+    Le meme modele de courriel doit servir une session de deux jours et un
+    cycle de quinze : c'est la fiche de session qui change, pas le texte.
+    """
+    import jours as _j
+    import mails as _m
+    print()
+    print("  LES BALISES DU CYCLE")
+
+    print("    un nombre de journees s'ecrit en lettres, au feminin")
+    for n, attendu in ((1, "une"), (2, "deux"), (15, "quinze"), (20, "vingt"),
+                       (21, "vingt et une"), (23, "vingt-trois"), (30, "trente")):
+        verifier("%d → %s" % (n, attendu), _j.en_lettres(n) == attendu, _j.en_lettres(n))
+    verifier("au-dela de trente, le chiffre", _j.en_lettres(45) == "45", _j.en_lettres(45))
+    verifier("et rien d'illisible", _j.en_lettres("x") == "", "[%s]" % _j.en_lettres("x"))
+
+    modules = [{"titre": "Essentiels", "jours": 3}, {"titre": "Composites", "jours": 3}]
+    r = _j.depuis_modules(modules, ["2027-01-06", "2027-03-10"])
+
+    print("    une session de cycle remplit les deux balises")
+    S = {"jours": r["jours"], "modules": r["modules"], "nom_formation": "Esthetique 360",
+         "titre_complet": "Esthétique 360", "date_texte": _j.texte(r["jours"]),
+         "adresse": "61 rue Balard, 75015 Paris", "tarif": "6000",
+         "organisme": "mon-organisme", "marque": "Smileclub Formations"}
+    d = _m._jours_de(S)
+    verifier("nb_journees en lettres", d.get("nb_journees") == "six", d.get("nb_journees"))
+    verifier("deux modules, un par ligne",
+             d.get("modules", "").count("<br>") == 1, d.get("modules", "")[:60])
+    verifier("l'intitule est en gras",
+             "<b>1 · Essentiels</b>" in d.get("modules", ""), d.get("modules", "")[:40])
+    verifier("et sa date suit",
+             "du mercredi 6 au vendredi 8 janvier 2027" in d.get("modules", ""))
+
+    print("    une session ordinaire les laisse vides, sans rien casser")
+    d2 = _m._jours_de({"jours": ["2027-02-04", "2027-02-05"]})
+    verifier("aucun module", d2.get("modules") == "", "[%s]" % d2.get("modules"))
+    verifier("mais le reste est la", d2.get("nb_jours") == "2", d2.get("nb_jours"))
+    verifier("et le nombre en lettres aussi", d2.get("nb_journees") == "deux",
+             d2.get("nb_journees"))
+    verifier("une fiche sans journees ne leve pas", _m._jours_de({}) == {})
+
+    print("    les deux balises sont proposees dans l'editeur de modeles")
+    plates = [c for _groupe, items in _m.BALISES for c, _l, _e in items]
+    verifier("{{modules}} est offerte", "modules" in plates)
+    verifier("{{nb_journees}} aussi", "nb_journees" in plates)
+
+
 def main():
     print()
     print("  LES TESTS DE DFM")
@@ -750,7 +915,8 @@ def main():
                   tests_alerte_inscriptions, tests_accuse_reception,
                   tests_connexion_perimee, tests_guet_de_sante,
                   tests_entete_des_mails, tests_formation_modules,
-                  tests_reparation_base, tests_garde_fous_de_la_base):
+                  tests_reparation_base, tests_garde_fous_de_la_base,
+                  tests_session_cycle, tests_balises_du_cycle):
         try:
             essai()
         except Exception as e:

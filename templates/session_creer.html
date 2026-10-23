@@ -106,11 +106,24 @@
 .sc-sug small{color:var(--muted);display:block;font-size:11px}
 .sc-trop{background:#fdf3e3;border:1px solid #f0dcb4;color:#8a5606;border-radius:8px;
   padding:8px 11px;font-size:12px;margin-top:9px}
+/* Une ligne par module d'un cycle : l'intitule, sa duree, et une seule date.
+   Voir le commentaire de depuis_modules() dans jours.py. */
+.mod-l{display:flex;align-items:center;gap:10px;padding:7px 0;
+  border-bottom:1px solid var(--bord)}
+.mod-l:last-child{border-bottom:0}
+.mod-n{width:22px;height:22px;flex:0 0 22px;border-radius:50%;background:var(--accent);
+  color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;
+  justify-content:center}
+.mod-t{flex:1;min-width:0}
+.mod-i{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.mod-d{font-size:11px;color:var(--gris)}
+.mod-l input[type=date]{width:150px;flex:0 0 150px}
 </style>
 <div class="sc-etiq">Étape 1 — Choisir la formation</div>
 <div class="sc-picker">
 {% for f in formations %}
-  <div class="sc-tpl" onclick="choisir(this)" data-code="{{ f.code }}" data-nom="{{ f.nom }}" data-titre="{{ f.titre }}" data-tarif="{{ f.tarif }}" data-places="{{ f.places }}" data-adresse="{{ f.adresse }}">
+  <div class="sc-tpl" onclick="choisir(this)" data-code="{{ f.code }}" data-nom="{{ f.nom }}" data-titre="{{ f.titre }}" data-tarif="{{ f.tarif }}" data-places="{{ f.places }}" data-adresse="{{ f.adresse }}" data-modules="{{ f.modules | tojson | forceescape }}">
     <div class="sc-tpl-h">
       <div class="sc-dot" style="background:{{ ['#4f7ef8','#7c5bf7','#0f9e6a','#d4890a','#d03b3b'][loop.index0 % 5] }}"></div>
       <div style="flex:1">
@@ -195,6 +208,13 @@
           <label>Date de fin <span class="sc-req">*</span></label>
           <input type="date" name="date_fin" id="date_fin" oninput="majDates()">
         </div>
+      </div>
+      <div class="sc-f" id="bloc_modules" style="display:none">
+        <label>Les modules du cycle <span class="sc-req">*</span></label>
+        <div class="sc-aide" style="margin:0 0 8px">Une seule date par module&nbsp;: son
+          premier jour. Les journées suivantes se déduisent, dimanche exclu.</div>
+        <div id="mod_lignes"></div>
+        <div class="sc-aide" id="mod_bilan"></div>
       </div>
       <div class="sc-f" id="bloc_jours" style="display:none">
         <label>Journées de formation <span class="sc-req">*</span>
@@ -475,10 +495,82 @@ var ABR = ["janv","fev","mars","avr","mai","juin","juil","aout","sept","oct","no
 var codeManuel = false;
 function V(id){ var e = document.getElementById(id); return e ? e.value : ""; }
 function T(id, v){ var e = document.getElementById(id); if(e) e.textContent = v; }
+var MOD_FORME = [];          // les modules de la formation choisie
+function modLire(el){
+  try { return JSON.parse(el.dataset.modules || "[]"); } catch(e){ return []; }
+}
+function modDresser(){
+  var bloc = document.getElementById("bloc_modules");
+  var hote = document.getElementById("mod_lignes");
+  if(!MOD_FORME.length){
+    // RETOUR A UNE FORMATION SANS MODULES : on rouvre les bornes. Sans cela
+    // elles restaient verrouillees apres un detour par un cycle, et la session
+    // suivante ne pouvait plus se dater du tout.
+    bloc.style.display = "none"; hote.innerHTML = "";
+    ["date_debut", "date_fin"].forEach(function(id){
+      var c = document.getElementById(id);
+      c.readOnly = false; c.title = "";
+    });
+    return;
+  }
+  bloc.style.display = "";
+  // La grille jour par jour n'a plus de sens : trois cents cases pour un cycle.
+  document.getElementById("bloc_jours").style.display = "none";
+  // Et les journees cochees pour une autre formation ne doivent pas rester
+  // dans le formulaire : le serveur les ignorerait, mais un champ cache qui
+  // traine finit toujours par etre lu par quelqu'un.
+  JR_RETENUS = [];
+  var vieuxCache = document.getElementById("jr_cache");
+  if(vieuxCache) vieuxCache.innerHTML = "";
+  hote.innerHTML = MOD_FORME.map(function(m, i){
+    var n = parseInt(m.jours, 10) || 0;
+    return '<div class="mod-l">'
+      + '<div class="mod-n">' + (i+1) + '</div>'
+      + '<div class="mod-t"><div class="mod-i">' + (m.titre || "") + '</div>'
+      + '<div class="mod-d" id="mod_d' + i + '">' + n + ' journée' + (n>1?'s':'') + '</div></div>'
+      + '<input type="date" name="module_depart" oninput="modCalculer()">'
+      + '</div>';
+  }).join("");
+  // Les bornes ne se saisissent plus : elles decoulent des modules.
+  ["date_debut", "date_fin"].forEach(function(id){
+    var c = document.getElementById(id);
+    c.readOnly = true; c.title = "Calculée depuis les modules";
+  });
+  modCalculer();
+}
+function modDeparts(){
+  return Array.prototype.map.call(
+    document.querySelectorAll('input[name="module_depart"]'),
+    function(x){ return x.value || ""; });
+}
+function modCalculer(){
+  var fd = new FormData();
+  fd.append("formation", V("formation"));
+  modDeparts().forEach(function(x){ fd.append("module_depart", x); });
+  fetch("/apercu-dates", {method:"POST", body:fd})
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      (j.modules || []).forEach(function(m, i){
+        var c = document.getElementById("mod_d" + i);
+        if(c) c.textContent = m.texte || (m.nb + " journée" + (m.nb>1?"s":""));
+      });
+      if(j.debut) document.getElementById("date_debut").value = j.debut;
+      if(j.fin) document.getElementById("date_fin").value = j.fin;
+      if(j.texte) document.getElementById("date_texte").value = j.texte;
+      var b = document.getElementById("mod_bilan");
+      if(b) b.textContent = j.nb
+        ? j.nb + " journées au total · " + j.duree + " heures"
+        : "Renseignez le premier jour de chaque module.";
+      proposerCode();
+      maj();
+    }).catch(function(){ maj(); });
+}
 function choisir(el){
   document.querySelectorAll(".sc-tpl").forEach(function(x){x.classList.remove("on")});
   el.classList.add("on");
   document.getElementById("formation").value = el.dataset.code;
+  MOD_FORME = modLire(el);
+  modDresser();
   scQuestionnaires(el.dataset.code);
   var a = document.getElementById("adresse"), p = document.getElementById("places_max"), t = document.getElementById("tarif");
   if(el.dataset.adresse){ a.placeholder = el.dataset.adresse; if(!a.value) a.value = el.dataset.adresse; }
@@ -568,6 +660,8 @@ function jrRendre(){
   cache.innerHTML = JR_RETENUS.map(function(x){
     return '<input type="hidden" name="jours" value="' + x + '">'; }).join("");
 
+  // EN MODE CYCLE, la grille reste fermee : les journees viennent des modules.
+  if(MOD_FORME.length){ bloc.style.display = "none"; return; }
   if(!deb || !fin || jrPeriode(deb, fin).length <= 2){ bloc.style.display = "none"; jrTexte(); return; }
   bloc.style.display = "";
   grille.innerHTML = jrPeriode(deb, fin).map(function(x){
@@ -602,6 +696,7 @@ function jrTexte(){
   }).catch(function(){ maj(); });
 }
 function majDates(){
+  if(MOD_FORME.length) return;      // en mode cycle, les bornes sont calculees
   var deb = V("date_debut"), fin = V("date_fin");
   if(deb && !fin){ document.getElementById("date_fin").value = deb; fin = deb; }
   proposerCode();

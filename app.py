@@ -903,7 +903,11 @@ def creer_session():
         fiches.append({"code": code, "nom": f["nom_formation"],
                        "titre": f.get("titre_complet", f["nom_formation"]),
                        "tarif": f.get("tarif", ""), "places": f.get("places_max", 14),
-                       "adresse": f.get("adresse", ""), "duree": f.get("duree_heures", "")})
+                       "adresse": f.get("adresse", ""), "duree": f.get("duree_heures", ""),
+                       # LES MODULES SUIVENT LA FORMATION JUSQU'A L'ECRAN. Une
+                       # formation qui en a ne se saisit pas jour par jour mais
+                       # module par module : l'ecran doit le savoir des le choix.
+                       "modules": f.get("modules") or []})
     import clients as _CL
     import sessions as _S
     # Ce que chaque formation transmettra reellement a sa session.
@@ -948,10 +952,29 @@ def enregistrer_nouvelle_session():
     # cote d'une liste de journees finit toujours par la contredire, et c'est
     # precisement l'ecart qu'un financeur releve sur une convention.
     import jours as _J
-    _liste = _J.normaliser(d.getlist("jours") if hasattr(d, "getlist")
-                           else (d.get("jours") or []))
-    if not _liste:
-        _liste = _J.depuis_bornes(d.get("date_debut") or "", d.get("date_fin") or "")
+    # UNE FORMATION A MODULES SE SAISIT PAR MODULE — 24/10/2026, avec le cycle
+    # Esthetique 360. Cinq modules de trois jours etales sur l'annee : l'ecran
+    # proposait une case a cocher par jour entre la premiere et la derniere
+    # date, soit plus de trois cents cases. On ne demande donc que le PREMIER
+    # JOUR de chaque module, et la forme vient de la fiche de formation.
+    _mods_formation = FORMATIONS[formation].get("modules") or []
+    _departs = (d.getlist("module_depart") if hasattr(d, "getlist")
+                else (d.get("module_depart") or []))
+    _modules = []
+    if _mods_formation and any(str(x).strip() for x in _departs):
+        _calc = _J.depuis_modules(_mods_formation, list(_departs))
+        if _calc["manquants"]:
+            return jsonify({"ok": False, "message":
+                            "Il manque la date de début de %d module(s). Une session de "
+                            "cycle se crée d'un seul tenant : les inscrits reçoivent "
+                            "toutes les dates dès la convention. Rien n'a été créé."
+                            % _calc["manquants"]})
+        _liste, _modules = _calc["jours"], _calc["modules"]
+    else:
+        _liste = _J.normaliser(d.getlist("jours") if hasattr(d, "getlist")
+                               else (d.get("jours") or []))
+        if not _liste:
+            _liste = _J.depuis_bornes(d.get("date_debut") or "", d.get("date_fin") or "")
     debut, fin = _J.bornes(_liste)
     if not debut:
         return jsonify({"ok": False, "message": "Aucune journée de formation n'est retenue."})
@@ -993,6 +1016,11 @@ def enregistrer_nouvelle_session():
         "date_debut": debut,
         "date_fin": fin,
         "jours": _liste,
+        # LES MODULES RESOLUS, avec leurs vraies dates. On les range dans la
+        # session et non dans la formation : renommer un module ou changer sa
+        # duree ne doit pas reecrire apres coup une session dont la convocation
+        # est deja partie.
+        "modules": _modules,
         "date_texte": d.get("date_texte") or _texte_dates(debut, fin, _liste),
         "sheet_reponses": _extraire_id(d.get("sheet_reponses")),
         "stripe_lien": (d.get("stripe_lien") or "").strip(),
@@ -1105,11 +1133,26 @@ def apercu_dates():
     """
     import jours as _J
     try:
-        liste = _J.normaliser(request.form.getlist("jours"))
-        if not liste:
-            liste = _J.depuis_bornes(request.form.get("debut"), request.form.get("fin"))
+        mods = []
+        # LA MEME REGLE QU'A L'ENREGISTREMENT, calculee au meme endroit. Un
+        # apercu qui calculerait de son cote finirait par annoncer autre chose
+        # que ce qui sera enregistre, et c'est l'ecart que personne ne verifie.
+        formation = (request.form.get("formation") or "").strip()
+        departs = request.form.getlist("module_depart")
+        forme = (FORMATIONS.get(formation) or {}).get("modules") or []
+        if forme and any(str(x).strip() for x in departs):
+            calc = _J.depuis_modules(forme, list(departs))
+            liste, mods = calc["jours"], calc["modules"]
+        else:
+            liste = _J.normaliser(request.form.getlist("jours"))
+            if not liste:
+                liste = _J.depuis_bornes(request.form.get("debut"), request.form.get("fin"))
+        d, f = _J.bornes(liste)
         return jsonify({"texte": _J.texte(liste), "nb": len(liste),
-                        "duree": _J.duree(liste), "detail": _J.detail(liste)})
+                        "duree": _J.duree(liste), "detail": _J.detail(liste),
+                        "debut": d, "fin": f,
+                        "modules": mods,
+                        "modules_texte": _J.texte_modules(mods) if mods else ""})
     except Exception:
         return jsonify({"texte": ""})
 @app.route("/sessions")

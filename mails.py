@@ -56,6 +56,10 @@ BALISES = [
         ("jours_formation", "Chaque journée avec sa durée",
          "jeudi 12 mars 2027 (7 heures)<br>vendredi 13 mars 2027 (7 heures)"),
         ("nb_jours", "Nombre de journées", "2"),
+        ("nb_journees", "Nombre de journées en lettres", "quinze"),
+        ("modules", "Les modules d'un cycle, un par ligne",
+         "<b>1 · Essentiels</b> — du mercredi 6 au vendredi 8 janvier 2027<br>"
+         "<b>2 · Composites</b> — du mercredi 10 au vendredi 12 mars 2027"),
         ("horaires", "Horaires", "9h00 – 17h30"),
         ("lieu", "Adresse du lieu", "12 avenue des Exemples, 75000 Ville"),
         ("duree", "Durée", "14 heures"),
@@ -713,11 +717,20 @@ def _jours_de(S):
         r = _J.resume(S or {})
         if not r["jours"]:
             return {}
+        # LES MODULES D'UN CYCLE — 24/10/2026. Une formation de deux jours n'en a
+        # pas, et la balise reste vide : un courriel de cycle et un courriel de
+        # session courte se servent du MEME modele, et seule la fiche change.
+        lignes = []
+        for m in (r.get("modules") or []):
+            tete = "%d · %s" % (m.get("numero") or 0, m.get("titre") or "")
+            lignes.append("<b>%s</b> — %s" % (tete, m.get("texte") or "dates à venir"))
         return {
             "date_debut": _J._d(r["date_debut"]).strftime("%d/%m/%Y"),
             "date_fin": _J._d(r["date_fin"]).strftime("%d/%m/%Y"),
             "jours_formation": "<br>".join(r["detail"]),
             "nb_jours": str(r["nb"]),
+            "nb_journees": _J.en_lettres(r["nb"]),
+            "modules": "<br>".join(lignes),
             "duree_texte": "%s heures" % r["duree"],
         }
     except Exception:
@@ -806,6 +819,11 @@ def contexte(S, ligne=None, extras=None):
         # « duree_heures » de la fiche formation reste le repli, pour les
         # sessions ecrites avant l'existence de la liste.
         "duree": n(_jours_de(S).get("duree_texte") or S.get("duree") or S.get("duree_heures")),
+        # LES MODULES ET LE NOMBRE DE JOURNEES EN LETTRES, pour les cycles.
+        # Vides pour une session ordinaire : un modele qui les porte reste
+        # utilisable par les deux.
+        "modules": _jours_de(S).get("modules") or "",
+        "nb_journees": _jours_de(S).get("nb_journees") or "",
         # LE TARIF DE CETTE PERSONNE, pas celui de la session : zero pour un
         # invite. Meme regle que les ecrans et la convention, un seul endroit.
         "tarif": _tarif_de(ligne, S),
