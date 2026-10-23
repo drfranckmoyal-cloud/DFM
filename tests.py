@@ -643,6 +643,61 @@ def tests_formation_modules():
                  d["categorie"][:30])
 
 
+def tests_reparation_base():
+    """Recoller une entree de journal depuis le classeur, SANS LA CROIRE SUR PAROLE.
+
+    C'est la piece delicate de la reparation du 23/10/2026. Google convertit
+    « 2026-10-22 08:34:56 » en nombre de jours : pour remettre l'entree dans la
+    base, il faut refaire la conversion a l'envers, au caractere pres. Une
+    seconde d'ecart et le scelle ne tombe plus — ce qui est precisement la
+    garantie cherchee, mais encore faut-il que le cas juste passe.
+    """
+    import reparer_base as _r
+    print()
+    print("  LA REPARATION DE LA BASE")
+    print("    une date de Google se reconvertit a la seconde")
+    # 46317.35759259259 est le nombre qu'a rendu le classeur pour l'entree 952.
+    d = _r._depuis_serie(46317.35759259259)
+    verifier("le jour est retrouve", d is not None and d.strftime("%Y-%m-%d") == "2026-10-22",
+             d and d.strftime("%Y-%m-%d"))
+    verifier("l'heure a la seconde aussi", d is not None and d.strftime("%H:%M:%S") == "08:34:56",
+             d and d.strftime("%H:%M:%S"))
+    verifier("un nombre arrondi par le bas remonte", 
+             _r._depuis_serie(46317.0).strftime("%H:%M:%S") == "00:00:00")
+    verifier("ce qui n'est pas un nombre ne casse rien", _r._depuis_serie("") is None)
+    verifier("ni une case vide", _r._depuis_serie(None) is None)
+
+    print("    les ecritures possibles d'une ligne sont toutes essayees")
+    brut = [46317.35759259259, 46317.0, 0.3576, "Convention signée", "Sandy BAER-LAYANI",
+            "usures-nov26", "signe le 2026-10-21 a 14:00", "", ""]
+    formate = ["22/10/2026 08:34:56", "22/10/2026", "08:34", "Convention signée",
+               "Sandy BAER-LAYANI", "usures-nov26", "signe le 2026-10-21 a 14:00", "", ""]
+    cands = _r._candidats(brut, formate)
+    verifier("plusieurs ecritures sont proposees", len(cands) >= 3, "%d" % len(cands))
+    verifier("toutes font neuf colonnes", all(len(c) == 9 for c in cands))
+    attendu = ["2026-10-22 08:34:56", "22/10/2026", "08:34"]
+    verifier("celle que DFM ecrit en fait partie",
+             any(c[:3] == attendu for c in cands),
+             " | ".join(cands[-1][:3]))
+
+    print("    et le recollage ne passe QUE si le scelle se recalcule")
+    import scellement
+    ligne = attendu + ["Convention signée", "Sandy BAER-LAYANI", "usures-nov26",
+                       "signe le 2026-10-21 a 14:00", "", ""]
+    precedent = "f00ad6e9a21a3e7e71b0"
+    vrai = scellement.empreinte(952, ligne, precedent, "")
+    verifier("la bonne ligne reproduit son scelle",
+             any(scellement.empreinte(952, c, precedent, "") == vrai for c in cands))
+    faux = list(ligne)
+    faux[4] = "Sandy BAER-LAYANl"          # un l minuscule au lieu d'un i
+    verifier("un nom altere d'un caractere ne le reproduit pas",
+             scellement.empreinte(952, faux, precedent, "") != vrai)
+    verifier("un rang different non plus",
+             scellement.empreinte(953, ligne, precedent, "") != vrai)
+    verifier("un ancetre different non plus",
+             scellement.empreinte(952, ligne, "0" * 20, "") != vrai)
+
+
 def main():
     print()
     print("  LES TESTS DE DFM")
@@ -650,7 +705,8 @@ def main():
     for essai in (tests_import, tests_montant_attendu, tests_file_du_classeur,
                   tests_alerte_inscriptions, tests_accuse_reception,
                   tests_connexion_perimee, tests_guet_de_sante,
-                  tests_entete_des_mails, tests_formation_modules):
+                  tests_entete_des_mails, tests_formation_modules,
+                  tests_reparation_base):
         try:
             essai()
         except Exception as e:
