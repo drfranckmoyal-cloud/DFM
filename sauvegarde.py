@@ -107,6 +107,37 @@ def _photo_base(vers):
         return False, "photo de la base impossible : %s" % str(e)[:120]
 
 
+def _integrite(fichier):
+    """« ok », ou ce que le controle d'integrite de SQLite reproche au fichier."""
+    import sqlite3
+    try:
+        c = sqlite3.connect("file:%s?mode=ro" % fichier, uri=True)
+        try:
+            lignes = [r[0] for r in c.execute("PRAGMA integrity_check")]
+        finally:
+            c.close()
+    except Exception as e:
+        return "controle impossible : %s" % str(e)[:120]
+    if lignes == ["ok"]:
+        return "ok"
+    return " ; ".join(lignes[:6])
+
+
+def _prevenir_franck(objet, paragraphes, quoi_faire):
+    """Ecrire a Franck, sans passer par la base ni par le journal.
+
+    Quand c'est la base qui est en cause, tout ce qui s'appuie sur elle est
+    suspect : alerte.py garde sa memoire dans un fichier a part, exactement
+    pour ce cas.
+    """
+    try:
+        import alerte
+        alerte.prevenir("sauvegarde-" + objet[-30:], objet, paragraphes,
+                        quoi_faire=quoi_faire, heures=12)
+    except Exception as e:
+        print("  (alerte non envoyee : %s)" % str(e)[:100])
+
+
 def _verifier(dossier):
     """Faire relire la chaine du journal PAR LA COPIE elle-meme.
 
@@ -200,7 +231,31 @@ def sauvegarder():
     if not ok:
         print("  ECHEC : " + souci)
         shutil.rmtree(cible, ignore_errors=True)
+        _prevenir_franck("DFM — la sauvegarde de nuit a echoue",
+                         ["La copie de la base n'a pas pu etre prise cette nuit.",
+                          "Message&nbsp;: <code>%s</code>" % souci[:200]],
+                         "Dites-le-moi : sans sauvegarde du jour, une panne "
+                         "couterait tout ce qui a ete fait depuis la veille.")
         return 1
+
+    # LE CONTROLE D'INTEGRITE, SUR LA COPIE FRAICHE — 24/10/2026. La base s'est
+    # abimee deux fois en trois jours sans que rien ne le dise : ses INDEX
+    # etaient faux, et un fichier aux index faux repond encore a la plupart des
+    # questions. C'est le seul controle qui le voit tout de suite, et il tourne
+    # sur la COPIE, jamais sur la base en service.
+    etat = _integrite(os.path.join(cible, "dfm.db"))
+    if etat != "ok":
+        print("  ATTENTION : LA BASE EST ABIMEE. " + etat[:150])
+        _prevenir_franck("DFM — la base de donnees est abimee",
+                         ["<b>Le controle de cette nuit dit que la base de DFM est "
+                          "abimee.</b> Elle peut continuer a repondre a certains "
+                          "ecrans et pas a d'autres : c'est le piege de ce defaut.",
+                          "Ce que dit le controle&nbsp;: <code>%s</code>" % etat[:300],
+                          "La sauvegarde de cette nuit a bien ete prise, et les "
+                          "precedentes sont intactes&nbsp;: rien n'est perdu."],
+                         "Dites-le-moi des que vous lisez ce message, sans attendre : "
+                         "la base se reconstruit, mais chaque journee qui passe "
+                         "ajoute du travail a rattraper.")
 
     fiches, souci = _verifier(cible)
     contenu, propre = _taille(cible)
@@ -216,6 +271,17 @@ def sauvegarder():
         lignes.append("VERIFICATION : ECHEC — " + souci)
         print("  ATTENTION : l'instantane est pris, mais il ne se relit pas.")
         print("              " + souci)
+        # ET ON LE DIT PAR MAIL — 24/10/2026. Le 23/10 a 03h30, ce controle a vu
+        # que la base ne se relisait plus et l'a ecrit dans un fichier de trace
+        # que personne ne lit. Franck l'a decouvert lui-meme treize heures plus
+        # tard. Un controle qui trouve et se taisit ne sert a rien.
+        _prevenir_franck("DFM — la sauvegarde ne se relit pas",
+                         ["La copie de cette nuit a bien ete prise, mais DFM "
+                          "n'arrive pas a relire le journal qu'elle contient.",
+                          "Message&nbsp;: <code>%s</code>" % str(souci)[:250],
+                          "C'est souvent le signe que la base en service est "
+                          "abimee, meme si les ecrans semblent repondre."],
+                         "Dites-le-moi : il faut regarder avant que cela empire.")
     else:
         lignes.append("verification du journal, FAITE SUR CETTE COPIE :")
         for f in fiches:
@@ -225,6 +291,14 @@ def sauvegarder():
         rompu = [f for f in fiches if not f["intacte"]]
         if rompu:
             print("  ATTENTION : la chaine du journal est rompue dans la copie.")
+            _prevenir_franck("DFM — la piste d'audit est rompue",
+                             ["<b>La chaine du journal ne se verifie plus</b> pour "
+                              "%s." % ", ".join(f["marque"] for f in rompu),
+                              "C'est la piece qui prouve a un auditeur Qualiopi que "
+                              "rien n'a ete modifie apres coup. Tant qu'elle est "
+                              "rompue, cette preuve manque."],
+                             "Dites-le-moi : il faut retrouver ou la chaine casse "
+                             "et pourquoi, avant le prochain audit.")
     lignes += ["", "Pour restaurer : venv/bin/python restaurer.py " + marque]
     with open(os.path.join(cible, "MANIFESTE.txt"), "w", encoding="utf-8") as f:
         f.write("\n".join(lignes) + "\n")

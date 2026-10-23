@@ -698,6 +698,50 @@ def tests_reparation_base():
              scellement.empreinte(952, ligne, "0" * 20, "") != vrai)
 
 
+def tests_garde_fous_de_la_base():
+    """Les deux protections posees apres la corruption du 22-23/10/2026.
+
+    Ce ne sont pas des protections theoriques : chacune repare un silence qui a
+    coute, cette fois-la, un jour et demi.
+    """
+    import base as _b
+    import sauvegarde as _sv
+    print()
+    print("  LES GARDE-FOUS DE LA BASE")
+    print("    une connexion morte se reconnait a tous ses messages")
+    for m in ("database disk image is malformed", "disk I/O error",
+              "DISK I/O ERROR", "file is not a database",
+              "attempt to write a readonly database: disk image"):
+        verifier("« %s » fait rouvrir" % m[:34], _b._connexion_perimee(m), m[:40])
+    for m in ("no such table: suivi", "database is locked",
+              "UNIQUE constraint failed: journal.rang"):
+        verifier("« %s » ne fait PAS rouvrir" % m[:30], not _b._connexion_perimee(m))
+
+    print("    la sauvegarde controle l'integrite de sa copie")
+    import sqlite3 as _s3
+    coin = tempfile.mkdtemp(prefix="dfm-integrite-")
+    sain = os.path.join(coin, "sain.db")
+    c = _s3.connect(sain)
+    c.execute("CREATE TABLE t (a INTEGER PRIMARY KEY, b TEXT)")
+    c.executemany("INSERT INTO t VALUES (?,?)", [(i, "x%d" % i) for i in range(50)])
+    c.commit()
+    c.close()
+    verifier("une base saine rend « ok »", _sv._integrite(sain) == "ok",
+             _sv._integrite(sain)[:40])
+
+    pas_une_base = os.path.join(coin, "pas-une-base.db")
+    with open(pas_une_base, "wb") as f:
+        f.write(b"ceci n'est pas une base de donnees" * 40)
+    etat = _sv._integrite(pas_une_base)
+    verifier("un fichier qui n'est pas une base est signale",
+             etat != "ok" and etat, etat[:50])
+
+    absent = os.path.join(coin, "nulle-part.db")
+    etat = _sv._integrite(absent)
+    verifier("un fichier absent ne fait pas tomber la sauvegarde",
+             isinstance(etat, str) and etat != "ok", etat[:50])
+
+
 def main():
     print()
     print("  LES TESTS DE DFM")
@@ -706,7 +750,7 @@ def main():
                   tests_alerte_inscriptions, tests_accuse_reception,
                   tests_connexion_perimee, tests_guet_de_sante,
                   tests_entete_des_mails, tests_formation_modules,
-                  tests_reparation_base):
+                  tests_reparation_base, tests_garde_fous_de_la_base):
         try:
             essai()
         except Exception as e:

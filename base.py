@@ -230,9 +230,18 @@ _RECYCLAGES = [0]        # combien de fois on a du rouvrir. Lu par etat().
 
 
 def _connexion_perimee(souci):
-    """Est-ce une connexion morte, ou un vrai defaut du fichier ?"""
+    """Est-ce une connexion morte, ou un vrai defaut du fichier ?
+
+    « DISK I/O ERROR » EN FAIT PARTIE — defaut corrige le 24/10/2026. C'est le
+    PREMIER message qu'une connexion perimee renvoie : le 22/10 a 08h26, le fil
+    des copies l'a recu et l'a recu encore toutes les minutes pendant TRENTE ET
+    UNE HEURES, sans jamais rouvrir, parce que la garde ne reconnaissait que
+    « malformed ». Une panne d'entree-sortie passagere a ainsi coute un jour et
+    demi de miroir arrete.
+    """
     m = str(souci).lower()
-    return "malformed" in m or "disk image" in m or "not a database" in m
+    return ("malformed" in m or "disk image" in m or "not a database" in m
+            or "disk i/o error" in m)
 
 
 def _jeter():
