@@ -699,6 +699,8 @@ _CHAMPS_FORMATION = [
     # et non a la session : deux sessions d'une meme formation presentent le
     # meme contenu, et le recopier serait deux verites a tenir d'accord.
     ("descriptif_inscription", "descriptif du formulaire"),
+    ("modules", "modules"), ("moyens", "moyens pédagogiques"),
+    ("prerequis", "prérequis"), ("nature_action", "nature de l'action"),
     ("programme_id", "programme"), ("acces_id", "informations d'accès"),
     ("pieces_rappel", "pièces du rappel"),
     ("modele_evaluation", "questionnaire d'évaluation"),
@@ -784,6 +786,10 @@ def enregistrer_nouvelle_formation():
     _v = _nb(_tarif_brut, 0.0)
     _tarif_propre = str(int(_v)) if float(_v).is_integer() else str(_v)
     objectifs = [o.strip() for o in (d.get("objectifs") or "").split("\n") if o.strip()]
+    from sessions import lire_modules as _lire_modules
+    modules, souci = _lire_modules(d.get("modules"))
+    if souci:
+        return jsonify({"ok": False, "message": souci + " Rien n'a ete enregistre."})
     fiche = {
         "nom_formation": nom,
         "titre_complet": (d.get("titre_complet") or nom).strip(),
@@ -794,6 +800,16 @@ def enregistrer_nouvelle_formation():
         # page les rend en paragraphes.
         "descriptif_inscription": (d.get("descriptif_inscription") or "").strip(),
         "objectifs": objectifs,
+        # LES MODULES : vides pour une formation ordinaire. Voir _lire_modules.
+        "modules": modules,
+        # TROIS CHAMPS QUE LA CONVENTION ET L'ATTESTATION LISAIENT DEJA sans
+        # qu'on puisse les saisir : ils etaient graves dans le code, avec une
+        # valeur par defaut pensee pour les formations de composite. Laisses
+        # vides, ces valeurs par defaut s'appliquent toujours — rien ne change
+        # pour les formations existantes.
+        "moyens": [m.strip() for m in (d.get("moyens") or "").split("\n") if m.strip()],
+        "prerequis": (d.get("prerequis") or "").strip(),
+        "nature_action": (d.get("nature_action") or "").strip(),
         "duree_heures": (d.get("duree_heures") or "14 heures").strip(),
         "tarif": _tarif_propre,
         "places_max": int(d.get("places_max") or 14),

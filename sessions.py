@@ -140,6 +140,43 @@ def _ecrire_json(chemin, donnees):
     fichiers.ecrire(chemin, donnees)
 FORMATIONS.update(_charger_json(_FICHIER_F))
 SESSIONS.update(_charger_json(_FICHIER_S))
+def lire_modules(brut):
+    """« Essentiels | 3 » par ligne -> [{"titre": …, "jours": 3}, …].
+
+    POURQUOI LA FORMATION PORTE DES MODULES — 23/10/2026, decision D23 de
+    Franck. Esthetique360 est un CYCLE : cinq rendez-vous de trois jours etales
+    sur un an. La formation en porte la STRUCTURE (combien de modules, comment
+    ils s'appellent, combien de jours chacun) ; la session, elle, portera les
+    DATES de chaque module. Deux sessions d'une meme formation ont les memes
+    modules et des dates differentes : ecrire la structure sur la session la
+    ferait retaper chaque annee, et diverger au premier oubli.
+
+    UNE FORMATION ORDINAIRE N'EN A PAS, et c'est normal : la liste reste vide,
+    rien ne change pour Masterclass, Usures ou Photo.
+
+    ON REFUSE PLUTOT QUE DE DEVINER. Une ligne mal ecrite rend un message
+    nomme, et rien n'est enregistre — le defaut qu'on a paye assez souvent est
+    celui qui vide un champ en silence.
+    """
+    lignes = [l.strip() for l in (brut or "").split("\n") if l.strip()]
+    modules = []
+    for numero, ligne in enumerate(lignes, 1):
+        if "|" not in ligne:
+            return None, ("Module %d : il manque le nombre de journees. Ecrivez "
+                          "« %s | 3 » — l'intitule, une barre verticale, le nombre "
+                          "de journees." % (numero, ligne[:40]))
+        titre, _, jours = ligne.rpartition("|")
+        titre = titre.strip()
+        jours = jours.strip()
+        if not titre:
+            return None, "Module %d : l'intitule est vide." % numero
+        if not jours.isdigit() or int(jours) < 1:
+            return None, ("Module %d (« %s ») : « %s » n'est pas un nombre de "
+                          "journees." % (numero, titre[:30], jours[:20]))
+        modules.append({"titre": titre, "jours": int(jours)})
+    return modules, ""
+
+
 def enregistrer_formation(code, fiche):
     ajouts = _charger_json(_FICHIER_F)
     ajouts[code] = fiche

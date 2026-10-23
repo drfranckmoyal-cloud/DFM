@@ -167,6 +167,53 @@
         <textarea name="objectifs" id="obj_cache" style="display:none"></textarea>
         <em>Ils apparaissent sur la fiche formation et servent à rattacher les questions d'évaluation</em>
       </div>
+
+      {# LES MODULES — 23/10/2026, pour les formations en plusieurs rendez-vous.
+         La formation porte la STRUCTURE (combien de modules, leurs intitulés,
+         combien de journées chacun) ; la session portera les DATES. Deux
+         sessions d'une même formation ont les mêmes modules et des dates
+         différentes. Vide pour une formation ordinaire : rien ne change. #}
+      <div class="champ" style="grid-column:span 2">
+        <span>Modules <span style="font-weight:400;color:var(--muted)">— seulement si la formation se déroule en plusieurs rendez-vous</span></span>
+        <textarea name="modules" rows="5" spellcheck="true"
+                  placeholder="Essentiels | 3&#10;Composites | 3&#10;Restaurations antérieures en céramique | 3"></textarea>
+        <em>Un module par ligne&nbsp;: <b>l'intitulé, une barre verticale, le nombre de journées</b>.
+          Laissez vide pour une formation qui tient en une seule fois — c'est le cas de la plupart.
+          Les dates de chaque module se saisiront à la création de la session.</em>
+      </div>
+
+      {# TROIS CHAMPS QUE LA CONVENTION ET L'ATTESTATION LISAIENT DEJA sans
+         qu'on puisse les saisir : ils étaient gravés dans le code, avec des
+         valeurs pensées pour les formations de composite. Laissés vides, ces
+         valeurs par défaut continuent de s'appliquer. #}
+      <label class="champ" style="grid-column:span 2">
+        <span>Nature de l'action de formation</span>
+        <select name="nature_action">
+          <option value="">Acquisition, entretien ou perfectionnement des connaissances (par défaut)</option>
+          <option value="adaptation">Adaptation et développement des compétences</option>
+          <option value="promotion">Promotion</option>
+          <option value="prevention">Prévention</option>
+          <option value="conversion">Conversion</option>
+          <option value="connaissances">Acquisition, entretien ou perfectionnement des connaissances</option>
+          <option value="qualification">Qualification</option>
+        </select>
+        <em>Catégorie du code du travail (L.6313-1). Elle s'imprime <b>à la fois</b> sur la convention
+          et sur l'attestation&nbsp;: c'est la même source, les deux ne peuvent plus se contredire.</em>
+      </label>
+
+      <div class="champ" style="grid-column:span 2">
+        <span>Prérequis</span>
+        <textarea name="prerequis" rows="2" spellcheck="true"
+                  placeholder="Être chirurgien-dentiste ou étudiant en fin de cursus"></textarea>
+        <em>S'imprime sur la convention. Vide&nbsp;: le texte par défaut s'applique.</em>
+      </div>
+
+      <div class="champ" style="grid-column:span 2">
+        <span>Moyens pédagogiques et matériel fourni</span>
+        <textarea name="moyens" rows="4" spellcheck="true"
+                  placeholder="2 modèles de travail frasaco&#10;1 kit d'instruments LM arte&#10;1 contre-angle bague rouge"></textarea>
+        <em>Un par ligne. S'imprime sur la convention. Vide&nbsp;: la liste par défaut s'applique.</em>
+      </div>
     </div>
   </div>
   <div style="display:flex;justify-content:flex-end;margin-top:14px">
@@ -1113,8 +1160,14 @@ function remplirEdition(){
     var v = FICHE_EDIT[k];
     if(k === "pieces_rappel"){
       for(var i = 0; i < els.length; i++){ els[i].value = (v && v[i]) ? v[i] : ""; }
-    } else if(k === "objectifs"){
+    } else if(k === "objectifs" || k === "moyens"){
       els[0].value = (v || []).join("\n");
+    } else if(k === "modules"){
+      // Les modules sont stockes en liste d'objets ; a l'ecran ils se
+      // relisent sous la forme qu'on les a tapes : « Intitule | 3 ».
+      els[0].value = (v || []).map(function(m){
+        return (m.titre || "") + " | " + (m.jours || "");
+      }).join("\n");
     } else if(v !== null && v !== undefined){
       els[0].value = v;
     }

@@ -568,6 +568,81 @@ def tests_entete_des_mails():
                  "{{" not in h and "}}" not in h and "cid:logo" in h)
 
 
+def tests_formation_modules():
+    """UNE FORMATION QUI PORTE DES MODULES — 23/10/2026, décision D23 de Franck.
+
+    Esthétique360 est un cycle de cinq rendez-vous. La FORMATION en porte la
+    structure, la SESSION portera les dates. Et surtout : les formations
+    existantes ne doivent rien voir changer."""
+    print("\n  LA FORMATION QUI PORTE DES MODULES")
+    _isoler()
+    import sessions as _s
+
+    print("    lire la liste des modules")
+    m, souci = _s.lire_modules("Essentiels | 3\nComposites | 3\nCéramique | 2")
+    verifier("trois modules se lisent", len(m) == 3 and not souci, m)
+    if len(m) == 3:
+        verifier("l'intitulé est repris", m[0]["titre"] == "Essentiels", m[0])
+        verifier("le nombre de journées aussi", m[2]["jours"] == 2, m[2])
+        verifier("l'ordre est conservé", [x["titre"] for x in m][1] == "Composites")
+    verifier("un intitulé à barre verticale ne casse rien",
+             _s.lire_modules("Avant | après | 3")[0] == [{"titre": "Avant | après", "jours": 3}],
+             _s.lire_modules("Avant | après | 3")[0])
+
+    print("    on refuse plutôt que de deviner")
+    for texte, ce_qui_manque in (("Essentiels", "le nombre de journées"),
+                                 ("Essentiels | zéro", "un nombre"),
+                                 ("Essentiels | 0", "zéro journée"),
+                                 ("  |  3", "l'intitulé")):
+        modules, souci = _s.lire_modules(texte)
+        verifier("« %s » est refusé (%s)" % (texte.strip()[:18], ce_qui_manque),
+                 modules is None and bool(souci), souci[:50])
+
+    print("    une formation ordinaire n'en a pas")
+    verifier("pas de module : liste vide, aucun refus",
+             _s.lire_modules("") == ([], "") and _s.lire_modules(None) == ([], ""))
+
+    print("    LES FORMATIONS EXISTANTES NE CHANGENT PAS")
+    # L'écran enregistre désormais moyens, prérequis et nature ; vides, les
+    # valeurs par défaut gravées dans le code doivent continuer de s'appliquer,
+    # exactement comme quand ces champs n'existaient pas du tout.
+    import attestation as _att
+    import convention
+    convention._images = lambda code_session=None: ("data:image/png;base64,AA",
+                                                    "data:image/png;base64,BB", [])
+    base_fiche = dict(FICHE, code="essai-test26", marque="Smileclub Formations",
+                      tarif="975", date_debut="2027-03-01", date_fin="2027-03-02",
+                      objectifs=["Objectif"], jours=[])
+    ligne = {"nom": "DUPONT", "prenom": "Jean", "fonction": "Chirurgien-dentiste"}
+    _s.session = lambda c=None: dict(_s.SESSIONS.get(c) or {})
+    for nom, fiche in (("avant (champs absents)", base_fiche),
+                       ("après (champs vides)",
+                        dict(base_fiche, moyens=[], prerequis="", nature_action="",
+                             modules=[]))):
+        _s.SESSIONS["essai-test26"] = fiche
+        d, souci = convention.pour("essai-test26", ligne=ligne)
+        if not d:
+            verifier("%s : la convention se calcule" % nom, False, souci)
+            continue
+        verifier("%s : moyens par défaut" % nom,
+                 d["moyens"] == convention.MOYENS_DEFAUT, d["moyens"][:1])
+        verifier("%s : prérequis par défaut" % nom,
+                 d["prerequis"] == convention.PREREQUIS_DEFAUT)
+        verifier("%s : catégorie par défaut" % nom,
+                 d["categorie"] == dict(_att.CATEGORIES)[_att.NATURE_DEFAUT],
+                 d["categorie"][:40])
+
+    print("    et une formation qui les remplit en tient compte")
+    _s.SESSIONS["essai-test26"] = dict(base_fiche, moyens=["Un microscope"],
+                                       prerequis="Être praticien", nature_action="qualification")
+    d, _souci = convention.pour("essai-test26", ligne=ligne)
+    if d:
+        verifier("les moyens saisis s'impriment", d["moyens"] == ["Un microscope"], d["moyens"])
+        verifier("le prérequis saisi aussi", d["prerequis"] == "Être praticien")
+        verifier("et la catégorie choisie", d["categorie"] == dict(_att.CATEGORIES)["qualification"],
+                 d["categorie"][:30])
+
+
 def main():
     print()
     print("  LES TESTS DE DFM")
@@ -575,7 +650,7 @@ def main():
     for essai in (tests_import, tests_montant_attendu, tests_file_du_classeur,
                   tests_alerte_inscriptions, tests_accuse_reception,
                   tests_connexion_perimee, tests_guet_de_sante,
-                  tests_entete_des_mails):
+                  tests_entete_des_mails, tests_formation_modules):
         try:
             essai()
         except Exception as e:
