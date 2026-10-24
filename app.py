@@ -694,7 +694,7 @@ _CHAMPS_FORMATION = [
     ("type_formation", "type"),
     ("nom_formation", "intitulé"), ("titre_complet", "titre"), ("tarif", "tarif"),
     ("places_max", "places"), ("duree_heures", "durée"), ("horaires", "horaires"),
-    ("adresse", "lieu"), ("public", "public"),
+    ("adresse", "lieu"), ("lieu_court", "lieu en abrégé"), ("public", "public"),
     # Le texte d'accueil du formulaire public. Il appartient a la FORMATION
     # et non a la session : deux sessions d'une meme formation presentent le
     # meme contenu, et le recopier serait deux verites a tenir d'accord.
@@ -814,6 +814,12 @@ def enregistrer_nouvelle_formation():
         "tarif": _tarif_propre,
         "places_max": int(d.get("places_max") or 14),
         "adresse": (d.get("adresse") or "").strip(),
+        # LE LIEU EN ABREGE — 24/10/2026. L'adresse complete se lit bien dans
+        # un cadre de convention, mal au milieu d'une phrase : « cinq modules
+        # de trois jours, a 61 rue Balard - 75015 Paris ». La balise
+        # {{lieu_court}} porte la forme courte et retombe sur l'adresse quand
+        # elle est vide : rien a remplir pour une formation ordinaire.
+        "lieu_court": (d.get("lieu_court") or "").strip(),
         "horaires": (d.get("horaires") or "9h00 - 17h00").strip(),
         "couleur": d.get("couleur") or "#4f7ef8",
         # _extraire_id : accepte un lien Drive complet OU un identifiant nu.

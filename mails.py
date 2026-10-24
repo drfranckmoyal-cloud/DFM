@@ -62,6 +62,7 @@ BALISES = [
          "<b>2 · Composites</b> — du mercredi 10 au vendredi 12 mars 2027"),
         ("horaires", "Horaires", "9h00 – 17h30"),
         ("lieu", "Adresse du lieu", "12 avenue des Exemples, 75000 Ville"),
+        ("lieu_court", "Lieu en abrégé, pour une phrase", "Paris 15e (61 rue Balard)"),
         ("duree", "Durée", "14 heures"),
         ("tarif", "Tarif en euros", "000"),
         ("formateur", "Nom du formateur", "NOM Prénom"),
@@ -815,6 +816,10 @@ def contexte(S, ligne=None, extras=None):
         "dates": n(S.get("date_texte")),
         "horaires": n(S.get("horaires")),
         "lieu": n(S.get("adresse")),
+        # LE LIEU EN UNE PHRASE, qui retombe sur l'adresse complete s'il n'a
+        # pas ete rempli : un modele qui porte {{lieu_court}} reste utilisable
+        # par une formation qui n'a pas renseigne la forme courte.
+        "lieu_court": n(S.get("lieu_court") or S.get("adresse")),
         # La duree se DEDUIT des journees retenues : 7 h par journee. Le champ
         # « duree_heures » de la fiche formation reste le repli, pour les
         # sessions ecrites avant l'existence de la liste.

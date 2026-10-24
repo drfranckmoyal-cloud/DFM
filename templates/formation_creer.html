@@ -126,6 +126,16 @@
         <input type="text" name="adresse" placeholder="12 rue des Lilas, 75011 Paris">
         <em>Modifiable pour chaque session</em>
       </label>
+      {# LE LIEU EN ABREGE — 24/10/2026. L'adresse complète se lit bien dans un
+         cadre de convention, mal au milieu d'une phrase. Vide, les courriels
+         reprennent l'adresse complète : rien à remplir pour une formation
+         ordinaire. #}
+      <label class="champ" style="grid-column:span 2">
+        <span>Lieu en abrégé <span style="font-weight:400;color:var(--muted)">— facultatif</span></span>
+        <input type="text" name="lieu_court" placeholder="Paris 15e (61 rue Balard)">
+        <em>Pour les phrases d'un courriel&nbsp;: «&nbsp;cinq modules de trois jours, à
+          <b>Paris 15e (61 rue Balard)</b>&nbsp;». Laissé vide, l'adresse complète est reprise.</em>
+      </label>
       <label class="champ" style="grid-column:span 2">
         <span>Horaires</span>
         <input type="text" name="horaires" value="9h00 - 17h00 (accueil dès 8h30)">
@@ -175,10 +185,11 @@
          différentes. Vide pour une formation ordinaire : rien ne change. #}
       <div class="champ" style="grid-column:span 2">
         <span>Modules <span style="font-weight:400;color:var(--muted)">— seulement si la formation se déroule en plusieurs rendez-vous</span></span>
-        <textarea name="modules" rows="5" spellcheck="true"
-                  placeholder="Essentiels | 3&#10;Composites | 3&#10;Restaurations antérieures en céramique | 3"></textarea>
-        <em>Un module par ligne&nbsp;: <b>l'intitulé, une barre verticale, le nombre de journées</b>.
-          Laissez vide pour une formation qui tient en une seule fois — c'est le cas de la plupart.
+        <div id="mod_liste"></div>
+        <button type="button" class="obj-ajout" title="Ajouter un module" onclick="modAjouter()"><i class="ti ti-plus"></i>Ajouter un module</button>
+        <textarea name="modules" id="mod_cache" style="display:none"></textarea>
+        <em>Un intitulé et un nombre de journées par module. <b>Laissez les lignes vides</b>
+          pour une formation qui tient en une seule fois — c'est le cas de la plupart.
           Les dates de chaque module se saisiront à la création de la session.</em>
       </div>
 
@@ -1163,11 +1174,13 @@ function remplirEdition(){
     } else if(k === "objectifs" || k === "moyens"){
       els[0].value = (v || []).join("\n");
     } else if(k === "modules"){
-      // Les modules sont stockes en liste d'objets ; a l'ecran ils se
-      // relisent sous la forme qu'on les a tapes : « Intitule | 3 ».
+      // Les modules sont stockes en liste d'objets. On repose d'abord le champ
+      // cache dans sa forme « Intitule | 3 », puis modDemarrer() en dresse les
+      // lignes : un seul chemin de lecture, celui qui sert aussi au demarrage.
       els[0].value = (v || []).map(function(m){
         return (m.titre || "") + " | " + (m.jours || "");
       }).join("\n");
+      if(typeof modDemarrer === "function"){ try{ modDemarrer(); }catch(e){} }
     } else if(v !== null && v !== undefined){
       els[0].value = v;
     }
@@ -1182,6 +1195,68 @@ if(document.readyState === "loading"){ document.addEventListener("DOMContentLoad
 {% endif %}
 <script>
 var OBJS = ["", "", ""];
+/* LES MODULES — 24/10/2026, a la demande de Franck. Le cadre de texte libre
+   « Intitule | 3 » demandait de connaitre une convention d'ecriture, et une
+   barre verticale oubliee faisait refuser la fiche entiere. Des lignes, donc :
+   trois d'emblee, un bouton pour en ajouter.
+
+   LE CHAMP CACHE GARDE LA MEME FORME QU'AVANT. C'est lui que le serveur lit,
+   par sessions.lire_modules() : l'ecran change, le lecteur ne change pas. */
+var MODS = [];
+var MOD_JOURS_DEFAUT = 3;
+function modRendre(){
+  var z = document.getElementById("mod_liste");
+  if(!z) return;
+  var h = "";
+  MODS.forEach(function(m, i){
+    h += '<div class="mod-l"><div class="mod-n">' + (i + 1) + '</div>';
+    h += '<input type="text" value="' + (m.titre || "").replace(/"/g, "&quot;")
+      + '" placeholder="Intitulé du module ' + (i + 1)
+      + '" oninput="MODS[' + i + '].titre=this.value;modSync()">';
+    h += '<div class="mod-j"><input type="number" min="1" max="30" value="'
+      + (m.jours || MOD_JOURS_DEFAUT)
+      + '" oninput="MODS[' + i + '].jours=this.value;modSync()">journée(s)</div>';
+    if(MODS.length > 1){
+      h += '<button type="button" class="mod-sup" title="Retirer ce module" onclick="modRetirer('
+        + i + ')">&times;</button>';
+    }
+    h += '</div>';
+  });
+  z.innerHTML = h;
+  modSync();
+}
+function modSync(){
+  var c = document.getElementById("mod_cache");
+  if(!c) return;
+  // UNE LIGNE SANS INTITULE N'EST PAS UN MODULE. C'est ce qui permet de laisser
+  // les trois lignes vides pour une formation ordinaire, sans rien effacer.
+  c.value = MODS.filter(function(m){ return (m.titre || "").trim(); })
+    .map(function(m){ return m.titre.trim() + " | " + (m.jours || MOD_JOURS_DEFAUT); })
+    .join("\n");
+  if(typeof majRecap === "function"){ try{ majRecap(); }catch(e){} }
+}
+function modAjouter(){
+  if(MODS.length >= 12){ alert("Douze modules, c'est déjà un cycle très long."); return; }
+  MODS.push({titre: "", jours: MOD_JOURS_DEFAUT}); modRendre();
+}
+function modRetirer(i){ MODS.splice(i, 1); modRendre(); }
+function modDemarrer(){
+  var c = document.getElementById("mod_cache");
+  var brut = c ? (c.value || "").trim() : "";
+  MODS = [];
+  if(brut){
+    brut.split("\n").forEach(function(l){
+      var bout = l.split("|");
+      var titre = (bout[0] || "").trim();
+      if(!titre) return;
+      MODS.push({titre: titre, jours: (bout[1] || "").trim() || MOD_JOURS_DEFAUT});
+    });
+  }
+  // TROIS LIGNES D'EMBLEE sur une fiche neuve : on voit tout de suite de quoi
+  // il s'agit, et on en ajoute si le cycle est plus long.
+  while(MODS.length < 3){ MODS.push({titre: "", jours: MOD_JOURS_DEFAUT}); }
+  modRendre();
+}
 function objRendre(){
   var z = document.getElementById("obj_liste");
   if(!z) return;
@@ -1214,6 +1289,7 @@ function objDemarrer(){
   }
   objRendre();
 }
+modDemarrer();
 objDemarrer();
 setTimeout(objDemarrer, 350);
 </script>
@@ -1515,6 +1591,25 @@ font-size:12px;font-family:inherit;color:var(--muted);cursor:pointer;text-decora
 transition:all .14s;white-space:nowrap}
 .btn-ouvrir:hover,.btn-depot:hover{border-color:var(--accent);color:var(--accent);background:#f5f8ff}
 .btn-vider:hover{border-color:#f0b8b8;color:var(--danger);background:#fdeaea}
+/* ================= MODULES =================
+   Meme motif que les objectifs juste en dessous : des lignes numerotees et un
+   bouton pour en ajouter. Un module porte DEUX valeurs, l'intitule et le
+   nombre de journees — d'ou le champ etroit a droite. */
+.mod-l{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.mod-n{width:26px;height:26px;flex:0 0 26px;border-radius:50%;background:#eef3fe;
+  color:var(--accent);font-size:12px;font-weight:700;display:flex;
+  align-items:center;justify-content:center}
+.mod-l input[type=text]{flex:1;min-width:0;padding:11px 14px;border:1px solid var(--border2);
+  border-radius:10px;font-size:13.5px;font-family:inherit}
+.mod-j{display:flex;align-items:center;gap:6px;flex:0 0 auto;color:var(--muted);
+  font-size:12.5px;white-space:nowrap}
+.mod-l input[type=number]{width:56px;flex:0 0 56px;padding:11px 8px;text-align:center;
+  border:1px solid var(--border2);border-radius:10px;font-size:13.5px;font-family:inherit}
+.mod-l input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,126,248,.1)}
+.mod-sup{background:none;border:none;color:var(--border2);cursor:pointer;font-size:19px;
+  line-height:1;padding:0 4px}
+.mod-sup:hover{color:var(--danger)}
+
 /* ================= OBJECTIFS ================= */
 .obj-l{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .obj-n{width:26px;height:26px;border-radius:50%;background:#eef3fe;color:var(--accent);

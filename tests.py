@@ -780,11 +780,11 @@ def tests_session_cycle():
     verifier("les bornes vont de janvier a decembre",
              _j.bornes(r["jours"]) == ("2027-01-06", "2027-12-03"),
              str(_j.bornes(r["jours"])))
-    verifier("le module 1 est bien ecrit",
-             r["modules"][0]["texte"] == "du mercredi 6 au vendredi 8 janvier 2027",
+    verifier("le module 1 nomme ses trois journees",
+             r["modules"][0]["texte"] == "mercredi 6, jeudi 7 et vendredi 8 janvier 2027",
              r["modules"][0]["texte"])
     verifier("et le premier decembre s'ecrit « 1er »",
-             r["modules"][4]["texte"] == "du mercredi 1er au vendredi 3 décembre 2027",
+             r["modules"][4]["texte"] == "mercredi 1er, jeudi 2 et vendredi 3 décembre 2027",
              r["modules"][4]["texte"])
 
     print("    le dimanche n'est jamais compte dans un module")
@@ -805,12 +805,14 @@ def tests_session_cycle():
     t = _j.texte_modules(r["modules"])
     verifier("cinq lignes", len(t.splitlines()) == 5)
     verifier("chacune numerotee et datee",
-             t.splitlines()[1] == "2 · Composites — du mercredi 10 au vendredi 12 mars 2027",
+             t.splitlines()[1]
+             == "2 · Composites — mercredi 10, jeudi 11 et vendredi 12 mars 2027",
              t.splitlines()[1])
 
     print("    la phrase des dates reste lisible")
-    verifier("les venues sont enoncees, pas les quinze journees",
-             _j.texte(r["jours"]).startswith("du mercredi 6 au vendredi 8 janvier, du"),
+    verifier("chaque journee est nommee, les venues separees par une virgule",
+             _j.texte(r["jours"]).startswith(
+                 "mercredi 6, jeudi 7 et vendredi 8 janvier, mercredi 10,"),
              _j.texte(r["jours"])[:60])
     verifier("et l'annee n'est ecrite qu'une fois",
              _j.texte(r["jours"]).count("2027") == 1,
@@ -828,10 +830,14 @@ def tests_session_cycle():
                  _j.texte(liste) == attendu, _j.texte(liste))
     verifier("un jour seul ne change pas",
              _j.texte(["2026-08-15"]) == "samedi 15 août 2026", _j.texte(["2026-08-15"]))
-    verifier("trois jours contigus non plus",
+    verifier("trois jours contigus se nomment un par un",
              _j.texte(["2026-08-10", "2026-08-11", "2026-08-12"])
-             == "du lundi 10 au mercredi 12 août 2026",
+             == "lundi 10, mardi 11 et mercredi 12 août 2026",
              _j.texte(["2026-08-10", "2026-08-11", "2026-08-12"]))
+    verifier("deux journees isolees gardent leur « et »",
+             _j.texte(["2026-08-15", "2026-08-22"])
+             == "samedi 15 et samedi 22 août 2026",
+             _j.texte(["2026-08-15", "2026-08-22"]))
     verifier("deux jours disperses non plus",
              _j.texte(["2026-08-15", "2026-08-22"])
              == "samedi 15 et samedi 22 août 2026",
@@ -891,7 +897,7 @@ def tests_balises_du_cycle():
     verifier("l'intitule est en gras",
              "<b>1 · Essentiels</b>" in d.get("modules", ""), d.get("modules", "")[:40])
     verifier("et sa date suit",
-             "du mercredi 6 au vendredi 8 janvier 2027" in d.get("modules", ""))
+             "mercredi 6, jeudi 7 et vendredi 8 janvier 2027" in d.get("modules", ""))
 
     print("    une session ordinaire les laisse vides, sans rien casser")
     d2 = _m._jours_de({"jours": ["2027-02-04", "2027-02-05"]})
@@ -901,10 +907,26 @@ def tests_balises_du_cycle():
              d2.get("nb_journees"))
     verifier("une fiche sans journees ne leve pas", _m._jours_de({}) == {})
 
-    print("    les deux balises sont proposees dans l'editeur de modeles")
+    print("    le lieu en abrege, pour les phrases")
+    # mails.contexte() est la fonction meme qu'un vrai envoi appelle.
+    c = _m.contexte({"adresse": "61 rue Balard - 75015 Paris",
+                     "lieu_court": "Paris 15e (61 rue Balard)"})
+    verifier("{{lieu}} garde l'adresse complete",
+             c.get("lieu") == "61 rue Balard - 75015 Paris", c.get("lieu"))
+    verifier("{{lieu_court}} porte la forme courte",
+             c.get("lieu_court") == "Paris 15e (61 rue Balard)", c.get("lieu_court"))
+    c2 = _m.contexte({"adresse": "12 rue des Lilas, 75011 Paris"})
+    verifier("sans forme courte, l'adresse complete est reprise",
+             c2.get("lieu_court") == "12 rue des Lilas, 75011 Paris", c2.get("lieu_court"))
+    verifier("et une fiche sans lieu du tout ne leve pas",
+             _m.contexte({}).get("lieu_court") == "",
+             "[%s]" % _m.contexte({}).get("lieu_court"))
+
+    print("    les balises sont proposees dans l'editeur de modeles")
     plates = [c for _groupe, items in _m.BALISES for c, _l, _e in items]
     verifier("{{modules}} est offerte", "modules" in plates)
     verifier("{{nb_journees}} aussi", "nb_journees" in plates)
+    verifier("{{lieu_court}} aussi", "lieu_court" in plates)
 
 
 def main():

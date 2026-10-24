@@ -165,79 +165,68 @@ def _jour(d, avec_mois=True, avec_annee=True):
     return t
 
 
-def _bloc_texte(bloc, avec_annee=True):
-    """La phrase d'UN bloc : « du mercredi 6 au vendredi 8 janvier 2027 »."""
-    if not bloc:
+def _enumerer(j, avec_annee=True):
+    """Les journees nommees une par une : « mercredi 6, jeudi 7 et vendredi 8 ».
+
+    FRANCK A TRANCHE LE 24/10/2026 : on nomme chaque journee, DANS TOUS LES CAS.
+    Le module ecrivait « du lundi 10 au vendredi 14 aout » des que les journees
+    se suivaient — plus court, mais le lecteur doit compter lui-meme, et un
+    inscrit qui lit sa convocation veut voir SES jours, pas une plage.
+
+    Le mois et l'annee ne se repetent que s'ils changent.
+    """
+    if not j:
         return ""
-    if len(bloc) == 1:
-        return _jour(bloc[0], avec_annee=avec_annee)
-    meme_mois = len({(d.year, d.month) for d in bloc}) == 1
-    premier = _jour(bloc[0], avec_mois=not meme_mois,
-                    avec_annee=(not meme_mois) and avec_annee)
-    dernier = _jour(bloc[-1], avec_annee=avec_annee)
-    if len(bloc) == 2:
-        return "%s et %s" % (premier, dernier)
-    return "du %s au %s" % (premier, dernier)
+    if len(j) == 1:
+        return _jour(j[0], avec_annee=avec_annee)
+    meme_mois = len({(d.year, d.month) for d in j}) == 1
+    meme_annee = len({d.year for d in j}) == 1
+    if meme_mois:
+        morceaux = [_jour(d, avec_mois=False, avec_annee=False) for d in j[:-1]]
+    elif meme_annee:
+        morceaux = [_jour(d, avec_annee=False) for d in j[:-1]]
+    else:
+        morceaux = [_jour(d) for d in j[:-1]]
+    return "%s et %s" % (", ".join(morceaux), _jour(j[-1], avec_annee=avec_annee))
+
+
+def _bloc_texte(bloc, avec_annee=True):
+    """La phrase d'UNE venue : « mercredi 6, jeudi 7 et vendredi 8 janvier 2027 »."""
+    return _enumerer(bloc, avec_annee)
 
 
 def texte(liste):
     """La phrase des dates, telle qu'elle part dans un mail ou une convention.
 
-      1 jour            vendredi 15 août 2026
-      2 jours           mercredi 4 et jeudi 5 novembre 2026
-      3+ contigus       du lundi 10 au vendredi 14 août 2026
-      3+ disperses      les vendredi 15, samedi 16 et mercredi 22 août 2026
+      1 jour              samedi 15 août 2026
+      2 jours             mercredi 4 et jeudi 5 novembre 2026
+      3 jours             lundi 10, mardi 11 et mercredi 12 août 2026
+      plusieurs venues    mercredi 6, jeudi 7 et vendredi 8 janvier,
+                          mercredi 10, jeudi 11 et vendredi 12 mars 2027
 
-    Le mois et l'annee ne se repetent que s'ils changent : « les vendredi 15,
-    samedi 16 et mercredi 22 aout 2026 » se lit, « les vendredi 15 aout 2026,
-    samedi 16 aout 2026 et… » non.
+    UNE SEULE REGLE : ON NOMME CHAQUE JOURNEE. Elle remplace, le 24/10/2026 sur
+    decision de Franck, les trois formulations qui se partageaient le travail
+    (« et », « du … au … », « les … »). Un inscrit lit sa convocation pour
+    savoir quels jours il vient ; une plage l'oblige a compter.
+
+    LES VENUES SE SEPARENT PAR UNE VIRGULE, sans « et » final : chaque venue
+    contient deja son « et », et en ajouter un second laisserait croire que la
+    derniere date est une journee de plus.
     """
     j = [_d(x) for x in normaliser(liste)]
     if not j:
         return ""
-    if len(j) == 1:
-        return _jour(j[0])
-
-    # PLUSIEURS VENUES : on enonce les blocs, pas les journees — 24/10/2026.
-    # Quinze journees enumerees une a une ne se lisent pas. Ce chemin ne peut
-    # pas toucher une session existante : il demande AU MOINS DEUX BLOCS et au
-    # moins trois journees, et aucune des sessions en service n'a plus de deux
-    # journees, toutes contigues.
     groupes = blocs(j)
-    if len(groupes) >= 2 and len(j) >= 3:
-        meme_annee_g = len({d.year for d in j}) == 1
-        morceaux = [_bloc_texte(b, avec_annee=not meme_annee_g) for b in groupes]
-        if meme_annee_g:
-            morceaux[-1] = _bloc_texte(groupes[-1], avec_annee=True)
-        if len(morceaux) == 2:
-            return "%s et %s" % (morceaux[0], morceaux[1])
-        return "%s et %s" % (", ".join(morceaux[:-1]), morceaux[-1])
-
-    meme_mois = len({(d.year, d.month) for d in j}) == 1
+    # DES JOURNEES TOUTES ISOLEES NE FONT PAS DES VENUES, elles font une liste :
+    # « samedi 15 et samedi 22 aout 2026 » et non « samedi 15 aout, samedi 22
+    # aout 2026 ». La separation par virgule n'a de sens que si une venue
+    # contient deja son propre « et ».
+    if len(groupes) < 2 or all(len(b) == 1 for b in groupes):
+        return _enumerer(j)
     meme_annee = len({d.year for d in j}) == 1
-
-    if len(j) == 2:
-        if meme_mois:
-            return "%s et %s" % (_jour(j[0], avec_mois=False, avec_annee=False), _jour(j[1]))
-        if meme_annee:
-            return "%s et %s" % (_jour(j[0], avec_annee=False), _jour(j[1]))
-        return "%s et %s" % (_jour(j[0]), _jour(j[1]))
-
-    if contigus(j):
-        if meme_mois:
-            return "du %s au %s" % (_jour(j[0], avec_mois=False, avec_annee=False), _jour(j[-1]))
-        if meme_annee:
-            return "du %s au %s" % (_jour(j[0], avec_annee=False), _jour(j[-1]))
-        return "du %s au %s" % (_jour(j[0]), _jour(j[-1]))
-
-    if meme_mois:
-        morceaux = [_jour(d, avec_mois=False, avec_annee=False) for d in j[:-1]]
-        return "les %s et %s" % (", ".join(morceaux), _jour(j[-1]))
-    if meme_annee:
-        morceaux = [_jour(d, avec_annee=False) for d in j[:-1]]
-        return "les %s et %s" % (", ".join(morceaux), _jour(j[-1]))
-    morceaux = [_jour(d) for d in j[:-1]]
-    return "les %s et %s" % (", ".join(morceaux), _jour(j[-1]))
+    morceaux = [_enumerer(b, avec_annee=not meme_annee) for b in groupes[:-1]]
+    morceaux.append(_enumerer(groupes[-1], avec_annee=True))
+    return ", ".join(morceaux)
 
 
 def detail(liste, heures=None):
