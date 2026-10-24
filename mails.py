@@ -14,9 +14,18 @@ USAGES = {
     "signature": {"nom": "Convention à signer",
                   "quand": "Part dès l'import d'une inscription confirmée",
                   "icone": "ti-writing-sign", "couleur": "#4f7ef8"},
+    # LES DEUX RELANCES — 25/10/2026. Elles existaient depuis le debut, mais
+    # ecrites en dur dans app.py : seuls courriers de DFM qu'on ne pouvait ni
+    # relire ni modifier a l'ecran. Les voila dans le rang.
+    "relance_signature": {"nom": "Relance de signature",
+                  "quand": "Part à votre main, depuis l'écran de la session, si la convention tarde",
+                  "icone": "ti-repeat", "couleur": "#4f7ef8"},
     "confirmation": {"nom": "Inscription confirmée",
                      "quand": "Part dès que la convention est signée",
                      "icone": "ti-circle-check", "couleur": "#0f9e6a"},
+    "relance_reglement": {"nom": "Relance de règlement",
+                  "quand": "Part à votre main, depuis l'écran de la session, si le règlement tarde",
+                  "icone": "ti-repeat", "couleur": "#d4890a"},
     "attente": {"nom": "Place en file d'attente",
                 "quand": "Part quand une inscription arrive sur une session complète ou clôturée",
                 "icone": "ti-hourglass", "couleur": "#d4890a"},
@@ -248,6 +257,14 @@ def poser_logo(html, octets, source="cid:logo"):
 
 
 DEFAUTS = {
+ "relance_signature": {
+  "titre": "Relance de signature — texte d'origine",
+  "objet": "Convention à signer · {{titre_formation}}",
+ },
+ "relance_reglement": {
+  "titre": "Relance de règlement — texte d'origine",
+  "objet": "Règlement en attente · {{titre_formation}}",
+ },
  "signature": {
   "titre": "Convention à signer — texte d'origine",
   "objet": "Convention à signer · {{titre_formation}}",
@@ -488,7 +505,55 @@ def html_bloc(b):
     return ""
 def html_depuis_blocs(blocs):
     return "\n".join([h for h in [html_bloc(b) for b in (blocs or [])] if h])
+# LES DEUX RELANCES DEVIENNENT DES MODELES — 25/10/2026.
+#
+# Elles etaient ecrites EN DUR dans app.py (_mail_relance), ce qui avait trois
+# consequences : on ne pouvait pas les modifier a l'ecran, elles portaient
+# encore l'ancien en-tete (un filet gris de 1 pixel) au lieu de celui pose le
+# 21/10, et surtout elles annoncaient LE TARIF DE LA SESSION la ou toutes les
+# autres pieces de DFM annoncent le prix convenu avec la personne. Un invite y
+# recevait donc une relance a 975 euros.
+#
+# Les blocs ci-dessous reprennent le texte d'alors, phrase pour phrase. Ce qui
+# change est voulu et verifie : l'enveloppe commune, et {{tarif}} qui est le
+# prix de la personne.
 BLOCS_DEFAUTS = {
+ "relance_signature": [
+  {"type": "texte", "contenu": "Bonjour **{{prenom}}**,"},
+  {"type": "texte", "contenu":
+   "Ta demande d'inscription à la formation **« {{titre_formation}} »** ({{dates}}) est "
+   "bien enregistrée, mais nous n'avons pas encore reçu ta convention signée."},
+  {"type": "texte", "contenu":
+   "Pour **valider définitivement ton inscription**, il te suffit de la signer en ligne, "
+   "en un clic :"},
+  {"type": "bouton", "libelle": "Signer ma convention", "lien": "{{lien_signature}}",
+   "couleur": "vert", "sous": ""},
+  {"type": "texte", "contenu":
+   "En cas de question ou de changement de programme, réponds simplement à ce mail."},
+  {"type": "signature", "contenu": "Bonne journée,\n**{{signature}}, {{marque}}**"},
+  {"type": "lien", "libelle": "Je souhaite annuler mon inscription",
+   "lien": "{{lien_annulation}}"},
+ ],
+ "relance_reglement": [
+  {"type": "texte", "contenu": "Bonjour **{{prenom}}**,"},
+  {"type": "texte", "contenu":
+   "Ton inscription à la formation **« {{titre_formation}} »** ({{dates}}) est confirmée, "
+   "mais nous n'avons pas encore reçu ton règlement."},
+  {"type": "texte", "contenu":
+   "Le montant est de **{{tarif}} €**, déjeuners inclus."},
+  {"type": "bouton", "libelle": "Régler ma formation", "lien": "{{lien_paiement}}",
+   "couleur": "violet", "sous": "(paiement par carte bancaire)"},
+  {"type": "encadre", "ton": "bleu", "contenu":
+   "**Par virement**\nTitulaire : {{organisme}}\nIBAN : {{iban}}\nBIC : {{bic}}\n"
+   "Motif : {{formation}} + Nom Prénom"},
+  {"type": "texte", "contenu":
+   "*Si ton règlement vient d'être effectué, merci d'ignorer ce message.*"},
+  {"type": "texte", "contenu":
+   "En cas de question ou de changement de programme, réponds simplement à ce mail."},
+  {"type": "signature", "contenu": "Bonne journée,\n**{{signature}}, {{marque}}**"},
+  {"type": "lien", "libelle": "Je souhaite annuler mon inscription",
+   "lien": "{{lien_annulation}}"},
+ ],
  "signature": [
   {"type": "texte", "contenu": "Bonjour **{{prenom}}**,"},
   {"type": "brut", "contenu": "{{intro}}"},

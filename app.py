@@ -602,16 +602,32 @@ def verifier_document():
                                      request.form.get("formation") or "")
     return jsonify({"ok": True, "id": ident, "nom": m.get("name") or "",
                     "type": genre, "lien": ident != valeur, "alerte": alerte})
+def _usages_mail_fiche():
+    """Les mails du parcours, dans l'ordre ou ils partent, pour la fiche d'une
+    formation.
+
+    L'ECRAN N'EN MONTRAIT QUE DEUX sur onze, alors que DFM va chercher un
+    modele par formation pour les onze. Les neuf autres n'etaient donc
+    rattachables nulle part : le texte fourni avec DFM etait le seul possible,
+    sans que rien ne le dise. Cette liste est tiree de « mails.USAGES » et non
+    recopiee — un usage ajoute apparait a l'ecran le jour ou il est cree.
+    """
+    import mails as _mails
+    return [{"cle": u, "nom": i["nom"], "quand": i["quand"],
+             "icone": i.get("icone") or "ti-mail", "couleur": i.get("couleur") or ""}
+            for u, i in _mails.USAGES.items()]
 @app.route("/formations/nouvelle")
 def creer_formation():
     return render_template("formation_creer.html", commun=COMMUN_TPL,
-                           heures_par_jour=__import__("jours").heures_par_jour())
+                           heures_par_jour=__import__("jours").heures_par_jour(),
+                           usages_mail=_usages_mail_fiche())
 @app.route("/formations/<code>/modifier")
 def modifier_formation(code):
     if code not in FORMATIONS:
         return redirect("/formations")
     return render_template("formation_creer.html", commun=COMMUN_TPL,
                            heures_par_jour=__import__("jours").heures_par_jour(),
+                           usages_mail=_usages_mail_fiche(),
                            fiche_edit=FORMATIONS[code], code_edition=code)
 def _resume_synchro(rapport):
     """Ce que la synchronisation a REELLEMENT produit, et pas seulement combien
@@ -711,11 +727,16 @@ _CHAMPS_FORMATION = [
     ("modele_satisfaction", "questionnaire de satisfaction"),
     ("modele_froid", "questionnaire à froid"),
     ("modele_mail_signature", "mail de signature"),
+    ("modele_mail_relance_signature", "relance de signature"),
     ("modele_mail_confirmation", "mail de confirmation"),
+    ("modele_mail_relance_reglement", "relance de règlement"),
     ("modele_mail_attente", "mail de file d'attente"),
     ("modele_mail_rappel", "mail de rappel"),
     ("modele_mail_facture", "mail de facture"),
     ("modele_mail_attestation", "mail d'attestation"),
+    ("modele_mail_invitation", "mail d'invitation"),
+    ("modele_mail_invitation-inscription", "mail d'invitation à s'inscrire"),
+    ("modele_mail_accuse-reception", "accusé de réception"),
 ]
 def _diff_fiche(avant, apres, champs):
     """Liste des champs reellement modifies, avec ancienne et nouvelle valeur.
@@ -844,13 +865,6 @@ def enregistrer_nouvelle_formation():
         "modele_evaluation": (d.get("modele_evaluation") or "").strip(),
         "modele_satisfaction": (d.get("modele_satisfaction") or "").strip(),
         "modele_froid": (d.get("modele_froid") or "").strip(),
-        "modele_mail_signature": (d.get("modele_mail_signature") or "").strip(),
-        "modele_mail_confirmation": (d.get("modele_mail_confirmation") or "").strip(),
-        "modele_mail_attente": (d.get("modele_mail_attente") or "").strip(),
-        "modele_mail_rappel": (d.get("modele_mail_rappel") or "").strip(),
-        "modele_mail_facture": (d.get("modele_mail_facture") or "").strip(),
-        "modele_mail_attestation": (d.get("modele_mail_attestation") or "").strip(),
-        "modele_mail_invitation": (d.get("modele_mail_invitation") or "").strip(),
         # LE TYPE DE FORMATION. Pose le 23/08/2026 : les deux pipelines ne
         # partagent qu'UNE etape sur dix-huit, et l'ecran de creation s'y adapte.
         # Ce qu'il vaut ici : le mode PROPOSE PAR DEFAUT a la creation d'une
@@ -860,6 +874,28 @@ def enregistrer_nouvelle_formation():
         "type_formation": ("client" if (d.get("type_formation") or "").strip() == "client"
                            else "individuel"),
     }
+    # LES MODELES DE MAILS RATTACHES A CETTE FORMATION — un par usage, et
+    # SEULEMENT CEUX QUE L'ECRAN A ENVOYES.
+    #
+    # Les sept etaient ecrits a la main ici, chacun avec son « or "" ». Deux
+    # consequences, corrigees le 25/10/2026 :
+    #
+    #   — un usage nouveau s'oubliait. Les deux relances n'y etaient pas, et
+    #     n'auraient pas pu y etre : elles n'etaient pas des modeles du tout.
+    #   — UN CHAMP ABSENT DU FORMULAIRE S'EFFACAIT. L'ecran n'en montre que
+    #     deux ; les cinq autres repartaient a vide a chaque enregistrement,
+    #     parce que « d.get » rend None et que « fiche » ecrase. Rattacher un
+    #     modele de rappel, puis changer l'horaire de la formation, suffisait a
+    #     le perdre sans un mot. Aucune formation n'en portait — c'est le seul
+    #     motif pour lequel personne ne l'a vu.
+    #
+    # « in d » et non « d.get » : c'est la presence du champ qui compte, pas sa
+    # valeur. Un champ present et vide detache (c'est la case « Texte fourni
+    # avec DFM ») ; un champ absent laisse ce qui est deja enregistre.
+    for _usage in __import__("mails").USAGES:
+        _cle = "modele_mail_" + _usage
+        if _cle in d:
+            fiche[_cle] = (d.get(_cle) or "").strip()
     changements = []
     if edition:
         ancienne = dict(FORMATIONS.get(code) or {})
@@ -3436,96 +3472,76 @@ def _rel_type(ligne):
         return "reglement"
     return ""
 def _mail_relance(S, ligne, type_relance):
+    """La relance de signature ou de reglement, depuis un MODELE.
+
+    ELLE ETAIT ECRITE EN DUR ICI — quatre-vingt-dix lignes de HTML assemblees a
+    la main. Trois consequences, corrigees le 25/10/2026 :
+
+      — on ne pouvait pas la modifier a l'ecran, alors que tous les autres
+        courriers de DFM se modifient ;
+      — elle portait encore l'ancien en-tete, un filet gris d'un pixel, la ou le
+        reste du courrier porte celui pose le 21/10 ;
+      — elle annoncait LE TARIF DE LA SESSION. Un invite recevait donc une
+        relance a 975 euros, et un praticien a qui Franck avait consenti un autre
+        prix recevait le prix des autres. C'est la raison serieuse : toutes les
+        autres pieces de DFM — convention, facture, convocation, mail 2 —
+        passent par suivi.montant_attendu, qui rend zero pour un invite et le
+        prix ecrit sur sa ligne pour les autres. La relance etait le seul endroit
+        a compter autrement.
+
+    Le texte d'origine est devenu le modele par defaut, phrase pour phrase. Une
+    formation peut desormais avoir le sien : voir mails.pour_formation.
+    """
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
     from email.mime.image import MIMEImage
-    import base64
     import urllib.parse
-    prenom = ligne.get("prenom") or ""
-    nom_prenom = (prenom + " " + (ligne.get("nom") or "")).strip()
-    marque = S.get("marque") or S.get("organisme") or ""
-    signature = S.get("signature_mail") or S.get("formateur") or ""
-    titulaire = S.get("organisme") or ""
-    # Volontairement vide plutot qu'un repli sur des coordonnees bancaires
-    # ecrites en dur : mieux vaut une ligne absente qu'un virement adresse au
-    # mauvais compte (meme regle que numero_declaration, point C6).
-    iban = S.get("iban") or ""
-    bic = S.get("bic") or ""
-    # La connexion Gmail a disparu d'ici : l'envoi passe par « courrier », qui
-    # ouvre lui-meme ce dont il a besoin. Cette ligne ouvrait une session OAuth
-    # au demarrage du script, meme quand aucun mail n'etait a envoyer.
-    logo_bytes = __import__("profil").logo(__import__("sessions").organisme_de(S["code"]))
-    params_annul = urllib.parse.urlencode({"marque": S.get("marque") or "",
-                                           "contact": S.get("mail_contact") or "", "tel": S.get("telephone_contact") or "",
-                                           "praticien": nom_prenom, "session": S["code"],
-                                           "formation": S.get("titre_complet") or S["nom_formation"],
-                                           "debut": S["date_debut"]})
-    lien_annulation = S["url_signature"] + "/annulation.html?" + params_annul
-    entete = ("\n<div style=\"font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 560px;"
-              " margin: 0 auto; color: #2b2f3a; line-height: 1.6;\">\n"
-              "  <div style=\"padding: 20px 0 4px;\">\n"
-              "    <img src=\"cid:logo\" alt=\"" + marque + "\" style=\"height: 60px;\">\n"
-              "  </div>\n"
-              "  <div style=\"height:1px; background:#e6e9f2; margin: 8px 0 24px;\"></div>\n"
-              "  <p><strong>Bonjour " + prenom + ",</strong></p>")
-    pied = ("\n  <p>En cas de question ou de changement de programme, r&eacute;ponds simplement &agrave; ce mail.</p>\n"
-            "  <p style=\"margin-top: 24px;\">Bonne journ&eacute;e,<br>\n"
-            "  <strong>" + signature + ", " + marque + "</strong></p>\n"
-            "  <p style=\"text-align:center; margin:26px 0 0; font-size:12px;\">\n"
-            "    <a href=\"" + lien_annulation + "\" style=\"color:#8a90a2; text-decoration:underline;\">"
-            "Je souhaite annuler mon inscription</a>\n  </p>\n</div>")
-    titre = S.get("titre_complet") or S.get("nom_formation") or ""
-    dates = S.get("date_texte") or ""
-    if type_relance == "signature":
-        params = urllib.parse.urlencode({"marque": S.get("marque") or "", "accroche": S.get("accroche_of") or "", "contact": S.get("mail_contact") or "", "tel": S.get("telephone_contact") or "", "praticien": nom_prenom, "formation": S.get("titre_complet") or S["nom_formation"], "session": S["code"]})
-        lien = S["url_signature"] + "/?" + params
-        sujet = "Convention a signer · " + (S.get("titre_complet") or S.get("nom_formation") or "")
-        milieu = ("\n  <p>Ta demande d'inscription &agrave; la formation <strong>&laquo; " + titre + " &raquo;</strong>\n"
-                  "  (" + dates + ") est bien enregistr&eacute;e, mais nous n'avons pas encore re&ccedil;u ta convention sign&eacute;e.</p>\n"
-                  "  <p>Pour <strong>valider d&eacute;finitivement ton inscription</strong>, il te suffit de la signer en ligne, en un clic :</p>\n"
-                  "  <div style=\"text-align:center; margin: 28px 0;\">\n"
-                  "    <a href=\"" + lien + "\" style=\"display:inline-block; background:#0f9e6a; color:#fff;"
-                  " padding:14px 32px; text-decoration:none; border-radius:8px; font-weight:600; font-size:15px;\">"
-                  "Signer ma convention</a>\n  </div>\n")
-    else:
-        sujet = "Reglement en attente · " + (S.get("titre_complet") or S.get("nom_formation") or "")
-        milieu = ("\n  <p>Ton inscription &agrave; la formation <strong>&laquo; " + titre + " &raquo;</strong>\n"
-                  "  (" + dates + ") est confirm&eacute;e, mais nous n'avons pas encore re&ccedil;u ton r&egrave;glement.</p>\n"
-                  "  <p>Le montant est de <strong>" + str(S.get("tarif") or "") + " &euro;</strong>, d&eacute;jeuners inclus.</p>\n"
-                  "  <div style=\"text-align:center; margin: 24px 0;\">\n"
-                  "    <a href=\"" + (S.get("stripe_lien") or "#") + "\" style=\"display:inline-block; background:#635BFF;"
-                  " color:#fff; padding:14px 32px; text-decoration:none; border-radius:8px; font-weight:600; font-size:15px;\">"
-                  "R&eacute;gler ma formation</a>\n"
-                  "    <div style=\"font-size:12px; color:#8a90a2; margin-top:6px;\">(paiement par carte bancaire)</div>\n  </div>\n"
-                  "  <p style=\"margin-bottom:8px;\"><strong>Ou par virement :</strong><br>\n"
-                  "  <span style=\"font-size:13px; color:#5b6172;\">Motif : " + S["nom_formation"] + " + Nom Pr&eacute;nom</span></p>\n"
-                  "  <table style=\"width:100%; border-collapse:collapse; font-size:13px; margin: 8px 0 20px;\">\n"
-                  "    <tr><td style=\"padding:8px 10px; background:#f5f8ff; border:1px solid #e0e8fb; font-weight:600; width:120px;\">Titulaire</td>\n"
-                  "        <td style=\"padding:8px 10px; border:1px solid #e0e8fb;\">" + titulaire + "</td></tr>\n"
-                  "    <tr><td style=\"padding:8px 10px; background:#f5f8ff; border:1px solid #e0e8fb; font-weight:600;\">IBAN</td>\n"
-                  "        <td style=\"padding:8px 10px; border:1px solid #e0e8fb;\">" + iban + "</td></tr>\n"
-                  "    <tr><td style=\"padding:8px 10px; background:#f5f8ff; border:1px solid #e0e8fb; font-weight:600;\">BIC</td>\n"
-                  "        <td style=\"padding:8px 10px; border:1px solid #e0e8fb;\">" + bic + "</td></tr>\n  </table>\n"
-                  "  <p style=\"font-size:12px; color:#8a90a2; font-style:italic;\">Si ton r&egrave;glement vient d'&ecirc;tre"
-                  " effectu&eacute;, merci d'ignorer ce message.</p>")
+    import mails as _mails
+
+    usage = "relance_signature" if type_relance == "signature" else "relance_reglement"
+    nom_prenom = ((ligne.get("prenom") or "") + " " + (ligne.get("nom") or "")).strip()
+
+    # LES DEUX LIENS QUI NE SE CALCULENT QUE POUR UNE RELANCE. Le lien de
+    # signature porte l'identite de l'organisme et du praticien ; le lien
+    # d'annulation porte de quoi remplir le formulaire public. Ni l'un ni
+    # l'autre n'a sa place dans mails.contexte : ils ne servent qu'ici.
+    base = (S.get("url_signature") or "").rstrip("/")
+    lien_signature = base + "/?" + urllib.parse.urlencode({
+        "marque": S.get("marque") or "", "accroche": S.get("accroche_of") or "",
+        "contact": S.get("mail_contact") or "", "tel": S.get("telephone_contact") or "",
+        "praticien": nom_prenom,
+        "formation": S.get("titre_complet") or S.get("nom_formation") or "",
+        "session": S.get("code") or ""})
+    lien_annulation = base + "/annulation.html?" + urllib.parse.urlencode({
+        "marque": S.get("marque") or "", "contact": S.get("mail_contact") or "",
+        "tel": S.get("telephone_contact") or "", "praticien": nom_prenom,
+        "session": S.get("code") or "",
+        "formation": S.get("titre_complet") or S.get("nom_formation") or "",
+        "debut": S.get("date_debut") or ""})
+
+    modele = _mails.pour_formation(S.get("formation") or "", usage)
+    rendu = _mails.rendre(modele, _mails.contexte(S, ligne, {
+        "lien_signature": lien_signature, "lien_annulation": lien_annulation}))
+
+    logo_bytes = __import__("profil").logo(SESSIONS_MOD.organisme_de(S["code"]))
     message = MIMEMultipart("related")
     message["To"] = ligne["mail"]
-    import mails as _m_exp
-    _exp = _m_exp.expediteur(S if "S" in dir() else None)
+    _exp = _mails.expediteur(S)
     if _exp:
         message["From"] = _exp
-    message["Subject"] = sujet
+    message["Subject"] = rendu["objet"]
     corps = MIMEMultipart("alternative")
-    import mails as _mails
-    corps.attach(MIMEText(_mails.poser_logo(entete + milieu + pied, logo_bytes), "html"))
+    corps.attach(MIMEText(_mails.poser_logo(rendu["html"], logo_bytes), "html"))
     message.attach(corps)
-    logo = MIMEImage(logo_bytes)
-    logo.add_header("Content-ID", "<logo>")
-    logo.add_header("Content-Disposition", "inline", filename="logo.png")
-    message.attach(logo)
+    if logo_bytes:
+        logo = MIMEImage(logo_bytes)
+        logo.add_header("Content-ID", "<logo>")
+        logo.add_header("Content-Disposition", "inline", filename="logo.png")
+        message.attach(logo)
     # L'ENVOI PASSE PAR LA PORTE « courrier ». L'organisme de la session
     # decide d'ou part le mail — deux entites, deux adresses.
     courrier.envoyer(message, SESSIONS_MOD.organisme_de(S["code"]))
+
 @app.route("/session/<code>/relance/impact")
 def impact_relance(code):
     if code not in SESSIONS:

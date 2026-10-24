@@ -1177,6 +1177,107 @@ def tests_convention_du_cycle():
         verifier("le texte du cycle est la (%s)" % ou, phrase in tpl, phrase[:34])
 
 
+def tests_relances_en_modeles():
+    """LES DEUX RELANCES SONT DEVENUES DES MODELES — 25/10/2026.
+
+    Elles etaient les seuls courriers de DFM ecrits en dur : quatre-vingt-dix
+    lignes de HTML dans app.py. Trois consequences, et c'est chacune d'elles
+    que ce test garde :
+
+      — ON NE POUVAIT PAS LES MODIFIER a l'ecran, alors que les neuf autres
+        mails se modifient ;
+      — ELLES PORTAIENT L'ANCIEN EN-TETE, celui d'avant le filet irise ;
+      — ELLES ANNONCAIENT LE TARIF DE LA SESSION et non le prix convenu avec
+        la personne. Pour un cycle ou chacun paie son prix, c'est faux.
+
+    ET LE PIEGE QUI RESTE : la relance de reglement ne doit JAMAIS partir a
+    quelqu'un qu'on invite. « _rel_type » l'ecarte, et c'est la seule chose qui
+    l'en empeche — un invite force dans ce mail s'y verrait reclamer 0 euro.
+    """
+    import mails as _m
+    print()
+    print("  LES DEUX RELANCES, DEVENUES DES MODELES")
+
+    print("    elles existent comme usages, avec un texte fourni")
+    for usage, nom in (("relance_signature", "Relance de signature"),
+                       ("relance_reglement", "Relance de règlement")):
+        verifier("l'usage « %s » existe" % usage, usage in _m.USAGES)
+        verifier("il s'appelle « %s »" % nom,
+                 (_m.USAGES.get(usage) or {}).get("nom") == nom)
+        verifier("et DFM en fournit un texte", bool(_m.defaut(usage)))
+
+    print("    la relance se construit depuis un modele, et plus a la main")
+    source = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py"),
+                  encoding="utf-8").read()
+    bloc = source[source.index("def _mail_relance("):]
+    bloc = bloc[:bloc.index("\n@app.route")]
+    verifier("elle passe par pour_formation", "pour_formation(" in bloc)
+    verifier("et par l'enveloppe commune", "mails.rendre(" in bloc)
+    verifier("plus aucun <table> ecrit a la main", "<table" not in bloc, bloc[:0])
+
+    print("    le montant annonce est celui de LA PERSONNE")
+    S = {"tarif": "6000", "adresse": "61 rue Balard - 75015 Paris",
+         "jours": ["2027-01-06", "2027-01-07"], "nom_formation": "Essai",
+         "mail_contact": "contact@essai.test"}
+    c_pers = _m.contexte(S, {"prenom": "Camille", "montant_du": "5500"})
+    c_sans = _m.contexte(S, {"prenom": "Camille", "montant_du": ""})
+    c_inv = _m.contexte(S, {"prenom": "Camille", "invite_le": "24/10/2026"})
+    verifier("un prix convenu passe devant le tarif",
+             c_pers["tarif"] == "5\u202f500", repr(c_pers["tarif"]))
+    verifier("un montant vide retombe sur le tarif de la session",
+             c_sans["tarif"] == "6\u202f000", repr(c_sans["tarif"]))
+    verifier("un invite ne doit rien", c_inv["tarif"] == "0", repr(c_inv["tarif"]))
+
+    print("    les deux textes fournis partent sans balise oubliee")
+    for usage in ("relance_signature", "relance_reglement"):
+        r = _m.rendre(_m.pour_formation("", usage),
+                      _m.contexte(S, {"prenom": "Camille", "montant_du": "5500"},
+                                  {"lien_signature": "https://essai.test/s",
+                                   "lien_annulation": "https://essai.test/a"}))
+        verifier("%-18s aucune balise oubliee" % usage,
+                 "{{" not in r["html"] and "}}" not in r["html"])
+        verifier("%-18s son objet est accentue" % usage,
+                 "a signer" not in r["objet"] and "Reglement" not in r["objet"],
+                 r["objet"])
+
+    print("    l'IBAN est un vrai cadre, et non une ligne de texte")
+    blocs = _m.pour_formation("", "relance_reglement")["blocs"]
+    cadres = [b for b in blocs if b.get("type") == "encadre" and "IBAN" in str(b.get("contenu"))]
+    verifier("un bloc « encadre » porte l'IBAN", len(cadres) == 1, str(len(cadres)))
+    verifier("au ton bleu, celui des cadres informatifs",
+             (cadres[0].get("ton") if cadres else "") == "bleu")
+    verifier("avec le BIC et le motif",
+             all(x in cadres[0].get("contenu", "") for x in ("{{bic}}", "Motif")))
+
+    print("    un invite n'est jamais relance pour un reglement")
+    bloc_t = source[source.index("def _rel_type("):]
+    bloc_t = bloc_t[:bloc_t.index("def _mail_relance(")]
+    verifier("seuls deux statuts ouvrent une relance",
+             bloc_t.count("if st ==") == 2, bloc_t)
+    verifier("tout le reste n'en ouvre aucune", 'return ""' in bloc_t)
+    verifier("« En attente reglement » en est un",
+             "En attente reglement" in bloc_t)
+    import suivi as _sv
+    inv = dict({c: "" for c in _sv.COL}, invite_le="24/10/2026",
+               convention_signee_le="20/10/2026")
+    verifier("le statut d'un invite n'est aucun des deux",
+             _sv.calculer_statut(inv) not in ("En attente signature",
+                                              "En attente reglement"),
+             _sv.calculer_statut(inv))
+
+    print("    la fiche d'une formation peut porter ses propres relances")
+    verifier("le champ est journalise",
+             "modele_mail_relance_signature" in source
+             and "modele_mail_relance_reglement" in source)
+    ecran = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "templates", "formation_creer.html"),
+                 encoding="utf-8").read()
+    verifier("l'ecran liste les onze mails, et non deux en dur",
+             "usages_mail" in ecran and "modele_mail_signature" not in ecran)
+    verifier("un champ absent du formulaire n'efface plus rien",
+             'if _cle in d:' in source)
+
+
 def tests_courriel_de_validation():
     """Les balises du courriel 01, et le modele qui s'en sert.
 
@@ -1285,7 +1386,8 @@ def main():
                   tests_reparation_base, tests_garde_fous_de_la_base,
                   tests_session_cycle, tests_balises_du_cycle,
                   tests_jalon_validation, tests_fonction_par_defaut,
-                  tests_convention_du_cycle, tests_courriel_de_validation):
+                  tests_convention_du_cycle, tests_courriel_de_validation,
+                  tests_relances_en_modeles):
         try:
             essai()
         except Exception as e:

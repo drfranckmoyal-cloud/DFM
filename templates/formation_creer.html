@@ -455,13 +455,15 @@ padding:18px 20px;margin-bottom:13px;background:var(--carte);transition:box-shad
 .mf-h{display:flex;align-items:center;gap:11px;margin-bottom:16px}
 .mf-ic{width:38px;height:38px;border-radius:11px;background:#eef3fe;color:var(--accent);
 display:flex;align-items:center;justify-content:center;font-size:19px;flex:none}
-.mf-bloc.vert .mf-ic{background:#eafaf3;color:var(--success)}
 .mf-t{font-size:14px;font-weight:600}
 .mf-q{font-size:11.5px;color:var(--muted);margin-top:2px}
 .mf-etat{font-size:11.5px;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:5px}
 .mf-etat.choisi{color:var(--success);font-weight:500}
 .mf-pt{width:7px;height:7px;border-radius:50%;background:var(--border2);flex:none}
 .mf-etat.choisi .mf-pt{background:var(--success)}
+.mf-grille{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mf-grille .mf-bloc{margin-bottom:0}
+@media (max-width:900px){.mf-grille{grid-template-columns:1fr}}
 .mf-duo{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .mf-duo select{width:100%;padding:12px 14px;border:1px solid var(--border2);border-radius:10px;
 font-size:13px;font-family:inherit;background:var(--carte);color:var(--text);cursor:pointer}
@@ -470,7 +472,6 @@ font-size:13px;font-family:inherit;background:var(--carte);color:var(--text);cur
 background:#f5f8ff;color:var(--accent);font-size:13px;font-weight:500;cursor:pointer;
 font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px}
 .mf-neuf:hover{background:#eef3fe;border-style:solid}
-.mf-bloc.vert .mf-neuf{border-color:var(--success);background:#f4fbf8;color:var(--success)}
 .mf-info{background:#f0f4ff;border:1px solid #c5d4fb;border-radius:9px;padding:12px 14px;
 font-size:12px;color:#185fa5;margin-bottom:16px;line-height:1.55}
 @media (max-width:640px){.mf-duo{grid-template-columns:1fr}}
@@ -478,40 +479,32 @@ font-size:12px;color:#185fa5;margin-bottom:16px;line-height:1.55}
 <div class="panel" style="margin-top:14px">
   <div class="section-title" style="margin-bottom:14px">Modèles de mails</div>
   <div class="mf-info">Les mails partent automatiquement au fil du parcours. Vous pouvez garder les textes fournis avec DFM, ou rattacher vos propres modèles à cette formation. Créer un modèle ici le rend aussi disponible pour vos autres formations.</div>
-  <input type="hidden" name="modele_mail_signature" id="mf_signature">
-  <input type="hidden" name="modele_mail_confirmation" id="mf_confirmation">
+  {# LES ONZE MAILS DU PARCOURS, et non les deux qu'on voyait — 25/10/2026.
+     La liste vient de « mails.USAGES » : un usage ajoute apparait ici sans
+     qu'on touche a ce fichier. Deux colonnes pour qu'ils tiennent a l'ecran. #}
+  <div class="mf-grille">
+  {% for u in usages_mail or [] %}
   <div class="mf-bloc">
+    <input type="hidden" name="modele_mail_{{ u.cle }}" id="mf_{{ u.cle }}">
     <div class="mf-h">
-      <div class="mf-ic"><i class="ti ti-writing-sign"></i></div>
-      <div style="flex:1;min-width:0"><div class="mf-t">Convention à signer</div>
-        <div class="mf-q">Part dès l'import d'une inscription confirmée</div>
-        <div class="mf-etat" id="mf_signature_etat"><span class="mf-pt"></span>Texte fourni avec DFM</div></div>
+      <div class="mf-ic" style="color:{{ u.couleur }};background:{{ u.couleur }}1f"><i class="ti {{ u.icone }}"></i></div>
+      <div style="flex:1;min-width:0"><div class="mf-t">{{ u.nom }}</div>
+        <div class="mf-q">{{ u.quand }}</div>
+        <div class="mf-etat" id="mf_{{ u.cle }}_etat"><span class="mf-pt"></span>Texte fourni avec DFM</div></div>
     </div>
     <div class="mf-duo">
-      <select id="mf_signature_liste" title="Choisir un modele de votre bibliotheque" onchange="mfChoisir('signature')">
+      <select id="mf_{{ u.cle }}_liste" title="Choisir un modele de votre bibliotheque" onchange="mfChoisir('{{ u.cle }}')">
         <option value="">Texte fourni avec DFM</option>
       </select>
-      <button type="button" class="ap-oeil" title="Voir ce mail tel qu il partira" onclick="apMail('signature')"><i class="ti ti-eye"></i></button>
-      <button type="button" class="mf-neuf" title="Ecrire votre propre version de ce mail" onclick="mfCreer('signature')"><i class="ti ti-plus"></i>Créer un nouveau</button>
+      <button type="button" class="ap-oeil" title="Voir ce mail tel qu il partira" onclick="apMail('{{ u.cle }}')"><i class="ti ti-eye"></i></button>
+      <button type="button" class="mf-neuf" style="border-color:{{ u.couleur }};color:{{ u.couleur }}" title="Ecrire votre propre version de ce mail" onclick="mfCreer('{{ u.cle }}')"><i class="ti ti-plus"></i>Créer un nouveau</button>
     </div>
   </div>
-  <div class="mf-bloc vert">
-    <div class="mf-h">
-      <div class="mf-ic"><i class="ti ti-circle-check"></i></div>
-      <div style="flex:1;min-width:0"><div class="mf-t">Inscription confirmée</div>
-        <div class="mf-q">Part dès que la convention est signée</div>
-        <div class="mf-etat" id="mf_confirmation_etat"><span class="mf-pt"></span>Texte fourni avec DFM</div></div>
-    </div>
-    <div class="mf-duo">
-      <select id="mf_confirmation_liste" title="Choisir un modele de votre bibliotheque" onchange="mfChoisir('confirmation')">
-        <option value="">Texte fourni avec DFM</option>
-      </select>
-      <button type="button" class="ap-oeil" title="Voir ce mail tel qu il partira" onclick="apMail('confirmation')"><i class="ti ti-eye"></i></button>
-      <button type="button" class="mf-neuf" title="Ecrire votre propre version de ce mail" onclick="mfCreer('confirmation')"><i class="ti ti-plus"></i>Créer un nouveau</button>
-    </div>
+  {% endfor %}
   </div>
 </div>
 <script>
+var MF_USAGES = {{ (usages_mail or []) | map(attribute="cle") | list | tojson }};
 function mfCharger(usage){
   var sel = document.getElementById("mf_" + usage + "_liste");
   if(!sel) return Promise.resolve();
@@ -644,11 +637,10 @@ function mfCreer(usage){
 function mfDemarrer(){
   var p = new URLSearchParams(location.search);
   var mail = p.get("mail"), usage = p.get("usage");
-  Promise.all([mfCharger("signature"), mfCharger("confirmation")]).then(function(){
+  Promise.all(MF_USAGES.map(mfCharger)).then(function(){
     // Meme logique que qfDemarrer : la fiche d'abord, sinon les champs caches
     // seraient ecrases par les selects fraichement reconstruits (vides).
-    mfSynchroniser("signature");
-    mfSynchroniser("confirmation");
+    MF_USAGES.forEach(mfSynchroniser);
     if(mail && usage){
       var sel = document.getElementById("mf_" + usage + "_liste");
       if(sel){ sel.value = mail; mfChoisir(usage); }
@@ -851,7 +843,7 @@ setTimeout(function(){
       if(typeof majRecap === "function") majRecap();
       ["evaluation","satisfaction","froid"].forEach(function(x){
         if(typeof qfSynchroniser === "function") qfSynchroniser(x); });
-      ["signature","confirmation"].forEach(function(x){
+      MF_USAGES.forEach(function(x){
         if(typeof mfSynchroniser === "function") mfSynchroniser(x); });
     }
   });
