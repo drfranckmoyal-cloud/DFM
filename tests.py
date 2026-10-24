@@ -1089,6 +1089,94 @@ def tests_fonction_par_defaut():
              _C.csp("") == "", "[%s]" % _C.csp(""))
 
 
+def tests_convention_du_cycle():
+    """La convention d'un cycle : un seul gabarit, des blocs qui s'allument.
+
+    LA CONDITION POSEE AU CADRAGE DU 23/10/2026 : pas de second modele. Deux
+    textes seraient deux clauses a tenir d'accord, et le jour ou l'on corrige
+    une phrase on n'en corrigerait qu'une. Ce qui doit tenir : « cycle » est
+    vrai quand la SESSION porte ses modules, faux partout ailleurs — donc
+    jamais pour une session ecrite avant ce jour.
+    """
+    import convention as _cv
+    import jours as _j
+    print()
+    print("  LA CONVENTION DU CYCLE")
+
+    print("    un montant s'ecrit comme sur un acte")
+    for v, attendu in ((0, "0"), (975, "975"), (999, "999"),
+                       (6000, "6\u202f000"), (12500, "12\u202f500"),
+                       (1234.5, "1\u202f234,50")):
+        verifier("%s → %s" % (v, attendu.replace("\u202f", " ")),
+                 _cv._euros(v) == attendu, repr(_cv._euros(v)))
+    verifier("et sous mille euros, rien ne change",
+             all(_cv._euros(v) == "%d" % v for v in (0, 1, 540, 975, 999)))
+    verifier("un montant illisible ne fait pas tomber la convention",
+             _cv._euros("abc") == "abc", _cv._euros("abc"))
+
+    print("    « cycle » se lit sur la session, et sur elle seule")
+    modules = [{"titre": "Essentiels", "jours": 3}, {"titre": "Composites", "jours": 3}]
+    r = _j.depuis_modules(modules, ["2027-01-06", "2027-03-10"])
+    cyc = _cv._commun({"jours": r["jours"], "modules": r["modules"],
+                       "titre_complet": "Cycle", "horaires": "9h-17h"})
+    verifier("une session a modules est un cycle", cyc["cycle"] is True)
+    verifier("deux modules comptes", cyc["nb_modules"] == 2, cyc["nb_modules"])
+    verifier("trois journees par module", cyc["jours_par_module"] == 3,
+             cyc["jours_par_module"])
+    verifier("six journees, en lettres", cyc["nb_journees_lettres"] == "six",
+             cyc["nb_journees_lettres"])
+    ord_ = _cv._commun({"jours": ["2027-02-04", "2027-02-05"], "titre_complet": "Usures"})
+    verifier("UNE SESSION ORDINAIRE N'EST PAS UN CYCLE", ord_["cycle"] is False)
+    verifier("et ne porte aucun module", ord_["modules"] == [], str(ord_["modules"]))
+    verifier("une session sans journees non plus",
+             _cv._commun({"titre_complet": "x"})["cycle"] is False)
+    print("    des modules de durees differentes ne mentent pas sur le compte")
+    r2 = _j.depuis_modules([{"titre": "A", "jours": 3}, {"titre": "B", "jours": 2}],
+                           ["2027-01-06", "2027-03-10"])
+    c2 = _cv._commun({"jours": r2["jours"], "modules": r2["modules"]})
+    verifier("« de N journees » est tu quand elles diffèrent",
+             c2["jours_par_module"] == 0, c2["jours_par_module"])
+
+    print("    le prix est celui de la PERSONNE, pas de la session")
+    ici = os.path.dirname(os.path.abspath(__file__))
+    src = open(os.path.join(ici, "convention.py"), encoding="utf-8").read()
+    verifier("la convention passe par suivi.montant_attendu",
+             "montant_attendu(ligne" in src)
+    # LA SESSION CLIENT, ELLE, GARDE LE TARIF DE LA SESSION : une structure
+    # achete la formation au prix unitaire fois le nombre de participants. Ce
+    # n'est pas le meme acte, et les deux sessions client en service ne doivent
+    # pas changer d'un caractere.
+    verifier("la session client garde le prix unitaire de la session",
+             'unitaire = _nombre(S.get("tarif"))' in src)
+    verifier("et son total n'est pas reformate",
+             '"tarif": "%.0f" % unitaire' in src or '"%.0f" % total' in src,
+             "le total client garde son format")
+
+    print("    le gabarit garde UN SEUL texte pour les deux cas")
+    tpl = open(os.path.join(ici, "templates", "convention.html"), encoding="utf-8").read()
+    verifier("les clauses du cycle sont conditionnelles",
+             tpl.count("c.cycle") >= 8, "%d mentions" % tpl.count("c.cycle"))
+    for phrase, ou in (("l'employeur", "article 4 des autres formations"),
+                       ("Pour le Client", "le cartouche des autres formations"),
+                       ("au plus tard 20 jours", "article 7 des autres formations"),
+                       ("Une première partie théorique", "article 5 des autres formations")):
+        verifier("%s est conservee" % ou, phrase in tpl, phrase)
+    for phrase, ou in (("cycle annuel composé de", "article 1"),
+                       ("les deux tiers du temps", "article 2"),
+                       ("sans entrer dans ce décompte", "article 2"),
+                       ("trente jours à l'avance", "article 2"),
+                       ("Conditions matérielles", "article 3"),
+                       ("déjeuners\n      et dîners", "article 4"),
+                       ("à solder avant le début du dernier module", "article 4"),
+                       ("ses propres cas cliniques", "article 5"),
+                       ("attestation de présence", "article 6"),
+                       ("lien de paiement sécurisé", "article 7"),
+                       ("plus de vingt jours francs", "article 8"),
+                       ("force majeure", "article 8"),
+                       ("Le Stagiaire", "le cartouche")):
+        verifier("le texte du cycle est la (%s)" % ou, phrase in tpl, phrase[:34])
+
+
 def main():
     print()
     print("  LES TESTS DE DFM")
@@ -1099,7 +1187,8 @@ def main():
                   tests_entete_des_mails, tests_formation_modules,
                   tests_reparation_base, tests_garde_fous_de_la_base,
                   tests_session_cycle, tests_balises_du_cycle,
-                  tests_jalon_validation, tests_fonction_par_defaut):
+                  tests_jalon_validation, tests_fonction_par_defaut,
+                  tests_convention_du_cycle):
         try:
             essai()
         except Exception as e:

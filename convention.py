@@ -125,7 +125,11 @@ def _jours(S):
         return {"date_debut": _J._d(r["date_debut"]).strftime("%d/%m/%Y"),
                 "date_fin": _J._d(r["date_fin"]).strftime("%d/%m/%Y"),
                 "detail": r["detail"], "nb": str(r["nb"]),
-                "duree": "%s heures" % r["duree"], "texte": r["texte"]}
+                "duree": "%s heures" % r["duree"], "texte": r["texte"],
+                # LES MODULES RESOLUS DE LA SESSION, s'il y en a. Vide pour
+                # toute session ecrite avant le 24/10/2026 : voir « cycle »
+                # dans _commun.
+                "modules": r.get("modules") or []}
     except Exception:
         return {}
 
@@ -198,6 +202,13 @@ def pour(code_session, signature_client="", ligne=None):
 
     j = _jours(S)
     return {
+        # CYCLE : NON, ET C'EST ECRIT. Une session client achete la formation au
+        # prix unitaire fois le nombre de participants ; le cycle, lui, est un
+        # engagement individuel. Le gabarit tombait deja du bon cote — une
+        # variable absente est fausse pour Jinja — mais un acte contractuel ne
+        # doit pas dependre de cela : on l'ecrit.
+        "cycle": False, "modules": [], "nb_modules": 0,
+        "jours_par_module": 0, "nb_journees_lettres": _lettres(_jours(S).get("nb") or 0),
         "marque": b("marque") or b("organisme"),
         "organisme": b("organisme"),
         "adresse_organisme": b("adresse_organisme"),
@@ -245,6 +256,39 @@ def pour(code_session, signature_client="", ligne=None):
     }, ""
 
 
+def _euros(montant):
+    """Un montant comme on l'ecrit sur un acte : « 6 000 », et non « 6000 ».
+
+    POSE LE 24/10/2026, avec le cycle a six mille euros. Les formations courtes
+    etaient toutes en dessous de mille euros : la question ne s'etait jamais
+    posee, et aucune convention en service ne change (verifie sur les
+    cinquante-huit). L'espace est une ESPACE INSECABLE ETROITE : un montant ne
+    doit jamais se couper en fin de ligne au milieu d'un chiffre.
+    """
+    try:
+        v = float(montant)
+    except (TypeError, ValueError):
+        return str(montant or "")
+    entier = "%.0f" % v if float(v).is_integer() else ("%.2f" % v)
+    partie, _, decimales = entier.partition(".")
+    morceaux = []
+    while len(partie) > 3:
+        morceaux.insert(0, partie[-3:])
+        partie = partie[:-3]
+    morceaux.insert(0, partie)
+    sortie = "\u202f".join(morceaux)
+    return sortie + ("," + decimales if decimales else "")
+
+
+def _lettres(n):
+    """Un nombre de journees en toutes lettres. Une seule regle, dans jours.py."""
+    try:
+        import jours as _J
+        return _J.en_lettres(n)
+    except Exception:
+        return str(n)
+
+
 def _commun(S):
     """Ce que les deux conventions partagent : l'organisme, la formation,
     les dates. Ecrit une seule fois pour que les deux ne divergent pas."""
@@ -278,6 +322,29 @@ def _commun(S):
         "nb_jours": j.get("nb", ""),
         "ville": (S.get("ville_organisme") or "Paris"),
         "date_du_jour": datetime.now().strftime("%d/%m/%Y"),
+        # ------------------------------------------------------------------
+        # LE CYCLE — 24/10/2026, pour Esthetique 360.
+        #
+        # UN SEUL GABARIT, DES BLOCS QUI S'ALLUMENT. C'etait la condition posee
+        # au cadrage du 23/10/2026 : une seconde convention aurait fait deux
+        # textes a tenir d'accord, et le jour ou l'on corrige une clause on n'en
+        # corrige qu'un. « cycle » vaut vrai quand la SESSION porte ses modules
+        # resolus — donc jamais pour une session ecrite avant ce jour, et c'est
+        # ce qui garantit que les conventions en service ne bougent pas.
+        #
+        # LE DRAPEAU EST ICI, PAS DANS LA MISE EN PAGE. Le gabarit demande
+        # « est-ce un cycle ? » et non « y a-t-il plus de deux journees ? » : la
+        # raison d'ecrire autrement doit se lire a l'endroit ou elle est decidee.
+        "cycle": bool(j.get("modules")),
+        "modules": j.get("modules") or [],
+        "nb_modules": len(j.get("modules") or []),
+        # Le nombre de journees d'un module, quand ils en ont tous le meme —
+        # « cinq modules de trois journees ». Sinon zero, et la phrase se plie.
+        "jours_par_module": (j["modules"][0].get("nb")
+                             if j.get("modules")
+                             and len({m.get("nb") for m in j["modules"]}) == 1
+                             else 0),
+        "nb_journees_lettres": _lettres(j.get("nb") or 0),
     }
 
 
@@ -313,7 +380,20 @@ def _individuelle(S, ligne, signature_client="", code_session=None):
     # facture « sans objet », et la convocation ne lui reclame rien. Le document
     # contractuel ne peut pas etre le seul a l'ignorer.
     invite = bool(str(ligne.get("invite_le") or "").strip())
-    tarif = 0.0 if invite else _nombre(S.get("tarif"))
+    # LE PRIX EST CELUI DE LA PERSONNE — 24/10/2026, regle de Franck pour
+    # Esthetique 360 : six mille euros annonces, adaptables personne par
+    # personne, arretes au moment de valider sa demande. La convention lisait le
+    # tarif de la SESSION, ce qui aurait annonce a tous le prix de la plupart.
+    #
+    # UNE SEULE REGLE POUR TOUT DFM : suivi.montant_attendu, celle qu'appliquent
+    # deja les ecrans, la facture, la convocation et la relance. Elle rend zero
+    # pour un invite, le prix ecrit sur la ligne s'il y en a un, et le tarif de
+    # la session sinon — donc, pour les cinquante-huit inscrits en service le
+    # 24/10/2026, EXACTEMENT ce que la convention ecrivait deja (verifie, zero
+    # ecart). Le document contractuel ne peut pas etre le seul endroit de DFM a
+    # calculer le prix autrement que les sept autres.
+    import suivi as _sv
+    tarif = 0.0 if invite else _sv.montant_attendu(ligne, S.get("tarif"))
     d = _commun(S)
     d.update({
         # Formulations reprises telles quelles de sessions.balises_stagiaire :
@@ -327,7 +407,7 @@ def _individuelle(S, ligne, signature_client="", code_session=None):
         "participants": [{"nom": nom, "fonction": fonction}],
         "nb_participants": 1,
         # Un seul stagiaire : le total EST le tarif.
-        "tarif": "%.0f" % tarif, "total": "%.0f" % tarif,
+        "tarif": _euros(tarif), "total": _euros(tarif),
         # Dit au modele d'ecrire la mention de gratuite. Un drapeau plutot
         # qu'un « si le total vaut zero » dans le gabarit : la raison est ici,
         # pas dans la mise en page.

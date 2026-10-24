@@ -64,6 +64,14 @@
   table.fin tr.tot td { border-top: 2px solid var(--bleu); border-bottom: none;
                         font-weight: 700; padding-top: 9px; color: var(--bleu); font-size: 11pt; }
 
+  /* Le tableau des modules d'un cycle. Meme trait que le tableau financier :
+     c'est le meme document, les deux doivent se lire du meme oeil. */
+  table.mods { width: 100%; border-collapse: collapse; margin: 6px 0 9px; font-size: 10.5pt; }
+  table.mods td { padding: 5px 0; border-bottom: 1px solid #eef0f5; vertical-align: top; }
+  table.mods td.n { width: 24px; font-weight: 700; color: var(--bleu); }
+  table.mods td.t { font-weight: 600; padding-right: 10px; }
+  table.mods tr:last-child td { border-bottom: none; }
+
   .part { margin: 6px 0 0; padding-left: 20px; }
   .part li { margin-bottom: 4px; }
   .part .n { font-weight: 600; }
@@ -159,7 +167,8 @@
 
 <h2>Article 1 : Objet de la convention</h2>
 <p>L'organisme de formation s'engage à organiser l'action de formation intitulée
-  «&nbsp;<b>{{ c.titre_formation }}</b>&nbsp;»</p>
+  «&nbsp;<b>{{ c.titre_formation }}</b>&nbsp;»{% if c.cycle %}, cycle annuel composé de
+  {{ c.nb_modules }} modules{% endif %}</p>
 
 <h2>Article 2 : Nature et caractéristiques de l'action de formation</h2>
 <ul>
@@ -174,21 +183,51 @@
     {% endif %}</li>
   <li><b>Contenu de l'action de formation</b>&nbsp;: cf. Programme de formation en Annexe</li>
   <li><b>Moyens prévus</b>&nbsp;: L'action de formation sera assurée par <b>{{ c.formateur }}</b>,
-    Chirurgien-dentiste. Le formateur présentera une formation théorique sous forme de
+    Chirurgien-dentiste.
+    {%- if c.cycle %} Chaque module associe une formation théorique sous forme de cours
+    magistral et une formation pratique sous forme de travaux pratiques sur modèles dédiés,
+    les travaux pratiques représentant environ les deux tiers du temps de formation. Entre
+    les modules, des soirées et des visioconférences de suivi complètent l'enseignement.
+    {%- else %} Le formateur présentera une formation théorique sous forme de
     cours magistral et une formation pratique sous formes de sessions de travaux pratiques
-    sur modèles dédiés. Les ressources utilisées pour la partie théorique et pratique
+    sur modèles dédiés.{% endif %} Les ressources utilisées pour la partie théorique et pratique
     seront&nbsp;:
     <ul class="sous">{% for m in c.moyens %}<li>{{ m }}</li>{% endfor %}</ul></li>
-  <li><b>Durée de l'action de formation</b>&nbsp;: La durée est fixée à <b>{{ c.duree }}</b></li>
+  <li><b>Durée de l'action de formation</b>&nbsp;: La durée est fixée à <b>{{ c.duree }}</b>{% if c.cycle %},
+    réparties en {{ c.nb_modules }} modules{% if c.jours_par_module %} de
+    {{ c.jours_par_module }} journées de sept heures{% endif %} en présentiel, soit
+    {{ c.nb_journees_lettres }} journées. Les soirées et visioconférences complémentaires
+    s'y ajoutent sans entrer dans ce décompte{% endif %}</li>
   <li><b>Lieu</b>&nbsp;: <b>{{ c.lieu }}</b></li>
-  <li><b>Dates et horaires</b>&nbsp;: {{ c.date_formation }}
+  {# LES DATES D'UN CYCLE SE LISENT MODULE PAR MODULE — 24/10/2026. Quinze
+     journées énumérées d'affilée, puis les quinze mêmes reprises une par une en
+     dessous, ne disent pas au Stagiaire quand il vient : c'est le calendrier des
+     cinq venues qu'il doit pouvoir lire d'un coup d'œil, avec l'intitulé en face
+     de chaque date. Le bloc des journées une par une reste pour les autres
+     formations : il est ce que réclame un financeur sur une action courte. #}
+  <li><b>Dates et horaires</b>&nbsp;:
+    {%- if c.cycle %}
+    <div class="dates">Date de début de l'action&nbsp;: <b>{{ c.date_debut }}</b><br>
+      Date de fin de l'action&nbsp;: <b>{{ c.date_fin }}</b></div>
+    <table class="mods">
+      {% for m in c.modules %}
+      <tr><td class="n">{{ m.numero }}</td><td class="t">{{ m.titre }}</td>
+        <td>{{ m.texte }}</td></tr>
+      {% endfor %}
+    </table>
+    {% if c.horaires %}<div>Horaires&nbsp;: {{ c.horaires }}.</div>{% endif %}
+    <div style="margin-top:4px">Les dates des soirées et visioconférences complémentaires
+      sont fixées avec le groupe à l'issue du premier module et communiquées par écrit au
+      Stagiaire au moins trente jours à l'avance.</div>
+    {%- else %} {{ c.date_formation }}
     <div class="dates">Date de début de l'action&nbsp;: <b>{{ c.date_debut }}</b><br>
       Date de fin de l'action&nbsp;: <b>{{ c.date_fin }}</b></div>
     {% if c.jours_formation %}
     <div style="margin-top:4px">Journées de formation ({{ c.nb_jours }} journée{{ 's' if c.nb_jours not in ('1', 1) }}, {{ c.duree }})&nbsp;:</div>
     <ul class="jours">{% for j in c.jours_formation %}<li>{{ j }}</li>{% endfor %}</ul>
     {% endif %}
-    {% if c.horaires %}<div>{{ c.horaires }}</div>{% endif %}</li>
+    {% if c.horaires %}<div>{{ c.horaires }}</div>{% endif %}
+    {%- endif %}</li>
 </ul>
 
 <h2>Article 3 : Effectif formé</h2>
@@ -196,6 +235,10 @@
   <li><b>Public visé</b> au sens de l'article L 6313-3 du code du travail&nbsp;: Le stagiaire
     devra posséder, avant l'entrée en formation, le niveau de connaissance suivant&nbsp;:
     <b>{{ c.prerequis }}</b></li>
+  {% if c.cycle and c.prerequis %}
+  <li><b>Conditions matérielles</b>&nbsp;: le Stagiaire s'engage à disposer, dès le premier
+    module, du matériel mentionné ci-dessus et détaillé en annexe.</li>
+  {% endif %}
   <li>L'organisme de formation accueillera les personnes suivantes&nbsp;:
     <ul class="part">
       {% for p in c.participants %}
@@ -205,15 +248,29 @@
 </ul>
 
 <h2>Article 4 : Dispositions financières</h2>
-<p>En contrepartie de cette action de formation, l'employeur s'acquittera des coûts
-  suivants&nbsp;:</p>
+{# « LE STAGIAIRE » ET NON « L'EMPLOYEUR » POUR UN CYCLE — 24/10/2026. Un
+   praticien qui signe pour lui-même n'a pas d'employeur, et le modèle unique le
+   nommait ainsi depuis toujours. On ne corrige que le cycle : changer le mot
+   partout réécrirait des conventions déjà signées. #}
+<p>En contrepartie de cette action de formation, {% if c.cycle %}le Stagiaire{% else %}l'employeur{% endif %}
+  s'acquittera des coûts suivants&nbsp;:</p>
 <table class="fin">
+  {% if c.cycle %}
+  <tr><td>Frais de formation&nbsp;: cycle complet de {{ c.nb_modules }} modules, déjeuners
+      et dîners des conférences du soir compris</td>
+    <td class="m">{{ c.total }} € TTC</td></tr>
+  <tr><td>Sommes versées à titre d'acompte (éventuellement)</td>
+    <td class="m">0 € TTC</td></tr>
+  <tr><td>Sommes restant dues, à solder avant le début du dernier module</td>
+    <td class="m">{{ c.total }} € TTC</td></tr>
+  {% else %}
   <tr><td>Frais de formation&nbsp;: coût unitaire {{ c.tarif }} euros TTC ×
       {{ c.nb_participants }} participant{{ 's' if c.nb_participants > 1 }}</td>
     <td class="m">{{ c.total }} € TTC</td></tr>
   <tr><td>Sommes versées par l'entreprise à titre d'acomptes (éventuellement)</td>
     <td class="m">0 € TTC</td></tr>
   <tr><td>Sommes restant dues</td><td class="m">{{ c.total }} € TTC</td></tr>
+  {% endif %}
   <tr><td>T.V.A. (si applicable)</td><td class="m">non applicable</td></tr>
   <tr class="tot"><td>TOTAL GÉNÉRAL (ou Net de taxe si TVA non applicable)</td>
     <td class="m">{{ c.total }} € TTC</td></tr>
@@ -225,27 +282,64 @@
   par {{ c.marque }}&nbsp;: aucune somme n'est due.</strong></p>{% endif %}
 
 <h2>Article 5 : Modalités de déroulement et de suivi</h2>
+{% if c.cycle %}
+<p>La formation se déroule en présentiel pour les {{ c.nb_modules }} modules, complétés par
+  des soirées et des visioconférences à distance. Chaque module comporte une partie
+  théorique sous forme de cours magistral et une partie pratique sous forme de travaux
+  pratiques. Entre les modules, le Stagiaire documente ses propres cas cliniques
+  (photographie, planification)&nbsp;; ces cas sont présentés et discutés lors de la
+  journée finale du dernier module. L'exécution de l'action est attestée par les feuilles
+  d'émargement signées par demi-journée à chaque module.</p>
+{% else %}
 <p>Le déroulement de la formation se fera de manière présentielle&nbsp;:</p>
 <ul>
   <li>Une première partie théorique sous forme de cours magistral</li>
   <li>Une deuxième partie pratique en situation de travail</li>
 </ul>
+{% endif %}
 
 <h2>Article 6 : Modalités de sanction</h2>
 <p>L'accomplissement de la formation complète sera sanctionnée par une
-  «&nbsp;Attestation de réalisation de la formation {{ c.titre_formation }}&nbsp;»</p>
+  «&nbsp;Attestation de réalisation de la formation {{ c.titre_formation }}&nbsp;»{% if c.cycle %},
+  remise à l'issue du dernier module. Une attestation de présence est délivrée à l'issue de
+  chaque module sur demande du Stagiaire&nbsp;: c'est la pièce que réclament les organismes
+  de prise en charge quand le cycle chevauche deux exercices. L'évaluation des acquis repose
+  sur la présentation des cas cliniques lors de la journée finale{% endif %}</p>
 
 <h2>Article 7 : Modalités de règlement</h2>
 {% if c.gracieux %}<p>Sans objet&nbsp;: la formation étant offerte au Stagiaire,
   aucun règlement n'est attendu.</p>
+{% elif c.cycle %}<p>Le Stagiaire s'engage à solder les frais de formation avant le début
+  du dernier module. Un échéancier de paiement peut être mis en place, à sa convenance,
+  directement avec l'organisme de formation. Le règlement s'effectue par carte bancaire, au
+  moyen du lien de paiement sécurisé transmis par courriel, ou par virement sur le compte de
+  l'organisme.</p>
 {% else %}<p>Le Client s'engage à régler la totalité des frais de formation au plus tard 20 jours
   après la fin de la formation.</p>{% endif %}
 
 <h2>Article 8 : Dédit ou abandon</h2>
+{# QUATRE ALINEAS POUR UN CYCLE, retenus par Franck le 23/10/2026. Une place
+   abandonnée au troisième module ne se revend pas dans un groupe de douze :
+   l'alinéa unique du modèle unique, écrit pour une formation de deux jours, ne
+   dit rien de ce cas. #}
+{% if c.cycle %}
+<p>En cas de dédit par le Stagiaire plus de vingt jours francs avant le début du premier
+  module, les sommes déjà versées lui sont intégralement remboursées.</p>
+<p>En cas de dédit à moins de vingt jours francs avant le début du premier module, ou
+  d'abandon en cours de cycle, restent acquises à l'organisme les sommes correspondant aux
+  modules réalisés ou commencés&nbsp;; pour les modules restants, l'organisme rembourse les
+  sommes qu'il n'aura pas réellement dépensées ou engagées pour leur réalisation.</p>
+<p>En cas de force majeure, et avec l'accord de l'organisme, le Stagiaire peut reporter les
+  modules non suivis sur le cycle suivant, dans la limite des places disponibles.</p>
+<p>En cas d'annulation ou de report d'un module du fait de l'organisme de formation, de
+  nouvelles dates sont proposées au Stagiaire&nbsp;; à défaut d'accord, les sommes versées
+  au titre de ce module lui sont remboursées.</p>
+{% else %}
 <p>En cas de dédit par le Client à moins de 20 jours francs avant le début de l'action
   mentionnée à l'article 1, ou d'abandon en cours de formation par un ou plusieurs
   stagiaires, l'organisme remboursera sur le coût total, les sommes qu'il n'aura pas
   réellement dépensées ou engagées pour la réalisation de la formation.</p>
+{% endif %}
 
 <h2>Article 9 : Différends éventuels</h2>
 <p>Si une contestation ou un différend ne peuvent être réglés à l'amiable, le Tribunal
@@ -255,7 +349,7 @@
   <p>Fait en double exemplaire, à {{ c.ville }} le {{ c.date_du_jour }}.</p>
   <div class="sign-l">
     <div class="sign-c">
-      <div class="q">Pour le Client</div>
+      <div class="q">{% if c.cycle %}Le Stagiaire{% else %}Pour le Client{% endif %}</div>
       <b>{{ c.client_representant }}</b>
       {{ c.client_fonction }}{% if c.client_fonction and c.client_denomination %} —{% endif %}
       {{ c.client_denomination }}
