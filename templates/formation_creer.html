@@ -274,6 +274,22 @@
         <div class="verif"></div>
         <div class="note-format"><i class="ti ti-alert-triangle" style="font-size:13px;color:var(--warn)"></i> <b>PDF uniquement</b> — aucun autre format n'est accepté. Convertis ton document en PDF avant de l'importer.<br><span style="color:var(--muted)">Joint au premier mail d'inscription.</span></div>
       </label>
+
+      {# MATERIEL ET PREREQUIS — 24/10/2026, pour Esthétique 360. Une formation
+         longue demande un équipement : appareil photo, loupes, licence. Le champ
+         « Prérequis » plus haut le dit en une phrase ; cette pièce le détaille,
+         avec les références et les prix. Vide pour une formation ordinaire. #}
+      <label class="champ doc-titre" style="grid-column:span 2">
+        <span><i class="ti ti-tools" style="color:var(--success)"></i> Matériel et prérequis <span style="font-weight:400;color:var(--muted)">— facultatif</span></span>
+        <div class="champ-doc">
+          <input type="text" name="prerequis_id" placeholder="Aucun document — clique sur Importer" oninput="majRecap()" onblur="verifierDoc(this)">
+          <a class="btn-ouvrir" id="o-prerequis_id" title="Ouvrir le document" href="#" target="_blank" style="display:none"><i class="ti ti-external-link"></i></a><button type="button" class="btn-vider" id="v-prerequis_id" title="Delier ce document — le fichier reste range dans DFM" onclick="vider('prerequis_id')" style="display:none"><i class="ti ti-x"></i></button><button type="button" class="btn-depot" title="Importer un fichier depuis mon ordinateur" onclick="document.getElementById('f-prerequis_id').click()"><i class="ti ti-upload"></i>Importer</button>
+          <input type="file" id="f-prerequis_id" accept=".pdf" style="display:none" onchange="envoyerDoc(this,'prerequis_id')">
+        </div>
+        <div class="verif"></div>
+        <div class="note-format"><i class="ti ti-alert-triangle" style="font-size:13px;color:var(--warn)"></i> <b>PDF uniquement.</b><br><span style="color:var(--muted)">Le matériel à acquérir avant la formation — joint au mail de demande de confirmation.</span></div>
+      </label>
+
       <label class="champ doc-titre" style="grid-column:span 2">
         <span><i class="ti ti-map-2" style="color:var(--success)"></i> Informations d'accès</span>
         <div class="champ-doc">
@@ -1121,6 +1137,7 @@ function majRecap(){
     ['Places maximum', val('places_max'), true],
     ['Lieu par défaut', val('adresse'), false],
     ['Programme', val('programme_id') ? 'lié' : '', false],
+    ['Matériel et prérequis', val('prerequis_id') ? 'lié' : '', false],
     ["Informations d'accès", val('acces_id') ? 'lié' : '', false],
     ['Pièces jointes du rappel', lignesPieces().filter(function(i){ return i.value.trim(); }).length + ' document(s)', false]
   ];

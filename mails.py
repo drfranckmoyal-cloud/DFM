@@ -57,6 +57,9 @@ BALISES = [
          "jeudi 12 mars 2027 (7 heures)<br>vendredi 13 mars 2027 (7 heures)"),
         ("nb_jours", "Nombre de journées", "2"),
         ("nb_journees", "Nombre de journées en lettres", "quinze"),
+        ("date_limite", "Date limite de réponse, en lettres", "samedi 7 novembre 2026"),
+        ("nb_modules", "Nombre de modules, en lettres", "cinq"),
+        ("jours_par_module", "Journées par module, en lettres", "trois"),
         ("modules", "Les modules d'un cycle, un par ligne",
          "<b>1 · Essentiels</b> — du mercredi 6 au vendredi 8 janvier 2027<br>"
          "<b>2 · Composites</b> — du mercredi 10 au vendredi 12 mars 2027"),
@@ -71,6 +74,8 @@ BALISES = [
         ("lien_signature", "Bouton de signature", "https://exemple.test/signature"),
         ("lien_paiement", "Lien de paiement Stripe", "https://exemple.test/paiement"),
         ("lien_annulation", "Lien d'annulation", "https://exemple.test/annulation"),
+        ("lien_renoncer", "Message tout prêt de renoncement (mailto)",
+         "mailto:contact@exemple.fr?subject=…ne%20souhaite%20plus%20s'inscrire"),
         ("lien_inscription", "Lien du formulaire d'inscription",
          "https://exemple.test/inscription.html"),
     ]),
@@ -725,6 +730,13 @@ def _jours_de(S):
         for m in (r.get("modules") or []):
             tete = "%d · %s" % (m.get("numero") or 0, m.get("titre") or "")
             lignes.append("<b>%s</b> — %s" % (tete, m.get("texte") or "dates à venir"))
+        # LE NOMBRE DE MODULES ET LEUR DUREE, EN LETTRES — 24/10/2026. « cinq
+        # modules de trois jours » etait ecrit en dur dans le courriel 01 : juste
+        # pour le cycle 2027, faux pour un cycle a quatre modules, et personne ne
+        # l'aurait vu. En lettres, comme nb_journees, parce que c'est ainsi que la
+        # phrase se lit.
+        mods = r.get("modules") or []
+        memes = len({m.get("nb") for m in mods}) == 1 if mods else False
         return {
             "date_debut": _J._d(r["date_debut"]).strftime("%d/%m/%Y"),
             "date_fin": _J._d(r["date_fin"]).strftime("%d/%m/%Y"),
@@ -732,10 +744,84 @@ def _jours_de(S):
             "nb_jours": str(r["nb"]),
             "nb_journees": _J.en_lettres(r["nb"]),
             "modules": "<br>".join(lignes),
+            "nb_modules": _J.en_lettres(len(mods)) if mods else "",
+            "jours_par_module": _J.en_lettres(mods[0]["nb"]) if memes else "",
             "duree_texte": "%s heures" % r["duree"],
         }
     except Exception:
         return {}
+
+
+def _date_limite(S):
+    """La date avant laquelle repondre, en toutes lettres. "" si aucune.
+
+    POURQUOI SUR LA SESSION ET NON DANS LE TEXTE — 24/10/2026. « avant le
+    7 novembre » ecrit en dur dans un modele serait a reecrire a chaque session,
+    et finirait un jour par partir avec la date de l'an dernier. La fiche de
+    session la porte, le modele ne porte que la balise.
+    """
+    brut = str((S or {}).get("date_limite") or "").strip()
+    if not brut:
+        return ""
+    try:
+        import jours as _J
+        d = _J._d(brut)
+        return _J._jour(d) if d else brut
+    except Exception:
+        return brut
+
+
+def _lien_inscription(S):
+    """Le formulaire public de CETTE session, ou "". Aucun reseau.
+
+    Meme calcul que l'ecran de session, et pour la meme raison : le lien se
+    calcule, il ne se stocke pas. Rien a creer a la naissance d'une session,
+    rien a reparer si l'adresse du site change. Une session CLIENT n'en a pas :
+    ses participants sont saisis par le centre.
+    """
+    base = str((S or {}).get("url_signature") or "").strip().rstrip("/")
+    code = str((S or {}).get("code") or "").strip()
+    if not base or not code:
+        return ""
+    try:
+        import sessions as _s
+        if _s.est_client(code):
+            return ""
+        org = _s.organisme_de(code) or ""
+    except Exception:
+        org = ""
+    if not org:
+        return ""
+    return "%s/inscription.html?of=%s&s=%s" % (base, org, code)
+
+
+def _lien_renoncer(ligne, S):
+    """Un message tout pret de renoncement, vers la boite de l'organisme.
+
+    POURQUOI UN « mailto » ET PAS UN BOUTON QUI ENVOIE — 23/10/2026. Un bouton
+    dans un courriel n'envoie rien tout seul : il faudrait une page, donc une
+    adresse publique, donc un formulaire a tenir. Le lien ouvre la messagerie du
+    destinataire avec le message deja ecrit, et la personne appuie sur Envoyer.
+    Limite connue, assumee par Franck : quelques webmails de bureau mal
+    configures n'ouvrent pas ces liens.
+
+    LE NOM VOYAGE DANS L'OBJET, correctement encode : c'est ce qui permet de
+    voir qui renonce sans ouvrir le message, dans une boite qui en recoit vingt.
+    """
+    import urllib.parse
+    qui = ((ligne or {}).get("prenom") or "").strip()
+    nom = ((ligne or {}).get("nom") or "").strip()
+    complet = (qui + " " + nom).strip()
+    formation = str((S or {}).get("nom_formation") or "").strip()
+    contact = str((S or {}).get("mail_contact") or "").strip()
+    if not contact:
+        return ""
+    objet = "%s%s ne souhaite plus s'inscrire" % (
+        (formation + " — ") if formation else "", complet or "Un praticien")
+    corps = ("Bonjour,\n\nJe ne souhaite plus m'inscrire%s.\n\n%s\n"
+             % ((" à " + formation) if formation else "", complet))
+    return "mailto:%s?%s" % (contact, urllib.parse.urlencode(
+        {"subject": objet, "body": corps}, quote_via=urllib.parse.quote))
 
 
 def _couleur_filet(S):
@@ -765,13 +851,23 @@ def _couleur_filet(S):
 
 
 def _tarif_de(ligne, S):
-    """Le montant du par CETTE personne, en texte, pour la balise {{tarif}}."""
+    """Le montant du par CETTE personne, en texte, pour la balise {{tarif}}.
+
+    AVEC SON SEPARATEUR DE MILLIERS — 24/10/2026 : « 6 000 € » et non
+    « 6000 € ». Meme regle que la convention, au meme endroit (convention._euros)
+    pour que les deux ne divergent pas. Les formations courtes etant toutes sous
+    mille euros, aucun mail en service ne change.
+    """
     try:
         import suivi as _suivi
         v = _suivi.montant_attendu(ligne or {}, (S or {}).get("tarif"))
     except Exception:
         return str((ligne or {}).get("montant_du") or (S or {}).get("tarif") or "")
-    return ("%d" % v) if float(v) == int(v) else ("%.2f" % v)
+    try:
+        import convention as _cv
+        return _cv._euros(v)
+    except Exception:
+        return ("%d" % v) if float(v) == int(v) else ("%.2f" % v)
 
 
 def _bloc_retenu(bloc, contexte):
@@ -820,6 +916,15 @@ def contexte(S, ligne=None, extras=None):
         # pas ete rempli : un modele qui porte {{lieu_court}} reste utilisable
         # par une formation qui n'a pas renseigne la forme courte.
         "lieu_court": n(S.get("lieu_court") or S.get("adresse")),
+        # LA DATE LIMITE DE REPONSE, portee par la session. Vide ailleurs.
+        "date_limite": _date_limite(S),
+        # LE LIEN DU FORMULAIRE D'INSCRIPTION DE CETTE SESSION — 24/10/2026.
+        # Il etait calcule par l'ecran de session et passe a la main par la
+        # seule route qui s'en servait : tout autre modele qui portait la balise
+        # la voyait vide. Il se calcule, il ne se stocke pas (voir app.py).
+        "lien_inscription": _lien_inscription(S),
+        # LE MESSAGE TOUT PRET DE RENONCEMENT, fabrique POUR CETTE PERSONNE.
+        "lien_renoncer": _lien_renoncer(ligne, S),
         # La duree se DEDUIT des journees retenues : 7 h par journee. Le champ
         # « duree_heures » de la fiche formation reste le repli, pour les
         # sessions ecrites avant l'existence de la liste.
@@ -829,6 +934,8 @@ def contexte(S, ligne=None, extras=None):
         # utilisable par les deux.
         "modules": _jours_de(S).get("modules") or "",
         "nb_journees": _jours_de(S).get("nb_journees") or "",
+        "nb_modules": _jours_de(S).get("nb_modules") or "",
+        "jours_par_module": _jours_de(S).get("jours_par_module") or "",
         # LE TARIF DE CETTE PERSONNE, pas celui de la session : zero pour un
         # invite. Meme regle que les ecrans et la convention, un seul endroit.
         "tarif": _tarif_de(ligne, S),

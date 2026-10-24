@@ -320,7 +320,7 @@ def documents_deposer():
     type_piece = _CHAMP_VERS_TYPE.get(cle) or (cle if cle in _doc.TYPES_DEPOSES else "")
     if not type_piece:
         return jsonify({"ok": False, "message": "Type de document inconnu : %s." % (cle or "(vide)")})
-    if type_piece in ("programme", "acces", "convocation") \
+    if type_piece in ("programme", "prerequis", "acces", "convocation") \
             and not fichier.filename.lower().endswith(".pdf"):
         return jsonify({"ok": False, "message":
                         "Format refusé : seul le PDF est accepté pour ce document."})
@@ -377,7 +377,8 @@ def _documents_inscrire(type_piece, porteur, cle, ref):
     # portee « formation »
     if porteur not in _S.FORMATIONS:
         return False, "Formation inconnue : %s." % porteur, ""
-    champ = {"programme": "programme_id", "acces": "acces_id"}.get(type_piece)
+    champ = {"programme": "programme_id", "prerequis": "prerequis_id",
+             "acces": "acces_id"}.get(type_piece)
     try:
         with fichiers.modifier(_S._FICHIER_F, {}) as d:
             f = d.setdefault(porteur, {})
@@ -457,7 +458,8 @@ def documents_retirer():
 
 
 # Le champ du formulaire -> le type de piece de la couche « documents ».
-_CHAMP_VERS_TYPE = {"programme_id": "programme", "acces_id": "acces",
+_CHAMP_VERS_TYPE = {"programme_id": "programme", "prerequis_id": "prerequis",
+                    "acces_id": "acces",
                     "pieces_rappel": "convocation",
                     "rib_id": "rib", "reglement_interieur_id": "reglement"}
 
@@ -702,7 +704,8 @@ _CHAMPS_FORMATION = [
     ("modules", "modules"), ("moyens", "moyens pédagogiques"),
     ("prerequis", "prérequis"), ("nature_action", "nature de l'action"),
     ("validation_manuelle", "validation des demandes une par une"),
-    ("programme_id", "programme"), ("acces_id", "informations d'accès"),
+    ("programme_id", "programme"), ("prerequis_id", "matériel et prérequis"),
+    ("acces_id", "informations d'accès"),
     ("pieces_rappel", "pièces du rappel"),
     ("modele_evaluation", "questionnaire d'évaluation"),
     ("modele_satisfaction", "questionnaire de satisfaction"),
@@ -833,6 +836,9 @@ def enregistrer_nouvelle_formation():
         # _extraire_id : accepte un lien Drive complet OU un identifiant nu.
         # Sans cela, une URL collee telle quelle casserait get_media/copy en aval.
         "programme_id": _extraire_id(d.get("programme_id")),
+        # LA PIECE DU MATERIEL. Comme le programme : un lien Drive colle ou une
+        # reference de fichier depose. Vide pour une formation ordinaire.
+        "prerequis_id": _extraire_id(d.get("prerequis_id")),
         "acces_id": _extraire_id(d.get("acces_id")),
         "pieces_rappel": [_extraire_id(x) for x in _pieces_brutes if _extraire_id(x)],
         "modele_evaluation": (d.get("modele_evaluation") or "").strip(),

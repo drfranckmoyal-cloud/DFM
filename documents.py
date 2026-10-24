@@ -240,6 +240,11 @@ def depuis_lien(url):
 # La cle publique, et le champ de la fiche de session qui porte l'identifiant.
 PIECES = {
     "programme": "programme_id",           # par formation
+    # MATERIEL ET PREREQUIS — 24/10/2026, pour Esthetique 360. Une formation
+    # longue demande un equipement : appareil photo, loupes, licence. La fiche
+    # le dit en une phrase (champ « prerequis »), et cette piece le detaille
+    # avec les references et les prix. Vide pour une formation ordinaire.
+    "prerequis": "prerequis_id",           # par formation
     "rib": "rib_id",                       # par organisme
     "acces": "acces_id",                   # commun (le lieu)
     "reglement": "reglement_interieur_id",  # par organisme
@@ -370,6 +375,7 @@ DEPOSES_ORGANISME = "_organisme"
 # plutot que range n'importe ou.
 TYPES_DEPOSES = {
     "programme":   ("formation", "Programme de la formation"),
+    "prerequis":   ("formation", "Matériel et prérequis"),
     "acces":       ("formation", "Plan d'accès et modalités"),
     "convocation": ("formation", "Pièce jointe à la convocation"),
     "rib":         ("organisme", "RIB"),

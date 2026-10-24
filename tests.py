@@ -1177,6 +1177,103 @@ def tests_convention_du_cycle():
         verifier("le texte du cycle est la (%s)" % ou, phrase in tpl, phrase[:34])
 
 
+def tests_courriel_de_validation():
+    """Les balises du courriel 01, et le modele qui s'en sert.
+
+    CE QUI DOIT TENIR : le texte ne porte AUCUNE valeur du cycle 2027. Tout ce
+    qui change d'une session a l'autre — dates, lieu, tarif, nombre de modules,
+    date limite — passe par une balise remplie depuis la fiche. C'est la regle
+    posee par Franck le 23/10/2026 : Esthetique 360 est une formation, pas une
+    session, et ce texte doit resservir en 2028.
+    """
+    import jours as _j
+    import mails as _m
+    print()
+    print("  LE COURRIEL DE VALIDATION")
+
+    modules = [{"titre": "Essentiels", "jours": 3}, {"titre": "Composites", "jours": 3},
+               {"titre": "Usures", "jours": 3}]
+    r = _j.depuis_modules(modules, ["2027-01-06", "2027-03-10", "2027-05-19"])
+    S = {"jours": r["jours"], "modules": r["modules"], "tarif": "6000",
+         "adresse": "61 rue Balard - 75015 Paris",
+         "lieu_court": "Paris 15e (61 rue Balard)",
+         "date_limite": "2026-11-07", "nom_formation": "Esthetique 360",
+         "mail_contact": "contact@essai.test",
+         "url_signature": "https://essai.test", "code": "essai-cycle27"}
+    c = _m.contexte(S, {"prenom": "Camille", "nom": "DURAND"})
+
+    print("    la date limite s'ecrit en lettres, depuis la session")
+    verifier("samedi 7 novembre 2026", c["date_limite"] == "samedi 7 novembre 2026",
+             c["date_limite"])
+    verifier("une session sans date limite rend du vide",
+             _m.contexte({"adresse": "x"})["date_limite"] == "",
+             "[%s]" % _m.contexte({"adresse": "x"})["date_limite"])
+
+    print("    le nombre de modules aussi, et leur duree")
+    verifier("trois modules", c["nb_modules"] == "trois", c["nb_modules"])
+    verifier("de trois jours", c["jours_par_module"] == "trois", c["jours_par_module"])
+    verifier("neuf journees", c["nb_journees"] == "neuf", c["nb_journees"])
+    ord_ = _m.contexte({"jours": ["2027-02-04", "2027-02-05"], "adresse": "x"})
+    verifier("une session ordinaire n'annonce aucun module",
+             ord_["nb_modules"] == "" and ord_["jours_par_module"] == "",
+             "[%s] [%s]" % (ord_["nb_modules"], ord_["jours_par_module"]))
+
+    print("    le tarif porte son separateur de milliers")
+    verifier("6 000 et non 6000", c["tarif"] == "6\u202f000", repr(c["tarif"]))
+    verifier("975 ne change pas",
+             _m.contexte({"tarif": "975", "adresse": "x"})["tarif"] == "975")
+
+    print("    le lien du questionnaire est celui de CETTE session")
+    verifier("il mene au formulaire de la session",
+             c["lien_inscription"]
+             == "https://essai.test/inscription.html?of=mon-organisme&s=essai-cycle27",
+             c["lien_inscription"])
+    verifier("sans adresse de site, rien plutot qu'un lien mort",
+             _m.contexte({"code": "x", "adresse": "y"})["lien_inscription"] == "")
+
+    print("    le renoncement ouvre un message tout pret, nominatif")
+    ren = c["lien_renoncer"]
+    verifier("c'est un mailto vers l'organisme",
+             ren.startswith("mailto:contact@essai.test?"), ren[:40])
+    verifier("le nom est dans l'objet, encode",
+             "Camille%20DURAND" in ren, ren[:120])
+    verifier("et la formation aussi", "Esthetique%20360" in ren)
+    verifier("sans adresse de contact, pas de lien mort",
+             _m.contexte({"adresse": "x"})["lien_renoncer"] == "")
+
+    print("    le modele existe, et aucune de ses balises n'est inconnue")
+    # LE MODELE EST UNE DONNEE, PAS DU CODE. Il vit dans mails.json, que
+    # deployer.sh n'envoie pas et qu'une copie fraiche du depot n'a pas. On ne
+    # fait donc pas echouer la suite s'il manque : on le dit, et on controle son
+    # contenu des qu'il est la — c'est ce controle-la qui a de la valeur.
+    m = _m.modele("invitation-inscription-esthetique360-validation")
+    if not m:
+        print("    (modele absent de cette installation : contrôles de contenu passés)")
+    else:
+        verifier("le modele est pose dans DFM", True)
+        verifier("usage « invitation-inscription »",
+                 m.get("usage") == "invitation-inscription", m.get("usage"))
+        connues = {x for _g, items in _m.BALISES for x, _l, _e in items}
+        texte = " ".join(str(b.get("contenu", "")) + " " + str(b.get("lien", ""))
+                         for b in (m.get("blocs") or []))
+        import re as _re
+        inconnues = sorted(set(_re.findall(r"\{\{([a-z_]+)\}\}", texte)) - connues)
+        verifier("toutes ses balises existent dans DFM", not inconnues,
+                 ", ".join(inconnues))
+        print("    et AUCUNE valeur du cycle 2027 n'est ecrite en dur")
+        for interdit in ("2027", "6000", "6 000", "janvier", "Balard",
+                         "7 novembre", "cinq modules", "quinze"):
+            verifier("« %s » n'est pas dans le texte" % interdit,
+                     interdit not in texte, interdit)
+
+    print("    la piece « materiel et prerequis » est un type connu")
+    import documents as _d
+    verifier("le type existe", "prerequis" in _d.TYPES_DEPOSES)
+    verifier("il appartient a la formation",
+             _d.TYPES_DEPOSES["prerequis"][0] == "formation")
+    verifier("et son champ est nomme", _d.PIECES.get("prerequis") == "prerequis_id")
+
+
 def main():
     print()
     print("  LES TESTS DE DFM")
@@ -1188,7 +1285,7 @@ def main():
                   tests_reparation_base, tests_garde_fous_de_la_base,
                   tests_session_cycle, tests_balises_du_cycle,
                   tests_jalon_validation, tests_fonction_par_defaut,
-                  tests_convention_du_cycle):
+                  tests_convention_du_cycle, tests_courriel_de_validation):
         try:
             essai()
         except Exception as e:

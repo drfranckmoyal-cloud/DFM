@@ -533,6 +533,7 @@ PHRASES = {
     "Passage en file d'attente": "{p} a été placé en file d'attente sur {f}",
     "Promotion depuis la file d'attente": "{p} a été promu depuis la file d'attente sur {f}",
     "Demande validée": "La demande de {p} a été validée sur {f} — {d}",
+    "Demande de confirmation envoyée": "Demande de confirmation définitive envoyée à {p} · {f}",
     "Promu depuis la file d'attente": "{p} a été promu depuis la file d'attente sur {f}",
     "Reintegration": "{p} a été réintégré sur {f} — {d}",
     "Mail de signature envoyé": "Convention envoyée à {p} pour signature · {f}",
@@ -658,6 +659,7 @@ STYLES = {
     # l'evenement s'affichait avec le style par defaut, sans icone ni couleur.
     "Promotion depuis la file d'attente": ("ti-arrow-up", "#4f7ef8", "#eef3fe", "inscriptions"),
     "Demande validée": ("ti-user-check", "#0f9e6a", "#e7f6ef", "inscriptions"),
+    "Demande de confirmation envoyée": ("ti-mail-question", "#4f7ef8", "#eef3fe", "inscriptions"),
     # --- Libelles produits par l'application mais jamais declares ici ---
     # Sans style, une entree tombe sur le point gris « autre » : indistinguable
     # a l'oeil, et surtout inclassable, la categorie servant au filtrage.
