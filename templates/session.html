@@ -435,8 +435,34 @@ html[data-sombre] .jal-rond{background:#20242f}
 </div>
 {% endif %}
 
+{# L'ONGLET DES DEMANDES SE TIENT CONTRE LA LISTE DES INSCRITS — 24/10/2026,
+   a la demande de Franck. C'est l'ordre du parcours : une demande devient un
+   inscrit, les deux se regardent. Entre « Questionnaires » et « File d'attente »,
+   il etait range avec ce qui se consulte, alors qu'il demande une action. #}
+<style>
+/* Il ne suffit pas qu'il soit la : il doit se voir. Un fond ambre et un point
+   qui bat tant qu'une demande attend ; une fois la liste vide, le point
+   s'eteint et l'onglet redevient calme — un signal permanent ne signale rien. */
+.tab-valider{background:#fff8ec;border-radius:8px 8px 0 0;font-weight:500;
+  color:var(--warn);padding-left:13px;padding-right:13px}
+.tab-valider:hover{background:#fdf1dc;color:var(--warn)}
+/* LE THEME SOMBRE A SON PROPRE AMBRE. Un fond creme ecrit en dur y ferait une
+   tache claire au milieu d'une page sombre — meme famille que .br-bandeau plus
+   bas dans la feuille de style, qu'on reprend ici. */
+html[data-sombre] .tab-valider{background:#2d2418}
+html[data-sombre] .tab-valider:hover{background:#3a2f1f}
+.tab-valider.active{color:var(--warn);border-bottom-color:var(--warn)}
+.tab-valider .pt{display:inline-block;width:7px;height:7px;border-radius:50%;
+  background:var(--warn);margin-right:7px;vertical-align:1px;
+  animation:battre 1.8s ease-in-out infinite}
+@keyframes battre{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
+@media (prefers-reduced-motion:reduce){.tab-valider .pt{animation:none}}
+</style>
 <div class="tabs">
   <div class="tab active" onclick="ongletSession(this,'inscrits')">Liste des inscrits</div>
+  {% if s.mode != 'client' and (s.validation_manuelle or s.a_valider) %}
+  <div class="tab tab-valider" onclick="ongletSession(this,'valider')">{% if s.a_valider %}<span class="pt"></span>{% endif %}Demandes à valider{% if s.a_valider %}<span class="tab-alerte orange"><i class="ti ti-user-question"></i>{{ s.a_valider|length }}</span>{% endif %}</div>
+  {% endif %}
   <div class="tab" onclick="ongletSession(this,'quest')">Questionnaires</div>
   {# « FILE D'ATTENTE » ET « DEMANDES & ANNULATIONS » N'ONT PAS D'OBJET POUR UNE
      SESSION CLIENT — 19/08/2026. Le centre envoie sa liste : il n'y a pas de
@@ -444,13 +470,6 @@ html[data-sombre] .jal-rond{background:#20242f}
      session client n'utilise pas. Le serveur le sait deja — envoyer_mail_attente
      et relever_annulations refusent ces sessions ; seule la page l'ignorait. #}
   {% if s.mode != 'client' %}
-  {# LES DEMANDES A VALIDER — 24/10/2026. L'onglet est la DES QUE LA FORMATION
-     valide ses demandes une par une, meme quand il n'y en a aucune : un onglet
-     qui n'apparait qu'une fois rempli ne dit pas ou les demandes vont arriver,
-     et on cherche. Une formation ordinaire ne le voit jamais. #}
-  {% if s.validation_manuelle or s.a_valider %}
-  <div class="tab" onclick="ongletSession(this,'valider')">Demandes à valider{% if s.a_valider %}<span class="tab-alerte orange"><i class="ti ti-user-question"></i>{{ s.a_valider|length }}</span>{% endif %}</div>
-  {% endif %}
   <div class="tab" onclick="ongletSession(this,'attente')">File d'attente{% if s.attente %}<span class="tab-info">{{ s.attente|length }}</span>{% endif %}</div>
   <div class="tab" onclick="ongletSession(this,'autres')">Demandes &amp; annulations{% if s.demandes_annulation %}<span class="tab-alerte rouge"><i class="ti ti-alert-triangle"></i>{{ s.demandes_annulation|length }}</span>{% elif s.a_recontacter %}<span class="tab-alerte orange"><i class="ti ti-message-2"></i>{{ s.a_recontacter|length }}</span>{% endif %}</div>
   {% endif %}
