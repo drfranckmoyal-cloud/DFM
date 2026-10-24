@@ -444,10 +444,12 @@ html[data-sombre] .jal-rond{background:#20242f}
      session client n'utilise pas. Le serveur le sait deja — envoyer_mail_attente
      et relever_annulations refusent ces sessions ; seule la page l'ignorait. #}
   {% if s.mode != 'client' %}
-  {# LES DEMANDES A VALIDER — 24/10/2026. L'onglet n'existe que s'il y a quelque
-     chose dedans : une formation sans validation une par une ne le voit jamais. #}
-  {% if s.a_valider %}
-  <div class="tab" onclick="ongletSession(this,'valider')">Demandes à valider<span class="tab-alerte orange"><i class="ti ti-user-question"></i>{{ s.a_valider|length }}</span></div>
+  {# LES DEMANDES A VALIDER — 24/10/2026. L'onglet est la DES QUE LA FORMATION
+     valide ses demandes une par une, meme quand il n'y en a aucune : un onglet
+     qui n'apparait qu'une fois rempli ne dit pas ou les demandes vont arriver,
+     et on cherche. Une formation ordinaire ne le voit jamais. #}
+  {% if s.validation_manuelle or s.a_valider %}
+  <div class="tab" onclick="ongletSession(this,'valider')">Demandes à valider{% if s.a_valider %}<span class="tab-alerte orange"><i class="ti ti-user-question"></i>{{ s.a_valider|length }}</span>{% endif %}</div>
   {% endif %}
   <div class="tab" onclick="ongletSession(this,'attente')">File d'attente{% if s.attente %}<span class="tab-info">{{ s.attente|length }}</span>{% endif %}</div>
   <div class="tab" onclick="ongletSession(this,'autres')">Demandes &amp; annulations{% if s.demandes_annulation %}<span class="tab-alerte rouge"><i class="ti ti-alert-triangle"></i>{{ s.demandes_annulation|length }}</span>{% elif s.a_recontacter %}<span class="tab-alerte orange"><i class="ti ti-message-2"></i>{{ s.a_recontacter|length }}</span>{% endif %}</div>
@@ -696,7 +698,18 @@ html[data-sombre] .jal-rond{background:#20242f}
           <td style="white-space:nowrap"><button type="button" class="pro-btn" title="Valider cette demande et arreter son prix" data-mail="{{ l.mail }}" onclick="ouvrirValidation(this)"><i class="ti ti-user-check" style="font-size:12px"></i>Valider</button> <a class="icon-btn" title="Ecrire un mail" href="mailto:{{ l.mail }}" aria-label="mail"><i class="ti ti-mail"></i></a></td>
         </tr>
       {% else %}
-        <tr><td colspan="5" class="vide"><i class="ti ti-user-question"></i>Aucune demande en attente</td></tr>
+        <tr><td colspan="5" class="vide" style="padding:26px 18px">
+          <i class="ti ti-user-question"></i>
+          <div style="font-weight:500;margin-bottom:6px">Aucune demande pour l'instant</div>
+          <div style="font-size:12px;line-height:1.7;max-width:560px;margin:0 auto;color:var(--muted)">
+            Elles arriveront <b>ici</b>, dans les dix minutes qui suivent le remplissage du
+            questionnaire d'inscription. Chacune recevra son accusé de réception, mais
+            <b>rien d'autre ne partira</b> — ni convention, ni convocation — et elle
+            n'occupera pas de place tant que vous ne l'aurez pas validée.<br>
+            Valider une demande vous demandera <b>le prix facturé à la personne</b>, ou de la
+            marquer invitée. Elle rejoindra alors la liste des inscrits.
+          </div>
+        </td></tr>
       {% endfor %}
       </tbody>
     </table>

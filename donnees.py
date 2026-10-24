@@ -254,6 +254,11 @@ def _resume(S, lignes, fiche_sheet):
         # formation qui ne demande pas de validation une par une, c'est-a-dire
         # pour toutes celles qui existaient avant ce jour.
         "a_valider": a_valider,
+        # LA FORMATION EXIGE-T-ELLE UNE VALIDATION ? L'ecran en a besoin meme
+        # quand la liste est vide : un onglet qui n'apparait qu'une fois rempli
+        # ne dit pas ou les demandes vont arriver, et on cherche.
+        "validation_manuelle": bool((_sessions.FORMATIONS.get(S.get("formation") or "")
+                                     or {}).get("validation_manuelle")),
         "annules": annules, "demandes_annulation": demandes, "a_recontacter": recontacter,
         "invites": invites, "payants": payants,
         "places_max": maxi, "places_occupees": len(actifs),
