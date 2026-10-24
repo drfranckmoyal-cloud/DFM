@@ -173,20 +173,13 @@ def pour(code_session, signature_client="", ligne=None):
     if not lignes:
         return None, "Aucun participant saisi."
 
-    # UNE CONVENTION N'INVENTE PAS UNE FONCTION. Elle etait comblee par
-    # « Chirurgien-dentiste » des qu'elle manquait : une assistante dentaire s'y
-    # trouvait declaree chirurgien-dentiste, sur un acte signe par les deux
-    # parties. Tranche par Franck le 22/08/2026 : on refuse d'editer, et on dit qui.
-    _sans = [(l["prenom"] + " " + l["nom"]).strip()
-             for l in lignes if not (l.get("fonction") or "").strip()]
-    if _sans:
-        return None, ("La fonction n'est pas renseignée pour %s%s. Une convention ne "
-                      "peut pas l'inventer : complétez-la dans la saisie des "
-                      "participants."
-                      % (", ".join(_sans[:6]),
-                         " et %d autre(s)" % (len(_sans) - 6) if len(_sans) > 6 else ""))
+    # UNE FONCTION MANQUANTE VAUT « CHIRURGIEN-DENTISTE » — 24/10/2026, regle de
+    # Franck. Elle remplace le refus pose le 22/08/2026 ; la raison du changement
+    # et le risque qu'il laisse sont ecrits dans contacts.fonction_ou_defaut, en
+    # un seul endroit pour les deux chemins de convention.
+    import contacts as _C
     participants = [{"nom": (l["prenom"] + " " + l["nom"]).strip(),
-                     "fonction": (l.get("fonction") or "").strip()}
+                     "fonction": _C.fonction_ou_defaut(l.get("fonction"))}
                     for l in lignes]
 
     sig, tam, manque = _images(code_session)
@@ -299,11 +292,10 @@ def _individuelle(S, ligne, signature_client="", code_session=None):
     nom = ((ligne.get("prenom") or "") + " " + (ligne.get("nom") or "")).strip()
     if not nom:
         return None, "Ligne de suivi sans nom : rien n'est édité."
-    # MEME REGLE COTE INDIVIDUEL : on ne comble pas, on refuse.
-    fonction = (ligne.get("fonction") or "").strip()
-    if not fonction:
-        return None, ("La fonction de %s n'est pas renseignée. Une convention ne "
-                      "peut pas l'inventer." % nom)
+    # MEME REGLE COTE INDIVIDUEL : le defaut, et non le refus. Voir
+    # contacts.fonction_ou_defaut.
+    import contacts as _C
+    fonction = _C.fonction_ou_defaut(ligne.get("fonction"))
 
     sig, tam, manque = _images(code_session)
     if manque:

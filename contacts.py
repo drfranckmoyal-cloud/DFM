@@ -114,6 +114,31 @@ def csp(fonction):
     return CSP_PAR_FONCTION.get((fonction or "").strip(), "")
 FONCTION_DEFAUT = FONCTIONS[0]
 
+
+def fonction_ou_defaut(valeur):
+    """La fonction lue, ou « Chirurgien-dentiste » si rien n'est renseigne.
+
+    REGLE POSEE PAR FRANCK LE 24/10/2026, et elle REVIENT SUR CELLE DU
+    22/08/2026. Ce jour-la, la convention avait cesse de combler une fonction
+    manquante : une assistante dentaire s'etait trouvee declaree
+    chirurgien-dentiste sur un acte signe par les deux parties, et il avait
+    tranche qu'il valait mieux refuser d'editer.
+
+    CE QUI A CHANGE DEPUIS. Le formulaire d'inscription en service POSE la
+    question, et toutes les sessions ouvertes depuis portent la reponse. Il ne
+    reste que les inscrits venus d'un ancien formulaire Google qui ne la posait
+    pas — dix-sept personnes de la session du 4 novembre 2026, toutes
+    chirurgiens-dentistes, dont huit conventions signees restaient bloquees a
+    onze jours de la formation. Le refus protegeait d'un cas qui ne se produit
+    plus a l'entree, et bloquait un cas reel.
+
+    LE RISQUE RESIDUEL, EN UNE PHRASE : une assistante dentaire inscrite par un
+    formulaire qui ne pose pas la question serait declaree chirurgien-dentiste.
+    Le seul vrai remede est que le formulaire la pose — c'est le cas — et la
+    fonction reste modifiable a l'ecran, sur la fiche de l'apprenant.
+    """
+    return (valeur or "").strip() or FONCTION_DEFAUT
+
 # Un PROSPECT est un chirurgien-dentiste, et rien d'autre. Les assistantes, les
 # cadres et les non-cadres existent dans la base parce que leur employeur est
 # client ; ils ne sont pas pour autant des cibles de prospection. Ils restent

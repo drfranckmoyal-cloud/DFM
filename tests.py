@@ -1037,6 +1037,58 @@ def tests_jalon_validation():
              _sv.montant_attendu(dict(vide), "6000") == 6000.0)
 
 
+def tests_fonction_par_defaut():
+    """Une fonction manquante vaut « Chirurgien-dentiste » — regle du 24/10/2026.
+
+    ELLE REVIENT SUR CELLE DU 22/08/2026, qui faisait refuser la convention.
+    Le motif du revirement et le risque qu'il laisse sont ecrits dans
+    contacts.fonction_ou_defaut ; ici on verifie seulement que la regle
+    s'applique PARTOUT de la meme facon, et qu'elle n'ecrase jamais une
+    fonction renseignee.
+    """
+    import contacts as _C
+    print()
+    print("  LA FONCTION PAR DEFAUT")
+
+    print("    la regle, en un seul endroit")
+    for brut, attendu, quoi in (("", "Chirurgien-dentiste", "une case vide"),
+                                (None, "Chirurgien-dentiste", "une case absente"),
+                                ("   ", "Chirurgien-dentiste", "des espaces"),
+                                ("\n\t", "Chirurgien-dentiste", "un retour a la ligne")):
+        verifier("%s vaut chirurgien-dentiste" % quoi,
+                 _C.fonction_ou_defaut(brut) == attendu, _C.fonction_ou_defaut(brut))
+    print("    et elle n'ecrase JAMAIS une reponse donnee")
+    for brut in ("Assistant-e dentaire", "Assistant(e) dentaire",
+                 "Étudiant-e en chirurgie dentaire", "Employé cadre"):
+        verifier("« %s » est conservee" % brut[:28],
+                 _C.fonction_ou_defaut(brut) == brut, _C.fonction_ou_defaut(brut))
+    verifier("les espaces autour sont retires",
+             _C.fonction_ou_defaut("  Assistant-e dentaire  ") == "Assistant-e dentaire")
+
+    print("    la convention ne refuse plus, elle applique le defaut")
+    ici = os.path.dirname(os.path.abspath(__file__))
+    conv = open(os.path.join(ici, "convention.py"), encoding="utf-8").read()
+    verifier("le refus cote individuel a disparu",
+             "La fonction de %s n'est pas renseignée" not in conv)
+    verifier("le refus cote session client aussi",
+             "La fonction n'est pas renseignée pour" not in conv)
+    verifier("les deux chemins passent par la regle commune",
+             conv.count("fonction_ou_defaut") >= 2,
+             "%d appel(s)" % conv.count("fonction_ou_defaut"))
+
+    print("    et elle se pose A L'ENTREE, pour se voir et se corriger a l'ecran")
+    for fichier in ("importer_demandes.py", "importer_inscriptions.py"):
+        texte = open(os.path.join(ici, fichier), encoding="utf-8").read()
+        verifier("%s l'ecrit sur la ligne" % fichier,
+                 "fonction_ou_defaut" in texte, fichier)
+
+    print("    la CSP deduite reste muette sur une fonction inconnue")
+    verifier("un chirurgien-dentiste est cadre",
+             _C.csp("Chirurgien-dentiste") == "Cadre", _C.csp("Chirurgien-dentiste"))
+    verifier("une fonction vide ne donne AUCUNE csp",
+             _C.csp("") == "", "[%s]" % _C.csp(""))
+
+
 def main():
     print()
     print("  LES TESTS DE DFM")
@@ -1047,7 +1099,7 @@ def main():
                   tests_entete_des_mails, tests_formation_modules,
                   tests_reparation_base, tests_garde_fous_de_la_base,
                   tests_session_cycle, tests_balises_du_cycle,
-                  tests_jalon_validation):
+                  tests_jalon_validation, tests_fonction_par_defaut):
         try:
             essai()
         except Exception as e:

@@ -201,6 +201,11 @@ for l in nouvelles:
         # Une reponse hors catalogue est ramenee, jamais refusee : une
         # inscription ne doit pas echouer sur un libelle inattendu.
         d["fonction"] = _C.fonction_valide(brute)
+    # LE FORMULAIRE NE POSE PAS TOUJOURS LA QUESTION — c'est le cas des anciens
+    # Google Forms. Regle de Franck du 24/10/2026 : en l'absence de reponse, on
+    # ecrit « Chirurgien-dentiste ». Voir contacts.fonction_ou_defaut.
+    import contacts as _C2
+    d["fonction"] = _C2.fonction_ou_defaut(d.get("fonction"))
     _a_ajouter.append(d)
 suivi.ajouter_plusieurs(_a_ajouter, CODE)
 print(f"\n-> {len(nouvelles)} ligne(s) ajoutee(s).")

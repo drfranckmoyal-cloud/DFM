@@ -24,6 +24,7 @@ import sys
 from datetime import datetime
 
 import inscription as I
+import contacts as _contacts
 import invitations as _inv
 import journal
 import sessions as _s
@@ -124,6 +125,12 @@ def traiter(code, demandes):
         ligne["horodateur"] = _horodateur(d.get("horodateur"))
         ligne["date_formation"] = S.get("date_texte") or ""
         ligne["montant_du"] = str(S.get("tarif") or "")
+        # LA FONCTION SE POSE A L'ENTREE, pas a chaque impression — 24/10/2026.
+        # Le formulaire en service pose la question ; si une reponse manque, la
+        # regle de Franck veut « Chirurgien-dentiste ». On l'ECRIT sur la ligne
+        # plutot que de la deduire plus tard : elle se voit a l'ecran, et elle
+        # se corrige d'un clic sur la fiche de l'apprenant si elle est fausse.
+        ligne["fonction"] = _contacts.fonction_ou_defaut(ligne.get("fonction"))
         # UNE DEMANDE, ET PAS ENCORE UNE INSCRIPTION — 24/10/2026. Quand la
         # formation exige une validation une par une, la ligne nait marquee
         # « a valider » : elle apparait a l'ecran, elle recoit son accuse de
