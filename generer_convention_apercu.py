@@ -50,7 +50,10 @@ a_faire = [l for l in lignes
            and not l["annule_le"]
            and not l["annulation_demandee_le"]
            and "recontact" not in l["demande"].lower()
-           and not (l["file_attente_le"] and not l["promu_le"])]
+           # LA FILE D'ATTENTE ET LA DEMANDE NON VALIDEE, d'un seul filtre —
+           # 24/10/2026. Ni l'une ni l'autre n'a de convention a preparer : la
+           # premiere n'a pas de place, la seconde n'est pas encore inscrite.
+           and suivi.calculer_statut(l) not in suivi.PAS_ENCORE_INSCRIT]
 if not a_faire:
     print("-> Aucune convention a preparer.")
     raise SystemExit(0)

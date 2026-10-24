@@ -62,7 +62,7 @@ a_generer = [l for l in lignes
              if not l["attestation_le"]
              and not l["annule_le"]
              and "recontact" not in l["demande"].lower()
-             and suivi.calculer_statut(l) != "File d'attente"]
+             and suivi.calculer_statut(l) not in suivi.PAS_ENCORE_INSCRIT]
 if not a_generer:
     print("-> Aucune attestation a generer.")
     exit()

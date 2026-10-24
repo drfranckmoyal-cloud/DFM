@@ -29,6 +29,9 @@ ACTIONS = {
     "file_attente_le": ("Place en file d'attente", "ti-hourglass"),
     "mail_attente_le": ("Mail file d'attente envoyé", "ti-mail"),
     "promu_le": ("Promotion depuis la file d'attente", "ti-arrow-up"),
+    # LE JALON DE VALIDATION — 24/10/2026. « a_valider_le » n'apparait pas ici :
+    # la marque est posee par l'import, qui journalise deja sa propre entree.
+    "valide_le": ("Demande validée", "ti-user-check"),
     "present": ("Présence pointée", "ti-user-check"),
 }
 def libelle(champ):
@@ -529,6 +532,7 @@ PHRASES = {
     "Place en file d'attente": "{p} a été placé en file d'attente sur {f}",
     "Passage en file d'attente": "{p} a été placé en file d'attente sur {f}",
     "Promotion depuis la file d'attente": "{p} a été promu depuis la file d'attente sur {f}",
+    "Demande validée": "La demande de {p} a été validée sur {f} — {d}",
     "Promu depuis la file d'attente": "{p} a été promu depuis la file d'attente sur {f}",
     "Reintegration": "{p} a été réintégré sur {f} — {d}",
     "Mail de signature envoyé": "Convention envoyée à {p} pour signature · {f}",
@@ -653,6 +657,7 @@ STYLES = {
     # Libelle reellement ecrit par la route de promotion : sans cette entree,
     # l'evenement s'affichait avec le style par defaut, sans icone ni couleur.
     "Promotion depuis la file d'attente": ("ti-arrow-up", "#4f7ef8", "#eef3fe", "inscriptions"),
+    "Demande validée": ("ti-user-check", "#0f9e6a", "#e7f6ef", "inscriptions"),
     # --- Libelles produits par l'application mais jamais declares ici ---
     # Sans style, une entree tombe sur le point gris « autre » : indistinguable
     # a l'oeil, et surtout inclassable, la categorie servant au filtrage.

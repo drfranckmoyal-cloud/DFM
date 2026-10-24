@@ -48,7 +48,10 @@ concernes = [l for l in lignes
              if not l["rappel_le"]
              and not l["annule_le"]
              and not l["annulation_demandee_le"]
-             and not (l["file_attente_le"] and not l["promu_le"])
+             # LA FILE D'ATTENTE ET LA DEMANDE NON VALIDEE, d'un seul filtre —
+             # 24/10/2026. On ne convoque pas quelqu'un qui n'a pas de place,
+             # ni quelqu'un dont l'inscription n'est pas encore validee.
+             and suivi.calculer_statut(l) not in suivi.PAS_ENCORE_INSCRIT
              and "recontact" not in (l["demande"] or "").lower()]
 if not concernes:
     print("-> Aucun rappel a envoyer.")

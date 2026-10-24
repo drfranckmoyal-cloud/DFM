@@ -204,8 +204,12 @@ def _resume(S, lignes, fiche_sheet):
     annules = [l for l in lignes if l["statut_calcule"] == "Annulee"]
     demandes = [l for l in lignes if l["statut_calcule"] == "Annulation demandee"]
     recontacter = [l for l in lignes if l["statut_calcule"] == "A recontacter"]
+    a_valider = [l for l in lignes if l["statut_calcule"] == "Demande à valider"]
+    # UNE DEMANDE NON VALIDEE N'EST PAS UN INSCRIT : elle n'entre ni dans
+    # l'effectif, ni dans l'encaisse attendue. Voir suivi.PAS_ENCORE_INSCRIT.
+    import suivi as _sv
     actifs = [l for l in lignes if l["statut_calcule"] not in
-              ("File d'attente", "Annulee", "Annulation demandee", "A recontacter")]
+              _sv.PAS_ENCORE_INSCRIT + ("Annulee", "Annulation demandee", "A recontacter")]
     encaisse = 0.0
     for l in actifs:
         if l["paiement_recu_le"]:
@@ -246,6 +250,10 @@ def _resume(S, lignes, fiche_sheet):
         # toujours, affiches nulle part jusqu'au 05/08/2026.
         "accessibilite": _accessibilite(actifs),
         "lignes": lignes, "actifs": actifs, "attente": attente,
+        # LES DEMANDES PAS ENCORE VALIDEES — 24/10/2026. Vide pour toute
+        # formation qui ne demande pas de validation une par une, c'est-a-dire
+        # pour toutes celles qui existaient avant ce jour.
+        "a_valider": a_valider,
         "annules": annules, "demandes_annulation": demandes, "a_recontacter": recontacter,
         "invites": invites, "payants": payants,
         "places_max": maxi, "places_occupees": len(actifs),
@@ -346,6 +354,15 @@ def global_kpi():
         "alertes": {
             "annulations": sum(len(s["demandes_annulation"]) for s in sessions),
             "attente": sum(len(s["attente"]) for s in sessions),
+            # UNE DEMANDE NON VALIDEE DOIT SE VOIR DES LA PAGE D'ACCUEIL —
+            # 24/10/2026. Elle n'apparait dans aucun compte d'inscrits, par
+            # construction : sans cette alerte, une demande pourrait dormir
+            # des semaines sans que rien ne la signale. C'est exactement le
+            # defaut du 23/10/2026, ou une inscrite n'etait visible que dans
+            # une banderole d'erreur.
+            "a_valider": sum(len(s.get("a_valider") or []) for s in sessions),
+            "qui_a_valider": [_qui(l, s) for s in sessions
+                              for l in (s.get("a_valider") or [])][:6],
             "impayes": sum(1 for s in sessions for l in s["actifs"]
                            if l["mail2_envoye_le"] and not l["paiement_recu_le"]
                            and not l.get("invite_le")),
@@ -541,7 +558,8 @@ def tous_praticiens():
                 "code": s["code"], "formation": s["session"]["nom_formation"],
                 "date": s["debut"], "statut": statut, "passee": s["passee"],
             })
-            if statut not in ("A recontacter", "Annulee", "Annulation demandee", "File d'attente"):
+            if statut not in (("A recontacter", "Annulee", "Annulation demandee")
+                              + __import__("suivi").PAS_ENCORE_INSCRIT):
                 p["participations"] += 1
             if l["paiement_recu_le"]:
                 p["regle"] += 1

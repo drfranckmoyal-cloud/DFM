@@ -2,7 +2,8 @@ from sessions import session
 from datetime import datetime, date
 import suivi
 S = session()
-ORDRE = ["Annulation demandee", "File d'attente", "A recontacter", "A contacter",
+ORDRE = ["Annulation demandee", "Demande à valider", "File d'attente",
+         "A recontacter", "A contacter",
          "En attente signature", "Convention a generer", "Mail 2 a envoyer",
          "En attente reglement", "Reglee", "Annulee"]
 lignes = suivi.lire_lignes()
@@ -44,7 +45,7 @@ if not lignes:
     exit()
 actifs = [l for l in lignes if "recontact" not in l["demande"].lower()
           and not l["annule_le"] and not l["annulation_demandee_le"]
-          and suivi.calculer_statut(l) != "File d'attente"]
+          and suivi.calculer_statut(l) not in suivi.PAS_ENCORE_INSCRIT]
 regles = [l for l in actifs if l["paiement_recu_le"]]
 encaisse = 0
 for l in regles:
@@ -83,5 +84,7 @@ for statut in ORDRE:
             detail = f"  - depuis le {l['file_attente_le'][:10]}"
             if not l["mail_attente_le"]:
                 detail += " - PAS PREVENU"
+        elif statut == "Demande à valider":
+            detail = f"  - demande du {str(l.get('a_valider_le') or '')[:10]}"
         print(f"    . {l['prenom']} {l['nom']:<18}{detail}")
 print("\n" + "=" * 62)

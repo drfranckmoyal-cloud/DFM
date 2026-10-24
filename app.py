@@ -701,6 +701,7 @@ _CHAMPS_FORMATION = [
     ("descriptif_inscription", "descriptif du formulaire"),
     ("modules", "modules"), ("moyens", "moyens pédagogiques"),
     ("prerequis", "prérequis"), ("nature_action", "nature de l'action"),
+    ("validation_manuelle", "validation des demandes une par une"),
     ("programme_id", "programme"), ("acces_id", "informations d'accès"),
     ("pieces_rappel", "pièces du rappel"),
     ("modele_evaluation", "questionnaire d'évaluation"),
@@ -810,6 +811,13 @@ def enregistrer_nouvelle_formation():
         "moyens": [m.strip() for m in (d.get("moyens") or "").split("\n") if m.strip()],
         "prerequis": (d.get("prerequis") or "").strip(),
         "nature_action": (d.get("nature_action") or "").strip(),
+        # LA VALIDATION UNE PAR UNE — 24/10/2026, pour Esthetique 360. Une
+        # demande d'inscription n'est PAS une inscription : elle attend d'etre
+        # validee a la main, et c'est a ce moment que le prix de la personne est
+        # arrete. Decoche, rien ne change : c'est le cas de toutes les
+        # formations existantes, ou une inscription part directement en
+        # convention.
+        "validation_manuelle": bool(d.get("validation_manuelle")),
         "duree_heures": (d.get("duree_heures") or "14 heures").strip(),
         "tarif": _tarif_propre,
         "places_max": int(d.get("places_max") or 14),
@@ -2558,7 +2566,7 @@ def _capacite(S, lignes):
     actifs = [l for l in lignes
               if "recontact" not in (l.get("demande") or "").lower()
               and not l.get("annule_le") and not l.get("annulation_demandee_le")
-              and _suivi.calculer_statut(l) != "File d'attente"]
+              and _suivi.calculer_statut(l) not in _suivi.PAS_ENCORE_INSCRIT]
     maxi = int(S.get("places_max") or 0)
     return len(actifs), maxi, maxi - len(actifs)
 @app.route("/session/<code>/promotion/impact")
@@ -2632,6 +2640,133 @@ def promouvoir_depuis_attente(code):
     except Exception:
         pass
     return jsonify({"ok": True, "nom": nom_prenom, "quand": quand})
+# ---------------------------------------------------------------------------
+# LA VALIDATION D'UNE DEMANDE
+#
+# LE JALON POSE LE 24/10/2026, pour Esthetique 360. Jusqu'ici une inscription
+# arrivait du formulaire et partait aussitot en convention. Pour un cycle dont
+# on choisit le groupe — douze places, vingt-deux demandes — il faut un arret :
+# la demande apparait, elle recoit son accuse de reception, et rien d'autre ne
+# bouge tant qu'elle n'est pas validee a la main.
+#
+# C'EST LA QUE LE PRIX SE DECIDE. Les 6 000 euros du cycle sont adaptables
+# personne par personne : le montant s'arrete au moment de la validation, et
+# pas avant, parce qu'avant on ne sait pas encore qui entre dans le groupe.
+# L'invitation est le meme geste avec un montant nul.
+# ---------------------------------------------------------------------------
+
+@app.route("/session/<code>/validation/impact")
+def impact_validation(code):
+    """Ce que la validation changera, avant de la faire."""
+    if code not in SESSIONS:
+        return jsonify({"ok": False, "message": "Session inconnue"})
+    import suivi as _suivi
+    S = fiche_session(code)
+    mail = (request.args.get("mail") or "").strip().lower()
+    try:
+        lignes = _lignes_onglet(S)
+    except Exception as e:
+        return jsonify({"ok": False, "message": "Lecture du suivi : " + str(e)})
+    cible = next((l for l in lignes
+                  if (l.get("mail") or "").strip().lower() == mail), None)
+    if cible is None:
+        return jsonify({"ok": False, "message": "Praticien introuvable dans cette session."})
+    if _suivi.calculer_statut(cible) != "Demande à valider":
+        return jsonify({"ok": False, "message":
+                        "Cette demande n'est plus en attente de validation."})
+    occupees, maxi, libres = _capacite(S, lignes)
+    attente = [l for l in lignes
+               if _suivi.calculer_statut(l) == "Demande à valider"]
+    attente.sort(key=lambda l: l.get("a_valider_le") or "")
+    position = next((i for i, l in enumerate(attente, 1)
+                     if (l.get("mail") or "").strip().lower() == mail), 0)
+    return jsonify({"ok": True,
+                    "nom": ((cible.get("prenom") or "") + " "
+                            + (cible.get("nom") or "")).strip(),
+                    "mail": cible.get("mail") or "",
+                    "ville": cible.get("ville") or "",
+                    "depuis": str(cible.get("a_valider_le") or "")[:10],
+                    "tarif": str(S.get("tarif") or ""),
+                    # Le montant deja porte par la ligne : l'import y a mis le
+                    # tarif de la session, et c'est la proposition par defaut.
+                    "montant": str(cible.get("montant_du") or S.get("tarif") or ""),
+                    "occupees": occupees, "maxi": maxi, "libres": libres,
+                    "position": position, "en_attente": len(attente),
+                    "complet": bool(maxi and libres <= 0)})
+
+
+@app.route("/session/<code>/validation", methods=["POST"])
+def valider_demande(code):
+    """Valider une demande : elle devient une inscription, avec son prix."""
+    if code not in SESSIONS:
+        return jsonify({"ok": False, "message": "Session inconnue"})
+    _g = _of_garde("mail")
+    if _g:
+        return jsonify({"ok": False, "message": _g})
+    _v = _et_verrou(code, "validation")
+    if _v:
+        return jsonify({"ok": False, "message": _v})
+    from datetime import datetime as dt
+    import journal
+    import suivi as _suivi
+    from sessions import nombre as _nb
+    S = fiche_session(code)
+    mail = (request.form.get("mail") or "").strip().lower()
+    invite = str(request.form.get("invite") or "").strip() in ("1", "true", "on")
+    brut = (request.form.get("montant") or "").strip()
+    try:
+        lignes = _lignes_onglet(S)
+    except Exception as e:
+        return jsonify({"ok": False, "message": "Lecture du suivi : " + str(e)})
+    cible = next((l for l in lignes
+                  if (l.get("mail") or "").strip().lower() == mail), None)
+    if cible is None:
+        return jsonify({"ok": False, "message": "Praticien introuvable dans cette session."})
+    if cible.get("valide_le"):
+        return jsonify({"ok": False, "message": "Cette demande a déjà été validée."})
+    if not cible.get("a_valider_le"):
+        return jsonify({"ok": False, "message":
+                        "Cette inscription n'est pas une demande en attente de validation."})
+
+    # LE MONTANT EST OBLIGATOIRE, SAUF POUR UN INVITE. Valider sans dire le
+    # prix laisserait la facture se fabriquer sur le tarif de la session, ce qui
+    # est precisement ce qu'on veut pouvoir adapter personne par personne.
+    if invite:
+        montant = "0"
+    else:
+        if not brut:
+            return jsonify({"ok": False, "message":
+                            "Indiquez le prix facturé à cette personne, ou cochez "
+                            "« invité·e ». Rien n'a été enregistré."})
+        v = _nb(brut, None)
+        if v is None or v < 0:
+            return jsonify({"ok": False, "message":
+                            "« %s » n'est pas un montant lisible. Rien n'a été "
+                            "enregistré." % brut[:30]})
+        montant = str(int(v)) if float(v).is_integer() else str(v)
+
+    quand = dt.now().strftime("%d/%m/%Y %H:%M")
+    ecritures = {"valide_le": quand, "montant_du": montant}
+    # L'INVITATION SE POSE ICI, dans le meme geste : c'est le meme choix vu de
+    # l'autre cote. Voir suivi.montant_attendu, qui rend zero pour un invite.
+    if invite and not cible.get("invite_le"):
+        ecritures["invite_le"] = quand
+    try:
+        _suivi.ecrire_plusieurs(cible["_numero"], ecritures, code)
+    except Exception as e:
+        return jsonify({"ok": False, "message": "Enregistrement impossible : " + str(e)})
+
+    nom_prenom = ((cible.get("prenom") or "") + " " + (cible.get("nom") or "")).strip()
+    detail = ("invité·e, rien à régler" if invite else "prix arrêté à %s €" % montant)
+    try:
+        journal.ecrire("Demande validée", nom_prenom, detail, montant, code)
+    except Exception:
+        pass
+    return jsonify({"ok": True, "nom": nom_prenom, "quand": quand,
+                    "invite": invite, "montant": montant,
+                    "statut": _suivi.calculer_statut(dict(cible, **ecritures))})
+
+
 import os as _os
 import json as _json
 import time as _time

@@ -444,6 +444,11 @@ html[data-sombre] .jal-rond{background:#20242f}
      session client n'utilise pas. Le serveur le sait deja — envoyer_mail_attente
      et relever_annulations refusent ces sessions ; seule la page l'ignorait. #}
   {% if s.mode != 'client' %}
+  {# LES DEMANDES A VALIDER — 24/10/2026. L'onglet n'existe que s'il y a quelque
+     chose dedans : une formation sans validation une par une ne le voit jamais. #}
+  {% if s.a_valider %}
+  <div class="tab" onclick="ongletSession(this,'valider')">Demandes à valider<span class="tab-alerte orange"><i class="ti ti-user-question"></i>{{ s.a_valider|length }}</span></div>
+  {% endif %}
   <div class="tab" onclick="ongletSession(this,'attente')">File d'attente{% if s.attente %}<span class="tab-info">{{ s.attente|length }}</span>{% endif %}</div>
   <div class="tab" onclick="ongletSession(this,'autres')">Demandes &amp; annulations{% if s.demandes_annulation %}<span class="tab-alerte rouge"><i class="ti ti-alert-triangle"></i>{{ s.demandes_annulation|length }}</span>{% elif s.a_recontacter %}<span class="tab-alerte orange"><i class="ti ti-message-2"></i>{{ s.a_recontacter|length }}</span>{% endif %}</div>
   {% endif %}
@@ -671,6 +676,195 @@ html[data-sombre] .jal-rond{background:#20242f}
   {% endif %}
 
 </div>
+
+<div id="vue-valider" style="display:none">
+  <div class="table-wrap">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:500">
+      Demandes d'inscription <span style="color:var(--muted);font-weight:400">· {{ s.a_valider|length }}</span>
+      <span style="float:right;font-size:11px;color:var(--muted);font-weight:400">
+        Elles n'occupent pas de place et ne reçoivent aucune convention tant qu'elles ne sont pas validées</span>
+    </div>
+    <table>
+      <thead><tr><th>Praticien</th><th style="width:110px">Ville</th><th style="width:130px">Demande du</th><th style="width:100px">Accusé</th><th style="width:170px"></th></tr></thead>
+      <tbody>
+      {% for l in s.a_valider|sort(attribute='a_valider_le') %}
+        <tr>
+          <td><strong style="font-size:12px">{{ l.nom }} {{ l.prenom }}</strong> <a class="icon-btn" style="width:22px;height:20px" title="Ouvrir la fiche de cet apprenant" href="/apprenant/{{ l.mail }}" onclick="event.stopPropagation()"><i class="ti ti-user-circle" style="font-size:14px"></i></a><br><span style="color:var(--muted);font-size:10px">{{ l.mail }}</span></td>
+          <td style="font-size:11px;color:var(--muted)">{{ l.ville }}</td>
+          <td style="font-size:12px">{{ l.a_valider_le[:10] }}</td>
+          <td>{% if l.mail1_envoye_le %}<span class="chip chip-g"><span class="dot dot-g"></span>Oui</span>{% else %}<span class="chip chip-w"><span class="dot dot-w"></span>—</span>{% endif %}</td>
+          <td style="white-space:nowrap"><button type="button" class="pro-btn" title="Valider cette demande et arreter son prix" data-mail="{{ l.mail }}" onclick="ouvrirValidation(this)"><i class="ti ti-user-check" style="font-size:12px"></i>Valider</button> <a class="icon-btn" title="Ecrire un mail" href="mailto:{{ l.mail }}" aria-label="mail"><i class="ti ti-mail"></i></a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="vide"><i class="ti ti-user-question"></i>Aucune demande en attente</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# LA FENETRE DE VALIDATION — 24/10/2026. C'est ici que le prix de la personne
+   est arrêté : le cycle est annoncé à un tarif, adaptable personne par personne.
+   Un invité est le même geste avec un montant nul. Mêmes styles que la fenêtre
+   de règlement plus bas, préfixés « vd- ». #}
+<style>
+.vd-voile{position:fixed;inset:0;background:rgba(16,18,30,.6);display:none;
+  align-items:center;justify-content:center;z-index:60;padding:20px}
+.vd-modale{background:var(--carte);border-radius:14px;padding:26px 28px;
+  max-width:470px;width:100%;max-height:90vh;overflow:auto}
+.vd-t{font-size:17px;font-weight:500;margin-bottom:4px}
+.vd-st{font-size:13px;color:var(--muted);margin-bottom:18px}
+.vd-f{margin-bottom:6px}
+.vd-f label{display:block;font-size:11px;font-weight:500;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.vd-euro{display:flex;align-items:center;gap:8px}
+.vd-euro input{flex:1;min-width:0;padding:10px 12px;border:1px solid var(--border2);
+  border-radius:8px;font-size:15px;font-family:inherit;background:var(--carte);
+  color:var(--text);font-variant-numeric:tabular-nums}
+.vd-euro input:focus{outline:none;border-color:var(--success);
+  box-shadow:0 0 0 3px rgba(15,158,106,.1)}
+.vd-euro input:disabled{background:var(--bg);color:var(--muted)}
+.vd-euro span{font-size:15px;color:var(--muted)}
+.vd-aide{font-size:11.5px;color:var(--muted);margin:6px 0 0;line-height:1.5}
+.vd-case{display:flex;gap:10px;align-items:flex-start;cursor:pointer;
+  border:1px solid var(--border2);border-radius:10px;padding:12px 14px;margin-top:14px}
+.vd-case:hover{border-color:var(--success)}
+.vd-case input{width:17px;height:17px;flex:0 0 17px;margin-top:1px;
+  accent-color:var(--success);cursor:pointer}
+.vd-case b{display:block;font-size:13px;margin-bottom:2px}
+.vd-case em{display:block;font-style:normal;font-size:11.5px;color:var(--muted);
+  line-height:1.5}
+.vd-cap{background:var(--bg);border-radius:8px;padding:10px 12px;font-size:11.5px;
+  margin-bottom:14px;line-height:1.6}
+.vd-err{background:#fdeaea;border:1px solid #f0b8b8;color:#8a2020;border-radius:8px;
+  padding:11px 13px;font-size:12px;margin-bottom:14px}
+.vd-plein{background:#fff6e5;border:1px solid #f0d9a8;color:#7a5200;border-radius:8px;
+  padding:11px 13px;font-size:12px;margin-bottom:14px}
+.vd-pied{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+.vd-ok{background:var(--success);color:#fff}
+</style>
+<div class="vd-voile" id="vd_voile" onclick="if(event.target===this) vdFermer()">
+  <div class="vd-modale">
+    <div class="vd-t" id="vd_titre">Valider la demande</div>
+    <div class="vd-st" id="vd_sous"></div>
+    <div id="vd_message"></div>
+    <div class="vd-cap" id="vd_cap"></div>
+    <div class="vd-f">
+      <label for="vd_montant">Prix facturé à cette personne</label>
+      <div class="vd-euro">
+        <input type="text" id="vd_montant" inputmode="decimal" autocomplete="off">
+        <span>€</span>
+      </div>
+      <p class="vd-aide" id="vd_aide"></p>
+    </div>
+    <label class="vd-case">
+      <input type="checkbox" id="vd_invite" onchange="vdInvite()">
+      <span>
+        <b>Invité·e — rien à régler</b>
+        <em>Aucune somme ne lui sera demandée&nbsp;: ni facture, ni relance de règlement.</em>
+      </span>
+    </label>
+    <div class="vd-pied">
+      <button type="button" class="btn" onclick="vdFermer()">Annuler</button>
+      <button type="button" class="btn vd-ok" id="vd_ok" onclick="vdValider()">Valider l'inscription</button>
+    </div>
+  </div>
+</div>
+<script>
+var VD_CODE = window.location.pathname.split("/session/")[1].split("/")[0];
+var VD_MAIL = "", VD_NOM = "", VD_ENVOI = false;
+function vdFermer(){ document.getElementById("vd_voile").style.display = "none"; }
+function vdInvite(){
+  // UN INVITE N'A PAS DE PRIX A SAISIR. Le champ se grise plutot que de
+  // disparaitre : on voit que la question a ete posee et tranchee.
+  var c = document.getElementById("vd_invite").checked;
+  var m = document.getElementById("vd_montant");
+  m.disabled = c;
+  document.getElementById("vd_aide").textContent = c
+    ? "Aucune somme ne sera demandée à cette personne."
+    : "Le tarif de la session est proposé. Modifiez-le si cette personne bénéficie d'un prix différent.";
+}
+function ouvrirValidation(bouton){
+  VD_MAIL = bouton.getAttribute("data-mail") || "";
+  document.getElementById("vd_message").innerHTML = "";
+  document.getElementById("vd_invite").checked = false;
+  document.getElementById("vd_montant").value = "";
+  document.getElementById("vd_sous").textContent = "Lecture du suivi…";
+  document.getElementById("vd_cap").textContent = "";
+  vdInvite();
+  document.getElementById("vd_voile").style.display = "flex";
+  fetch("/session/" + VD_CODE + "/validation/impact?mail=" + encodeURIComponent(VD_MAIL))
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if(!j.ok){
+        document.getElementById("vd_sous").textContent = "";
+        document.getElementById("vd_message").innerHTML =
+          '<div class="vd-err">' + (j.message || "Demande introuvable.") + '</div>';
+        document.getElementById("vd_ok").disabled = true;
+        return;
+      }
+      VD_NOM = j.nom;
+      document.getElementById("vd_ok").disabled = false;
+      document.getElementById("vd_titre").textContent = "Valider l'inscription de " + j.nom;
+      document.getElementById("vd_sous").textContent =
+        j.mail + (j.ville ? " · " + j.ville : "") + (j.depuis ? " · demande du " + j.depuis : "");
+      document.getElementById("vd_montant").value = j.montant || j.tarif || "";
+      var cap = "<b>" + j.occupees + " place(s) occupée(s)</b> sur " + j.maxi
+        + " · " + j.en_attente + " demande(s) en attente";
+      if(j.position) cap += " · celle-ci est la " + j.position + (j.position === 1 ? "re" : "e");
+      document.getElementById("vd_cap").innerHTML = cap;
+      if(j.complet){
+        document.getElementById("vd_message").innerHTML =
+          '<div class="vd-plein"><b>La session est complète.</b> Valider cette demande '
+          + 'portera l\'effectif au-delà des ' + j.maxi + ' places annoncées.</div>';
+      }
+      vdInvite();
+    })
+    .catch(function(){
+      document.getElementById("vd_sous").textContent = "";
+      document.getElementById("vd_message").innerHTML =
+        '<div class="vd-err">Lecture impossible. Rien n\'a été validé.</div>';
+    });
+}
+function vdValider(){
+  if(VD_ENVOI) return;
+  var invite = document.getElementById("vd_invite").checked;
+  var montant = (document.getElementById("vd_montant").value || "").trim();
+  if(!invite && !montant){
+    document.getElementById("vd_message").innerHTML =
+      '<div class="vd-err">Indiquez le prix facturé, ou cochez «&nbsp;invité·e&nbsp;».</div>';
+    return;
+  }
+  VD_ENVOI = true;
+  var b = document.getElementById("vd_ok");
+  b.disabled = true; b.textContent = "Validation…";
+  var fd = new FormData();
+  fd.append("mail", VD_MAIL);
+  fd.append("montant", montant);
+  if(invite) fd.append("invite", "1");
+  fetch("/session/" + VD_CODE + "/validation", {method:"POST", body:fd})
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      VD_ENVOI = false;
+      b.disabled = false; b.textContent = "Valider l'inscription";
+      if(!j.ok){
+        document.getElementById("vd_message").innerHTML =
+          '<div class="vd-err">' + (j.message || "Validation impossible.") + '</div>';
+        return;
+      }
+      // L'ECRAN SE RECHARGE : la personne change de groupe, de statut et
+      // d'onglet d'un seul coup. Recoudre tout cela a la main serait le moyen
+      // sur d'afficher un etat qui n'est pas celui de la base.
+      window.location.reload();
+    })
+    .catch(function(){
+      VD_ENVOI = false;
+      b.disabled = false; b.textContent = "Valider l'inscription";
+      document.getElementById("vd_message").innerHTML =
+        '<div class="vd-err">Envoi impossible. Rien n\'a été validé.</div>';
+    });
+}
+</script>
 
 <div id="vue-attente" style="display:none">
   <div class="table-wrap">

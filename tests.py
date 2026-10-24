@@ -929,6 +929,114 @@ def tests_balises_du_cycle():
     verifier("{{lieu_court}} aussi", "lieu_court" in plates)
 
 
+def tests_jalon_validation():
+    """LE JALON DE VALIDATION — 24/10/2026, pour Esthetique 360.
+
+    Une demande d'inscription n'est pas une inscription : elle attend d'etre
+    validee a la main, et c'est a ce moment que le prix de la personne est
+    arrete. Ce qui doit tenir : une demande apparait mais n'occupe pas de
+    place, ne recoit ni convention ni convocation ni attestation, et une ligne
+    ecrite avant ce jour ne peut pas basculer dans ce statut.
+    """
+    import suivi as _sv
+    print()
+    print("  LE JALON DE VALIDATION")
+    vide = {c: "" for c in _sv.COL}
+
+    print("    le statut se lit sur la ligne, pas sur un reglage")
+    verifier("une ligne ordinaire reste « A contacter »",
+             _sv.calculer_statut(dict(vide)) == "A contacter",
+             _sv.calculer_statut(dict(vide)))
+    d = dict(vide, a_valider_le="24/10/2026 08:00")
+    verifier("marquee a valider, elle l'est",
+             _sv.calculer_statut(d) == "Demande à valider", _sv.calculer_statut(d))
+    v = dict(d, valide_le="24/10/2026 09:00")
+    verifier("validee, elle reprend le circuit normal",
+             _sv.calculer_statut(v) == "A contacter", _sv.calculer_statut(v))
+    verifier("une annulation passe devant",
+             _sv.calculer_statut(dict(d, annule_le="x")) == "Annulee")
+    verifier("la file d'attente aussi",
+             _sv.calculer_statut(dict(d, file_attente_le="x")) == "File d'attente")
+
+    print("    une demande n'occupe pas de place")
+    verifier("elle est dans PAS_ENCORE_INSCRIT",
+             "Demande à valider" in _sv.PAS_ENCORE_INSCRIT, str(_sv.PAS_ENCORE_INSCRIT))
+    verifier("la file d'attente y est toujours",
+             "File d'attente" in _sv.PAS_ENCORE_INSCRIT)
+
+    print("    ni convention, ni convocation, ni attestation")
+    for fichier, ce_que_c_est in (("generer_convention_apercu.py", "la convention"),
+                                  ("envoyer_rappel.py", "la convocation J-20"),
+                                  ("generer_attestations.py", "l'attestation")):
+        texte = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), fichier), encoding="utf-8").read()
+        verifier("%s ecarte les demandes" % ce_que_c_est,
+                 "PAS_ENCORE_INSCRIT" in texte, fichier)
+    texte = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "envoyer_mail_signature.py"), encoding="utf-8").read()
+    verifier("le mail 1 ne part qu'aux « A contacter »",
+             'calculer_statut(l) == "A contacter"' in texte)
+
+    print("    l'import ne marque que si la formation l'exige")
+    _isoler()
+    import importer_demandes as imp
+    import inscription as I
+    import invitations as inv
+    import sessions as _s
+    import suivi
+
+    fiche = dict(FICHE)
+    _s.SESSIONS[fiche["code"]] = dict(fiche)
+    _s.session = lambda c=None: dict(fiche)
+    _s.etat = lambda c=None: {"statut_session": "ouverte"}
+    suivi.session = lambda c=None: dict(fiche)
+    suivi.rafraichir_statuts = lambda *a, **k: None
+    I.marquer_importee = lambda ident: None
+    inv.FICHIER = os.path.join(tempfile.mkdtemp(prefix="dfm-inv-"), "invitations.json")
+
+    # Formation SANS validation : rien ne change, c'est le cas de toutes
+    # celles qui existaient avant le 24/10/2026.
+    _s.FORMATIONS["essai"] = {"nom_formation": "Essai", "tarif": "975"}
+    fiche["formation"] = "essai"
+    imp.traiter(fiche["code"], [_demande("SANS", "Paul", "paul@essai.test", ident=1)])
+    l = [x for x in suivi.lire_lignes_de(fiche["code"]) if x["nom"] == "SANS"]
+    verifier("sans le reglage, la ligne n'est pas marquee",
+             l and not l[0]["a_valider_le"], l[0]["a_valider_le"] if l else "pas de ligne")
+    verifier("et son statut est celui d'avant",
+             l and suivi.calculer_statut(l[0]) == "A contacter",
+             suivi.calculer_statut(l[0]) if l else "")
+
+    # Formation AVEC validation.
+    _s.FORMATIONS["essai"]["validation_manuelle"] = True
+    imp.traiter(fiche["code"], [_demande("AVEC", "Lea", "lea@essai.test", ident=2)])
+    l2 = [x for x in suivi.lire_lignes_de(fiche["code"]) if x["nom"] == "AVEC"]
+    verifier("avec le reglage, la ligne est marquee",
+             l2 and l2[0]["a_valider_le"], l2[0]["a_valider_le"] if l2 else "pas de ligne")
+    verifier("et son statut est « Demande à valider »",
+             l2 and suivi.calculer_statut(l2[0]) == "Demande à valider",
+             suivi.calculer_statut(l2[0]) if l2 else "")
+    verifier("le montant propose reste le tarif de la session",
+             l2 and l2[0]["montant_du"] == "975", l2[0]["montant_du"] if l2 else "")
+    verifier("la ligne precedente n'a pas bouge",
+             not [x for x in suivi.lire_lignes_de(fiche["code"])
+                  if x["nom"] == "SANS" and x["a_valider_le"]])
+
+    print("    une demande se voit des la page d'accueil")
+    for fichier, ce_qu_on_cherche, pourquoi in (
+            ("donnees.py", '"a_valider": sum(', "le compte est agrege"),
+            ("donnees.py", '"qui_a_valider"', "et les noms avec, pour que l'alerte mene quelque part"),
+            ("templates/dashboard.html", "g.alertes.a_valider", "le bandeau l'affiche")):
+        texte = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), fichier),
+                     encoding="utf-8").read()
+        verifier(pourquoi, ce_qu_on_cherche in texte, fichier)
+
+    print("    le prix d'un invite est zero, celui d'un autre est ce qu'on a dit")
+    verifier("un invite ne doit rien",
+             _sv.montant_attendu(dict(vide, invite_le="x", montant_du="6000"), "6000") == 0.0)
+    verifier("un prix arrete est respecte",
+             _sv.montant_attendu(dict(vide, montant_du="4500"), "6000") == 4500.0)
+    verifier("sans prix arrete, le tarif de la session fait foi",
+             _sv.montant_attendu(dict(vide), "6000") == 6000.0)
+
+
 def main():
     print()
     print("  LES TESTS DE DFM")
@@ -938,7 +1046,8 @@ def main():
                   tests_connexion_perimee, tests_guet_de_sante,
                   tests_entete_des_mails, tests_formation_modules,
                   tests_reparation_base, tests_garde_fous_de_la_base,
-                  tests_session_cycle, tests_balises_du_cycle):
+                  tests_session_cycle, tests_balises_du_cycle,
+                  tests_jalon_validation):
         try:
             essai()
         except Exception as e:

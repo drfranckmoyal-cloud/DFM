@@ -158,7 +158,7 @@ lignes = suivi.lire_lignes_de(CODE)
 occupees = len([l for l in lignes
                 if "recontact" not in l["demande"].lower()
                 and not l["annule_le"] and not l["annulation_demandee_le"]
-                and suivi.calculer_statut(l) != "File d'attente"])
+                and suivi.calculer_statut(l) not in suivi.PAS_ENCORE_INSCRIT])
 maxi = S["places_max"]
 complete = occupees >= maxi
 print(f"\n-> Capacite : {occupees}/{maxi}{'  COMPLET' if complete else ''}")
@@ -233,7 +233,7 @@ lignes = suivi.lire_lignes_de(CODE)
 occupees = len([l for l in lignes
                 if "recontact" not in l["demande"].lower()
                 and not l["annule_le"] and not l["annulation_demandee_le"]
-                and suivi.calculer_statut(l) != "File d'attente"])
+                and suivi.calculer_statut(l) not in suivi.PAS_ENCORE_INSCRIT])
 if occupees >= maxi and statut_session != "cloturee":
     print("\n" + "=" * 58)
     print(f"  SESSION COMPLETE : {occupees}/{maxi} places occupees.")

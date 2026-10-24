@@ -73,7 +73,7 @@ def _capacite(code):
     occupees = len([l for l in lignes
                     if "recontact" not in (l["demande"] or "").lower()
                     and not l["annule_le"] and not l["annulation_demandee_le"]
-                    and suivi.calculer_statut(l) != "File d'attente"])
+                    and suivi.calculer_statut(l) not in suivi.PAS_ENCORE_INSCRIT])
     maxi = int(_s.session(code).get("places_max") or 0)
     return occupees, maxi, (maxi > 0 and occupees >= maxi)
 
@@ -105,6 +105,8 @@ def traiter(code, demandes):
 
     quand = datetime.now().strftime("%d/%m/%Y %H:%M")
     a_creer, reprises, ignorees = [], [], 0
+    _validation_manuelle = bool(
+        (_s.FORMATIONS.get(S.get("formation") or "") or {}).get("validation_manuelle"))
     for d in demandes:
         mail = (d.get("mail") or "").strip().lower()
         qui = ((d.get("prenom") or "") + " " + (d.get("nom") or "")).strip() or mail
@@ -122,6 +124,14 @@ def traiter(code, demandes):
         ligne["horodateur"] = _horodateur(d.get("horodateur"))
         ligne["date_formation"] = S.get("date_texte") or ""
         ligne["montant_du"] = str(S.get("tarif") or "")
+        # UNE DEMANDE, ET PAS ENCORE UNE INSCRIPTION — 24/10/2026. Quand la
+        # formation exige une validation une par une, la ligne nait marquee
+        # « a valider » : elle apparait a l'ecran, elle recoit son accuse de
+        # reception, mais AUCUN mail de convention ne part et elle n'occupe pas
+        # de place. C'est la marque posee ICI, et non un reglage relu ailleurs,
+        # qui fait le statut : une ligne ecrite avant ce jour ne la porte pas.
+        if _validation_manuelle:
+            ligne["a_valider_le"] = quand
         # CETTE INSCRIPTION REPOND-ELLE A UNE INVITATION ? — 17/10/2026.
         #
         # Franck invite quelqu'un sur sa seule adresse ; la personne remplit le
@@ -144,6 +154,8 @@ def traiter(code, demandes):
         a_creer.append((d, ligne, qui, rappel, invitation))
         if invitation:
             marque = "INVITE\u00b7E — rien a regler"
+        elif _validation_manuelle:
+            marque = "DEMANDE — a valider a la main"
         else:
             marque = "à recontacter" if rappel else ("file d'attente" if en_attente else "inscrit")
         print("   . %-28s %s" % (qui, marque))

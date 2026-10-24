@@ -38,7 +38,26 @@ COL = {
     # d'une session client, qui liste les participants AVEC leur fonction ;
     # utile ensuite partout — fiche apprenant, ciblage des envois.
     "fonction": 49,
+    # LE JALON DE VALIDATION — 24/10/2026, pour Esthetique 360. Deux colonnes,
+    # AJOUTEES A LA FIN comme la 50e : les precedentes gardent leur position.
+    #
+    # « a_valider_le » est posee A L'IMPORT, et seulement si la formation exige
+    # une validation une par une. C'est elle, et non un reglage lu ailleurs, qui
+    # fait qu'une ligne est une DEMANDE et non une inscription : une ligne
+    # ecrite avant le 24/10/2026 ne la porte pas, donc rien de ce qui existe ne
+    # change de statut. Le reglage ne vaut que pour les lignes a venir.
+    #
+    # « valide_le » est posee quand le responsable valide la demande. C'est a ce
+    # moment, et seulement a ce moment, que le prix de la personne est arrete.
+    "a_valider_le": 50, "valide_le": 51,
 }
+
+# CE QUI N'OCCUPE PAS ENCORE UNE PLACE. Une file d'attente et une demande non
+# validee ont le meme effet sur l'effectif : la personne ne compte pas, n'entre
+# pas dans la capacite, ne recoit ni convention ni attestation. Un seul nom pour
+# les deux, plutot qu'une comparaison a « File d'attente » recopiee a quatorze
+# endroits — c'est ainsi qu'un quinzieme finit par etre oublie.
+PAS_ENCORE_INSCRIT = ("File d'attente", "Demande à valider")
 def lettre_colonne(index):
     lettre = ""
     n = index + 1
@@ -125,6 +144,12 @@ def calculer_statut(ligne, mode="individuel"):
         return "Annulation demandee"
     if ligne["file_attente_le"] and not ligne["promu_le"]:
         return "File d'attente"
+    # LA DEMANDE PAS ENCORE VALIDEE. Elle se lit sur la ligne elle-meme et non
+    # sur un reglage de formation : une ligne qui ne porte pas « a_valider_le »
+    # ne peut pas basculer dans ce statut, et aucune session en service ne la
+    # porte. Le jalon s'ajoute donc sans toucher a ce qui tourne.
+    if ligne.get("a_valider_le") and not ligne.get("valide_le"):
+        return "Demande à valider"
     if "recontact" in ligne["demande"].lower():
         return "A recontacter"
     if not ligne["mail1_envoye_le"]:

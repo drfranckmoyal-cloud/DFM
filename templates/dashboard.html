@@ -29,6 +29,14 @@
       <a class="al-lien" href="/reglements">{{ g.alertes.impayes }} règlement{{ 's' if g.alertes.impayes > 1 }} en attente</a>
       — {{ gens(g.alertes.qui_impayes, g.alertes.impayes) }}</div>
     {% endif %}
+    {# UNE DEMANDE NON VALIDEE SE VOIT DES L'ACCUEIL — 24/10/2026. Elle n'entre
+       dans aucun compte d'inscrits, par construction : sans cette ligne, elle
+       pourrait dormir des semaines sans que rien ne la signale. #}
+    {% if g.alertes.a_valider %}
+    <div><i class="ti ti-user-question" style="font-size:13px"></i>
+      {{ g.alertes.a_valider }} demande{{ 's' if g.alertes.a_valider > 1 }} d'inscription à valider
+      — {{ gens(g.alertes.qui_a_valider, g.alertes.a_valider) }}</div>
+    {% endif %}
     {% if g.alertes.annulations %}
     <div><i class="ti ti-alert-triangle" style="font-size:13px"></i>
       {{ g.alertes.annulations }} annulation{{ 's' if g.alertes.annulations > 1 }} à valider
