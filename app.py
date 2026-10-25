@@ -4383,23 +4383,35 @@ def etat_questionnaires(code):
                     "ouvert": (publie or {}).get("ouvert") or {},
                     "reponses": comptes,
                     "lien": (S.get("url_signature") or "") + "/questionnaire.html?s=" + code})
-@app.route("/session/<code>/questionnaires/publier", methods=["POST"])
-def publier_questionnaires(code):
-    if code not in SESSIONS:
-        return jsonify({"ok": False, "message": "Session inconnue"})
+def _q_publier(code, figer=True, auteur="l'écran"):
+    """Recopie vers le site les questions, les inscrits et les dates.
+
+    LE CŒUR DE LA PREPARATION, SORTI DE LA ROUTE — 25/10/2026, pour que le
+    guetteur puisse le faire tout seul. La route n'est plus qu'une porte.
+
+    « figer » DIT S'IL FAUT FIGER LE CORRIGE. On ne le fige qu'une fois, a la
+    premiere preparation : re-figer apres coup ferait corriger une session
+    d'octobre avec les questions de decembre. Les preparations suivantes ne
+    rafraichissent que la liste des inscrits.
+
+    Rend un dictionnaire, jamais une reponse HTTP : l'appelant en fait ce qu'il
+    veut — du JSON pour l'ecran, une ligne de journal pour le guetteur.
+    """
     import questionnaires as Q
     import journal
     import random
+    if code not in SESSIONS:
+        return {"ok": False, "message": "Session inconnue"}
     S = fiche_session(code)
     fcode = SESSIONS[code].get("formation") or ""
     questions = _q_public(fcode)
     if not questions:
-        return jsonify({"ok": False, "message": "Aucun questionnaire d'evaluation defini pour la formation " + fcode})
+        return {"ok": False,
+                "message": "Aucun questionnaire d'evaluation defini pour la formation " + fcode}
     random.shuffle(questions)
-    gens = []
-    for l in _q_actifs(S):
-        gens.append({"nom": ((l.get("prenom") or "") + " " + (l.get("nom") or "")).strip(),
-                     "mail": (l.get("mail") or "").strip().lower()})
+    gens = [{"nom": ((l.get("prenom") or "") + " " + (l.get("nom") or "")).strip(),
+             "mail": (l.get("mail") or "").strip().lower()}
+            for l in _q_actifs(S)]
     ouvert = {"init": False, "fin": False, "satisfaction": False}
     try:
         r = _sb("Sessions_publiques?session_code=eq." + code + "&select=ouvert")
@@ -4419,22 +4431,33 @@ def publier_questionnaires(code):
     try:
         _sb("Sessions_publiques", "POST", [corps], "resolution=merge-duplicates")
     except Exception as e:
-        return jsonify({"ok": False, "message": "Publication impossible : " + str(e)})
+        return {"ok": False, "message": "Publication impossible : " + str(e)}
     # Instantane local des modeles complets, cle de correction comprise.
     # L'echec n'est deliberement PAS avale : sans instantane, la session ne
     # pourra plus etre corrigee avec le modele qui a reellement servi, et la
     # piste d'audit manque. L'utilisateur doit l'apprendre tout de suite.
     fige_ok, fige_erreur = True, ""
+    if figer:
+        try:
+            Q.figer(code, fcode, [q["id"] for q in questions])
+        except Exception as e:
+            fige_ok, fige_erreur = False, str(e)[:160]
     try:
-        Q.figer(code, fcode, [q["id"] for q in questions])
-    except Exception as e:
-        fige_ok, fige_erreur = False, str(e)[:160]
-    try:
-        journal.ecrire("Questionnaires préparés", "", str(len(gens)) + " participant(s), " + str(len(questions)) + " questions", "", code)
+        journal.ecrire("Questionnaires préparés", "",
+                       "%d participant(s), %d questions — %s"
+                       % (len(gens), len(questions), auteur), "", code)
     except Exception:
         pass
-    return jsonify({"ok": True, "participants": len(gens), "questions": len(questions),
-                    "fige": fige_ok, "fige_erreur": fige_erreur})
+    return {"ok": True, "participants": len(gens), "questions": len(questions),
+            "fige": fige_ok, "fige_erreur": fige_erreur}
+
+
+@app.route("/session/<code>/questionnaires/publier", methods=["POST"])
+def publier_questionnaires(code):
+    r = _q_publier(code)
+    return jsonify(r)
+
+
 @app.route("/session/<code>/questionnaires/ouvrir", methods=["POST"])
 def ouvrir_questionnaire(code):
     if code not in SESSIONS:
@@ -4585,6 +4608,10 @@ def relever_tout():
                     "soucis": soucis})
 _Q_FICHIER = _os.path.join(DOSSIER, "questionnaires_etat.json")
 _Q_TYPES = ("init", "fin", "satisfaction", "froid")
+# COMBIEN DE JOURS APRES L'HEURE DITE DFM ACCEPTE ENCORE D'ENVOYER. Voir la
+# garde dans _q_auto : elle est ce qui rend l'envoi automatique par defaut
+# sans danger pour les sessions deja passees.
+Q_RETARD_MAX = 7
 _Q_NOMS = {"init": "Évaluation d'entrée", "fin": "Évaluation de sortie",
            "satisfaction": "Questionnaire de satisfaction",
            "froid": "Évaluation à froid, 3 mois après"}
@@ -4618,7 +4645,17 @@ def _q_reglages(code):
     for t in _Q_TYPES:
         if isinstance(plan.get(t), dict):
             defauts[t].update(plan[t])
-    return defauts, (d.get("auto") or {}), (d.get("envois") or {})
+    # L'ENVOI AUTOMATIQUE EST LE DEFAUT — 25/10/2026, demande de Franck :
+    # « j'attends que l'envoi soit automatise sans action de ma part ».
+    #
+    # Une session naissait avec les quatre cases DECOCHEES : il fallait y
+    # penser session par session, questionnaire par questionnaire, et c'est
+    # ainsi que cinq sessions a venir se sont retrouvees armees pour rien.
+    # Le sens de la case s'inverse : elle sert desormais a RETENIR un envoi,
+    # pas a l'autoriser.
+    auto = dict.fromkeys(_Q_TYPES, True)
+    auto.update(d.get("auto") or {})
+    return defauts, auto, (d.get("envois") or {})
 def _q_enregistrer(code, planning=None, auto=None, envoi=None):
     tout = _q_lire()
     d = tout.get(code) or {}
@@ -4933,6 +4970,52 @@ def liste_taches():
             continue
     taches.sort(key=lambda t: -t["retard"])
     return jsonify({"ok": True, "taches": taches})
+def _q_preparer_au_besoin(code, publiques):
+    """Prepare la session toute seule si elle en a besoin. Rend ce qui a ete fait.
+
+    POURQUOI LA PREPARATION N'EST PLUS UN PASSAGE OBLIGE — 25/10/2026.
+    « A quoi ca sert de devoir faire "préparer" ? pourquoi c'est pas
+    automatique ? » demandait Franck. Rien ne s'y opposait : preparer recopie
+    vers le site les questions de la formation, la liste des inscrits et les
+    dates de la session — trois choses qu'une machine sait lire. Le bouton
+    reste, pour forcer une mise a jour tout de suite ; il n'est plus la seule
+    facon d'y arriver.
+
+    ON PREPARE DANS DEUX CAS : la session ne l'a jamais ete, ou sa liste
+    d'inscrits a change depuis. Rien d'autre ne justifie de reecrire.
+
+    ET LE CORRIGE N'EST FIGE QU'UNE FOIS. Re-figer rafraichirait le modele de
+    correction : une session tenue en octobre serait corrigee avec les
+    questions de decembre. Des qu'un questionnaire est parti ou qu'une reponse
+    est arrivee, la session est engagee et son modele est acquis.
+    """
+    # LES SESSIONS CLIENT EN ONT AUSSI. La convention, la facture et le
+    # reglement y sont collectifs, mais les questionnaires, l'emargement et les
+    # attestations restent INDIVIDUELS — c'est ecrit dans sessions.MODES. Les
+    # ecarter ici les aurait laissees sans questionnaire pour toujours, et le
+    # bouton de l'ecran, lui, ne les a jamais ecartees.
+    fcode = SESSIONS[code].get("formation") or ""
+    if not _q_public(fcode):
+        return None                      # pas de questionnaire : rien a preparer
+    S = fiche_session(code)
+    attendus = sorted((l.get("mail") or "").strip().lower() for l in _q_actifs(S))
+    if not attendus:
+        return None                      # personne a interroger
+    deja = publiques.get(code)
+    if deja:
+        presents = sorted((p.get("mail") or "").strip().lower()
+                          for p in (deja.get("participants") or []))
+        if presents == attendus:
+            return None                  # deja a jour
+    _planning, _auto, envois = _q_reglages(code)
+    engagee = bool(envois) or any(_q_repondants(code).values())
+    r = _q_publier(code, figer=not engagee, auteur="préparation automatique")
+    if r.get("ok"):
+        print("   questionnaires prepares tout seuls : %s (%d participant(s)%s)"
+              % (code, r.get("participants", 0),
+                 ", corrigé déjà figé" if engagee else ""))
+    return r
+
 def _q_auto():
     from datetime import datetime as dt
     publiques = _sessions_publiques()      # un seul appel, plus un par session
@@ -4941,6 +5024,11 @@ def _q_auto():
             planning, auto, envois = _q_reglages(code)
             if not any(auto.get(t) for t in _Q_TYPES):
                 continue
+            # LA PREPARATION SE FAIT TOUTE SEULE, juste avant d'avoir a s'en
+            # servir : une session creee le matin est prete l'apres-midi, sans
+            # que personne y pense.
+            if _q_preparer_au_besoin(code, publiques) is not None:
+                publiques = _sessions_publiques()
             ligne_pub = publiques.get(code)
             if not ligne_pub:
                 continue
@@ -4950,6 +5038,15 @@ def _q_auto():
                     continue
                 moment = _q_moment(planning[quoi])
                 if not moment or dt.now() < moment:
+                    continue
+                # PAS DE QUESTIONNAIRE POSTE DES MOIS APRES COUP — 25/10/2026.
+                # L'envoi automatique etant devenu le defaut, toute session
+                # passee qui n'en a jamais recu deviendrait exigible d'un coup :
+                # une evaluation de sortie arrivant quatre mois apres la
+                # formation. Sept jours de retard restent rattrapables — un
+                # serveur arrete, une panne de reseau ; au-dela, c'est a la
+                # main et en connaissance de cause.
+                if (dt.now() - moment).days > Q_RETARD_MAX:
                     continue
                 gens = r[0].get("participants") or []
                 rep = set(_q_repondants(code).get(quoi) or [])

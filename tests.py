@@ -1197,6 +1197,72 @@ def tests_convention_du_cycle():
         verifier("le texte du cycle est la (%s)" % ou, phrase in tpl, phrase[:34])
 
 
+def tests_questionnaires_sans_action():
+    """L'ENVOI DES QUESTIONNAIRES NE DEMANDE PLUS RIEN — 25/10/2026.
+
+    Franck : « j'attends que l'envoi soit automatise sans action de ma part »,
+    et « a quoi ca sert de devoir faire préparer ? ». Deux reponses :
+
+      - LA PREPARATION SE FAIT TOUTE SEULE. Elle recopie vers le site les
+        questions, les inscrits et les dates — rien qu'une machine ne sache
+        lire. Le bouton reste pour forcer une mise a jour.
+      - L'ENVOI AUTOMATIQUE EST LE DEFAUT. La case sert desormais a RETENIR un
+        envoi, plus a l'autoriser.
+
+    ET LES DEUX GARDES QUI RENDENT CELA SUR :
+
+      - LE CORRIGE N'EST FIGE QU'UNE FOIS. Sinon une session d'octobre serait
+        corrigee avec les questions de decembre.
+      - RIEN NE PART AVEC PLUS DE SEPT JOURS DE RETARD. Sans cette borne,
+        allumer l'automatisme ferait partir d'un coup les questionnaires de
+        toutes les sessions passees qui n'en avaient jamais recu.
+    """
+    print()
+    print("  LES QUESTIONNAIRES PARTENT SANS QU'ON Y PENSE")
+    ici = os.path.dirname(os.path.abspath(__file__))
+    src = open(os.path.join(ici, "app.py"), encoding="utf-8").read()
+
+    print("    la preparation se fait toute seule")
+    verifier("le guetteur la declenche", "_q_preparer_au_besoin(code, publiques)" in src)
+    verifier("elle passe par la meme fonction que le bouton",
+             "_q_publier(code, figer=not engagee" in src)
+    verifier("le bouton n'est plus qu'une porte",
+             "def publier_questionnaires(code):\n    r = _q_publier(code)" in src)
+    bloc = src[src.index("def _q_preparer_au_besoin("):]
+    bloc = bloc[:bloc.index("\ndef _q_auto(")]
+    verifier("elle n'ecarte PAS les sessions client",
+             "est_client(code)" not in bloc,
+             "leurs questionnaires sont individuels, comme leur emargement")
+    verifier("elle s'abstient sans questionnaire", "_q_public(fcode)" in bloc)
+    verifier("elle s'abstient sans inscrit", "if not attendus" in bloc)
+    verifier("elle ne reecrit pas une liste inchangee", "presents == attendus" in bloc)
+
+    print("    le corrige n'est fige qu'une fois")
+    verifier("une session engagee ne refige pas", "figer=not engagee" in bloc)
+    verifier("« engagee » = un envoi ou une reponse",
+             "bool(envois) or any(_q_repondants(code).values())" in bloc)
+    pub = src[src.index("def _q_publier("):]
+    pub = pub[:pub.index('\n@app.route("/session/<code>/questionnaires/publier"')]
+    verifier("figer est un choix de l'appelant", "def _q_publier(code, figer=True" in pub)
+    verifier("et il est respecte", "if figer:" in pub)
+
+    print("    l'envoi automatique est le defaut")
+    reg = src[src.index("def _q_reglages("):]
+    reg = reg[:reg.index("\ndef _q_enregistrer(")]
+    verifier("les quatre types naissent armes",
+             "dict.fromkeys(_Q_TYPES, True)" in reg)
+    verifier("un reglage enregistre passe devant",
+             'auto.update(d.get("auto") or {})' in reg)
+
+    print("    rien ne part avec des mois de retard")
+    verifier("la borne existe", "Q_RETARD_MAX = 7" in src)
+    auto = src[src.index("def _q_auto("):]
+    auto = auto[:auto.index("\ndef _qd_nombre(")]
+    verifier("le guetteur l'applique", "(dt.now() - moment).days > Q_RETARD_MAX" in auto)
+    verifier("et il saute toujours ce qui est deja parti", 'envois.get(quoi)' in auto)
+    verifier("et ceux qui ont deja repondu", "_q_repondants(code)" in auto)
+
+
 def tests_lien_produit():
     """L'ADRESSE, PAS LA PHRASE — 25/10/2026.
 
@@ -1874,7 +1940,7 @@ def main():
                   tests_convention_du_cycle, tests_courriel_de_validation,
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
-                  tests_lien_produit):
+                  tests_lien_produit, tests_questionnaires_sans_action):
         try:
             essai()
         except Exception as e:
