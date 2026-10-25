@@ -46,6 +46,9 @@
     border-radius:12px;padding:17px 19px;margin-bottom:24px;display:none}
   .descriptif h2{font-size:11px;font-weight:700;color:var(--bleu);text-transform:uppercase;
     letter-spacing:.7px;margin-bottom:9px}
+  .descriptif-dates{font-size:13.5px;color:var(--encre);font-weight:600;
+    margin:-3px 0 11px;line-height:1.5}
+  .descriptif-dates:empty{display:none}
   .descriptif p{font-size:13.5px;color:var(--encre);margin-bottom:8px}
   .descriptif p:last-child{margin-bottom:0}
 
@@ -197,6 +200,10 @@
 
           <div class="descriptif" id="descriptif">
             <h2 id="descriptif_titre">Cette formation</h2>
+            <!-- LES DATES COMPLETES SONT ICI, et plus sur la carte : une carte
+                 qui enumere quinze journees ecrase la liste. Rien n'est perdu,
+                 tout est dit a l'endroit ou on vient le lire. -->
+            <div class="descriptif-dates" id="descriptif_dates"></div>
             <div class="descriptif-corps" id="descriptif_texte"></div>
             <button type="button" class="plus" id="descriptif_plus"
                     aria-expanded="false" aria-controls="descriptif_texte"></button>
@@ -357,6 +364,54 @@
     return "rgb(" + m(r) + "," + m(v) + "," + m(b) + ")";
   }
 
+  // LA DATE SUR LA CARTE, RACCOURCIE QUAND ELLE EST LONGUE — 25/10/2026.
+  //
+  // Un cycle enumere ses quinze journees : « mercredi 6, jeudi 7 et vendredi 8
+  // janvier, mercredi 10, jeudi 11 et vendredi 12 mars, … ». Quatre lignes sur
+  // une carte qui en fait deux pour les autres formations : elle ecrasait la
+  // liste et repoussait le formulaire hors de l'ecran.
+  //
+  // LA CARTE DIT LA PERIODE, LE DESCRIPTIF DIT LES DATES. Rien n'est perdu :
+  // l'enumeration complete s'affiche en dessous des que la formation est
+  // retenue. Une formation de deux jours, elle, garde son texte tel quel —
+  // c'est la longueur qui decide, pas le type de formation.
+  var DATE_LONGUE = 70;      // au-dela, la carte passe a la periode
+  var MOIS = ["janvier","février","mars","avril","mai","juin","juillet","août",
+              "septembre","octobre","novembre","décembre"];
+
+  function periode(s){
+    var d = String(s.date_debut || "").slice(0, 10).split("-");
+    var f = String(s.date_fin || "").slice(0, 10).split("-");
+    if (d.length !== 3 || f.length !== 3) return "";
+    var md = MOIS[parseInt(d[1], 10) - 1], mf = MOIS[parseInt(f[1], 10) - 1];
+    if (!md || !mf) return "";
+    if (d[0] === f[0] && d[1] === f[1]) return "en " + md + " " + d[0];
+    if (d[0] === f[0]) return "de " + md + " à " + mf + " " + d[0];
+    return "de " + md + " " + d[0] + " à " + mf + " " + f[0];
+  }
+
+  // LE TITRE SUR LA CARTE, RACCOURCI LUI AUSSI. « Esthétique 360 — Formation
+  // intensive en dentisterie esthétique » tient sur deux lignes et pousse la
+  // date, les faits et tout ce qui suit. La carte garde le NOM, le descriptif
+  // porte le titre entier — la meme regle que pour les dates.
+  //
+  // ON COUPE AU TIRET CADRATIN, et seulement s'il y en a un : « Usures :
+  // savoir realiser un cas de A a Z » n'en a pas et n'est pas touche.
+  var TITRE_LONG = 40;
+
+  function titreCarte(s){
+    var t = String(s.titre || s.formation || "");
+    if (t.length <= TITRE_LONG) return t;
+    var i = t.indexOf(" — ");
+    return (i > 0) ? t.slice(0, i) : t;
+  }
+
+  function dateCarte(s){
+    var t = String(s.date_texte || "");
+    if (t.length <= DATE_LONGUE) return t;
+    return periode(s) || t;
+  }
+
   function faits(s){
     var h = "";
     if (s.lieu) h += '<span class="fait">' + txt(s.lieu) + '</span>';
@@ -368,12 +423,42 @@
     return h;
   }
 
-  function choisir(code){
+  // ON AMENE LE VISITEUR A LA SUITE — 25/10/2026.
+  //
+  // Cocher une formation faisait apparaitre son descriptif SOUS la liste, donc
+  // hors de l'ecran : il fallait deviner qu'il s'etait passe quelque chose, et
+  // aller chercher le debut du formulaire plus bas encore. La page descend
+  // maintenant d'elle-meme jusqu'au descriptif, qui est suivi du premier champ.
+  //
+  // PAS AU PREMIER AFFICHAGE : la session du lien est deja retenue, et faire
+  // sauter la page avant que le visiteur ait touche quoi que ce soit lui
+  // cacherait la liste qu'il n'a pas encore lue.
+  //
+  // « prefers-reduced-motion » est respecte : le saut est alors instantane.
+  // ON PART DE LA CARTE RETENUE, et non du descriptif : le visiteur doit VOIR
+  // ce qu'il vient de choisir — la carte cochee, puis son descriptif, puis les
+  // premiers champs. Caler le descriptif en haut escamotait la carte et
+  // donnait l'impression d'avoir saute une etape.
+  function amenerALaSuite(code){
+    var cible = document.querySelector('#cartes .carte[data-code="' + code + '"]')
+             || el("descriptif") || el("nom");
+    if (!cible) return;
+    var doux = !(window.matchMedia &&
+                 window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    var y = cible.getBoundingClientRect().top + window.pageYOffset - 16;
+    if (y <= window.pageYOffset) return;   // deja visible plus haut : on ne bouge pas
+    try {
+      window.scrollTo({top: y, behavior: doux ? "smooth" : "auto"});
+    } catch (e) { window.scrollTo(0, y); }
+  }
+
+  function choisir(code, amener){
     el("session").value = code;
     var c = document.querySelectorAll("#cartes .carte");
     for (var i = 0; i < c.length; i++)
       c[i].classList.toggle("pris", c[i].getAttribute("data-code") === code);
     majSession();
+    if (amener) amenerALaSuite(code);
   }
 
   function dessinerCartes(){
@@ -385,8 +470,8 @@
       el("titre_choix").innerHTML = "Votre formation";
       z.innerHTML = '<div class="unique" style="--c:' + txt(s.couleur || "#4f7ef8") +
         ';--fond:' + eclaircir(s.couleur) + '">' +
-        '<div class="carte-titre">' + txt(s.titre || s.formation) + '</div>' +
-        (s.date_texte ? '<div class="carte-date">' + txt(s.date_texte) + '</div>' : '') +
+        '<div class="carte-titre">' + txt(titreCarte(s)) + '</div>' +
+        (s.date_texte ? '<div class="carte-date">' + txt(dateCarte(s)) + '</div>' : '') +
         '<div class="carte-faits">' + faits(s) + '</div></div>';
       el("session").value = s.code;
       return;
@@ -397,8 +482,8 @@
       h += '<div class="carte' + (s.complet ? ' complet' : '') + '" data-code="' + txt(s.code) +
            '" style="--c:' + txt(s.couleur || "#4f7ef8") + ';--fond:' + eclaircir(s.couleur) + '"' +
            ' role="button" tabindex="0">' +
-           '<div class="carte-titre">' + txt(s.titre || s.formation) + '</div>' +
-           (s.date_texte ? '<div class="carte-date">' + txt(s.date_texte) + '</div>' : '') +
+           '<div class="carte-titre">' + txt(titreCarte(s)) + '</div>' +
+           (s.date_texte ? '<div class="carte-date">' + txt(dateCarte(s)) + '</div>' : '') +
            '<div class="carte-faits">' + faits(s) + '</div>' +
            '<div class="carte-coche">&#10003;</div></div>';
     }
@@ -406,7 +491,9 @@
     var cartes = z.querySelectorAll(".carte");
     for (var k = 0; k < cartes.length; k++){
       (function(c){
-        c.addEventListener("click", function(){ choisir(c.getAttribute("data-code")); });
+        c.addEventListener("click", function(){
+          choisir(c.getAttribute("data-code"), true);
+        });
         // Au clavier aussi : la page doit rester utilisable sans souris.
         c.addEventListener("keydown", function(e){
           if (e.key === "Enter" || e.key === " "){ e.preventDefault(); c.click(); }
@@ -475,9 +562,14 @@
     if (!s) return;
 
     var d = el("descriptif");
-    if (s.descriptif){
+    // LES DATES S'AFFICHENT MEME SANS DESCRIPTIF : c'est le seul endroit ou
+    // l'enumeration complete d'un cycle se lit desormais. Une formation dont
+    // la carte dit deja tout n'a rien a repeter ici.
+    var dates = (String(s.date_texte || "").length > DATE_LONGUE) ? s.date_texte : "";
+    el("descriptif_dates").textContent = dates;
+    if (s.descriptif || dates){
       el("descriptif_titre").textContent = s.titre || s.formation || "Cette formation";
-      el("descriptif_texte").innerHTML = enrichir(s.descriptif);
+      el("descriptif_texte").innerHTML = s.descriptif ? enrichir(s.descriptif) : "";
       d.style.display = "block";
       reglerRepli();
     } else { d.style.display = "none"; }
