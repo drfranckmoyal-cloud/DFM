@@ -75,6 +75,8 @@ BALISES = [
         ("date_limite", "Date limite de réponse, en lettres", "samedi 7 novembre 2026"),
         ("nb_modules", "Nombre de modules, en lettres", "cinq"),
         ("jours_par_module", "Journées par module, en lettres", "trois"),
+        ("premier_module", "Les dates du premier module seul",
+         "du mercredi 6 au vendredi 8 janvier 2027"),
         ("modules", "Les modules d'un cycle, un par ligne",
          "<b>1 · Essentiels</b> — du mercredi 6 au vendredi 8 janvier 2027<br>"
          "<b>2 · Composites</b> — du mercredi 10 au vendredi 12 mars 2027"),
@@ -834,6 +836,13 @@ def _jours_de(S):
             "modules": "<br>".join(lignes),
             "nb_modules": _J.en_lettres(len(mods)) if mods else "",
             "jours_par_module": _J.en_lettres(mods[0]["nb"]) if memes else "",
+            # LE PREMIER MODULE, SEUL ET EN TOUTES LETTRES — 25/10/2026. Le kit
+            # de demarrage et les convocations parlent d'UN module, pas des
+            # cinq : « du mercredi 6 au vendredi 8 janvier 2027 ». Sans cette
+            # balise, la date du premier jour s'ecrivait en dur, et le texte
+            # etait a reecrire chaque annee. Vide pour une formation sans
+            # modules, ou {{dates}} dit deja tout.
+            "premier_module": (mods[0].get("texte") or "") if mods else "",
             "duree_texte": "%s heures" % r["duree"],
         }
     except Exception:
@@ -1042,6 +1051,7 @@ def contexte(S, ligne=None, extras=None):
         "nb_journees": _jours_de(S).get("nb_journees") or "",
         "nb_modules": _jours_de(S).get("nb_modules") or "",
         "jours_par_module": _jours_de(S).get("jours_par_module") or "",
+        "premier_module": _jours_de(S).get("premier_module") or "",
         # LE TARIF DE CETTE PERSONNE, pas celui de la session : zero pour un
         # invite. Meme regle que les ecrans et la convention, un seul endroit.
         "tarif": _tarif_de(ligne, S),
