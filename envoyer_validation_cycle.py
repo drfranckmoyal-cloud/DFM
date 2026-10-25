@@ -28,6 +28,14 @@ TROIS MODES, ET LE PREMIER EST LE DEFAUT :
   --liste <fichier>  une adresse par ligne, « prenom;nom;mail » ou « mail » seul.
   --a <mail>         une seule adresse nommee.
 
+ET LA RELANCE, SEPT JOURS PLUS TARD :
+
+  --relance          envoie le courriel 01 BIS au lieu du 01, et ECARTE DE LA
+                     LISTE ceux qui ont rempli le questionnaire depuis. C'est
+                     le seul moyen de relancer sans relancer quelqu'un qui a
+                     deja repondu — et c'est ce qui serait arrive en reprenant
+                     la liste de depart telle quelle.
+
 RIEN N'EST ECRIT DANS LE SUIVI. Ces personnes n'y sont pas : il n'y a pas de
 ligne a marquer. Le journal, lui, garde la trace de l'envoi.
 """
@@ -46,6 +54,7 @@ import profil
 import sessions as _sessions
 
 MODELE = "invitation-inscription-esthetique360-validation"
+MODELE_RELANCE = "relance-inscription-esth-tique-360-relance-du-questionnaire-d-inscription"
 
 
 def _destinataires(o, S):
@@ -72,6 +81,24 @@ def _destinataires(o, S):
     return [("Franck", "MOYAL", contact)]
 
 
+def _deja_inscrits(CODE):
+    """Les adresses qui ont DEJA rempli le questionnaire, en minuscules.
+
+    On regarde le suivi de la session : remplir le formulaire y cree une ligne,
+    meme en attente de validation. Une personne qui a repondu ne doit pas
+    recevoir de relance — c'est le genre de courriel qui fait douter de
+    l'organisme qui l'envoie.
+
+    LA LECTURE PEUT ECHOUER, et alors on ne relance personne : mieux vaut un
+    envoi reporte qu'une relance a quelqu'un qui a deja fait ce qu'on lui
+    demande.
+    """
+    import suivi as _suivi
+    return {(l.get("mail") or "").strip().lower()
+            for l in _suivi.lire_lignes_de(CODE)
+            if (l.get("mail") or "").strip()}
+
+
 def main():
     a = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     a.add_argument("session")
@@ -79,6 +106,8 @@ def main():
                    help="un seul envoi, a l'adresse de l'organisme (defaut)")
     a.add_argument("--liste", default="", help="fichier d'adresses")
     a.add_argument("--a", default="", help="une seule adresse")
+    a.add_argument("--relance", action="store_true",
+                   help="le courriel 01 bis, en ecartant ceux qui ont deja repondu")
     o = a.parse_args()
 
     CODE = o.session
@@ -86,9 +115,11 @@ def main():
     _sessions.refuser_si_client(CODE, "une session client n'a pas de demandeurs a relancer.")
     org = _sessions.organisme_de(CODE)
 
-    modele = _mails.modele(MODELE)
+    reference = MODELE_RELANCE if o.relance else MODELE
+    modele = _mails.modele(reference)
     if not modele:
-        raise SystemExit("Modele introuvable : %s. Posez-le avant d'envoyer." % MODELE)
+        raise SystemExit("Modele introuvable : %s. Posez-le avant d'envoyer." % reference)
+    print("-> Courriel : %s" % (modele.get("titre") or reference))
 
     # LES PIECES, RELUES MAINTENANT. Si l'une manque, on le dit et on s'arrete :
     # un courriel qui annonce « tu trouveras en piece jointe » sans piece jointe
@@ -109,6 +140,27 @@ def main():
     gens = _destinataires(o, S)
     essai = not (o.liste or o.a)
     print("-> Session : %s (%s)" % (S.get("nom_formation"), CODE))
+
+    # UNE RELANCE ECARTE CEUX QUI ONT REPONDU. Sans cela, reprendre la liste de
+    # depart relancerait les gens qui viennent de s'inscrire.
+    if o.relance and not essai:
+        try:
+            repondu = _deja_inscrits(CODE)
+        except Exception as e:
+            raise SystemExit("Suivi illisible (%s) : aucune relance envoyee. "
+                             "On ne relance pas a l'aveugle." % str(e)[:70])
+        gardes, ecartes = [], []
+        for prenom, nom, adresse in gens:
+            (ecartes if adresse.strip().lower() in repondu else gardes).append(
+                (prenom, nom, adresse))
+        for prenom, nom, adresse in ecartes:
+            print("   ecarte, a deja repondu : %s" % adresse)
+        print("-> %d deja inscrit(s) ecarte(s) de la relance" % len(ecartes))
+        gens = gardes
+        if not gens:
+            print("-> Personne a relancer : tout le monde a repondu.")
+            return 0
+
     print("-> %d destinataire(s)%s" % (len(gens), "  [ESSAI]" if essai else ""))
 
     envoyes = 0
@@ -148,7 +200,8 @@ def main():
             continue
         try:
             import journal as _j
-            _j.ecrire("Demande de confirmation envoyée",
+            _j.ecrire("Relance du questionnaire envoyée" if o.relance
+                      else "Demande de confirmation envoyée",
                       (prenom + " " + nom).strip() or adresse, adresse, "", CODE)
         except Exception as e:
             print("   (journal non ecrit : %s)" % str(e)[:70])

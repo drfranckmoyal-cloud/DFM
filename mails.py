@@ -47,6 +47,12 @@ USAGES = {
     "invitation-inscription": {"nom": "Invitation à s'inscrire",
                    "quand": "Part uniquement quand vous invitez quelqu'un par son adresse, depuis la fiche de session",
                    "icone": "ti-mail-heart", "couleur": "#d4890a"},
+    # LA RELANCE DE CELLE-CI — 25/10/2026. Meme particularite : elle s'adresse a
+    # quelqu'un qui n'est PAS ENCORE dans DFM, donc elle part a la main, depuis
+    # envoyer_validation_cycle.py, et non par le parcours automatique.
+    "relance-inscription": {"nom": "Relance du questionnaire",
+                   "quand": "Part à votre main, à qui n'a pas encore rempli le formulaire d'inscription",
+                   "icone": "ti-mail-forward", "couleur": "#d4890a"},
 }
 BALISES = [
     ("Praticien", [
@@ -328,6 +334,8 @@ DEFAUTS = {
                 "objet": "Vous êtes invité·e · {{titre_formation}}"},
  "invitation-inscription": {"titre": "Invitation à s'inscrire — texte d'origine",
                 "objet": "Vous êtes invité·e · {{titre_formation}}"},
+ "relance-inscription": {"titre": "Relance du questionnaire — texte d'origine",
+                "objet": "Votre inscription · {{formation}}"},
 }
 TYPES_BLOCS = {
     "texte": {"nom": "Paragraphe", "icone": "ti-align-left",
@@ -658,6 +666,21 @@ BLOCS_DEFAUTS = {
   {"type": "texte", "contenu": "Ensuite, tout se déroule normalement : convention de formation, informations pratiques, questionnaires et attestation de fin de formation."},
   {"type": "texte", "contenu": "En cas de question, répondez simplement à ce mail."},
   {"type": "signature", "contenu": "Au plaisir de vous accueillir,\n**{{signature}}, {{marque}}**"},
+ ],
+ # LA RELANCE DU QUESTIONNAIRE — 25/10/2026. Au vouvoiement, comme les autres
+ # textes fournis avec DFM : c'est le texte de n'importe quel organisme, et
+ # celui que Franck tutoie est un MODELE rattache a sa formation.
+ #
+ # « si: date_limite » : sans date limite sur la session, la phrase entiere
+ # disparait plutot que de devenir « avant le . ».
+ "relance-inscription": [
+  {"type": "texte", "contenu": "Bonjour **{{prenom}}**,"},
+  {"type": "texte", "contenu": "Nous n'avons pas encore reçu votre formulaire d'inscription à **« {{titre_formation}} »**."},
+  {"type": "texte", "contenu": "C'est la seule chose qui manque de votre côté, et il se remplit en deux minutes."},
+  {"type": "bouton", "libelle": "Remplir mon inscription", "lien": "{{lien_inscription}}", "couleur": "vert", "sous": ""},
+  {"type": "texte", "si": "date_limite", "contenu": "Réponse attendue avant le {{date_limite}}."},
+  {"type": "texte", "contenu": "En cas de question, répondez simplement à ce mail."},
+  {"type": "signature", "contenu": "Bien à vous,\n**{{signature}}, {{marque}}**"},
  ],
  "invitation": [
   {"type": "texte", "contenu": "Bonjour **{{prenom}}**,"},

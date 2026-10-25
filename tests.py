@@ -1435,6 +1435,25 @@ def tests_relances_en_modeles():
                                               "En attente reglement"),
              _sv.calculer_statut(inv))
 
+    print("    la relance du questionnaire est un usage a part entiere")
+    verifier("l'usage existe", "relance-inscription" in _m.USAGES)
+    verifier("DFM en fournit un texte", bool(_m.defaut("relance-inscription")))
+    r = _m.rendre(_m.pour_formation("", "relance-inscription"),
+                  _m.contexte({"nom_formation": "Essai", "adresse": "x",
+                               "date_limite": "2026-11-07", "jours": ["2027-01-06"],
+                               "code": "essai", "site": ""},
+                              {"prenom": "Camille"}))
+    verifier("il part sans balise oubliee",
+             "{{" not in r["html"] and "}}" not in r["html"])
+    verifier("et il vouvoie, comme les autres textes fournis",
+             "votre" in r["html"].lower() and "ton questionnaire" not in r["html"].lower())
+    envoi = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "envoyer_validation_cycle.py"), encoding="utf-8").read()
+    verifier("le script sait l'envoyer", '"--relance"' in envoi)
+    verifier("et ecarte ceux qui ont deja repondu", "_deja_inscrits(" in envoi)
+    verifier("un suivi illisible arrete la relance",
+             "aucune relance envoyee" in envoi)
+
     print("    une balise vide emporte sa phrase")
     S2 = {"adresse": "x", "nom_formation": "Essai", "date_limite": "2026-11-07",
           "jours": ["2027-01-06"]}
