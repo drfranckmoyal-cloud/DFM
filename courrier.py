@@ -38,6 +38,48 @@ FICHIER_SECRETS = os.path.join(_DOSSIER, "smtp.json")
 # Reglages par defaut, quand rien n'est reconnu.
 DEFAUTS = {"serveur": "smtp.gmail.com", "port": 587, "tls": True}
 
+# LE MUR SE MESURE UNE FOIS, PAS A CHAQUE COURRIER — 25/10/2026.
+#
+# Scaleway ferme en sortie les ports 25, 465, 587 et 2525 : mesure le
+# 23/08/2026, re-mesure le 25/10/2026, toujours ferme. Le repli sur l'API
+# marche — mais on payait le mur A CHAQUE DESTINATAIRE. Un envoi aux douze
+# praticiens d'Esthetique 360 a pris dix minutes, dont neuf d'attente pure.
+#
+# DEUX CHANGEMENTS, ET AUCUN NE RETIRE LE SMTP :
+#
+#   - LE DELAI PASSE DE 30 A 5 SECONDES. Un serveur qui repond le fait en
+#     moins d'un dixieme ; trente secondes ne servaient qu'a attendre un mur.
+#   - LE MUR EST RETENU DIX MINUTES. Le premier courrier d'un envoi groupe
+#     essaie, constate, et les suivants vont droit a l'API. Dix minutes et non
+#     pour toujours : le jour ou le port s'ouvre, DFM le decouvre tout seul au
+#     passage suivant, sans qu'on ait a le redemarrer.
+#
+# ON NE RETIENT QUE LES PANNES DE RESEAU. Un refus d'authentification ou un
+# destinataire invalide sont des erreurs VRAIES : les prendre pour un mur
+# ferait basculer tous les courriers suivants a l'API en silence.
+DELAI_SMTP = 5
+MUR_DUREE = 600
+_MUR = {"jusqu_a": 0.0, "raison": ""}
+
+
+def _mur_dresse():
+    import time
+    return time.time() < _MUR["jusqu_a"]
+
+
+def _mur_noter(souci):
+    """Retient le mur, si et seulement si c'est bien un mur."""
+    import socket
+    import time
+    reseau = (socket.timeout, socket.gaierror, ConnectionError, OSError)
+    if isinstance(souci, smtplib.SMTPAuthenticationError):
+        return False
+    if not isinstance(souci, reseau):
+        return False
+    _MUR["jusqu_a"] = time.time() + MUR_DUREE
+    _MUR["raison"] = str(souci)[:70]
+    return True
+
 # --------------------------------------------------------------------------
 # LES FOURNISSEURS CONNUS
 #
@@ -182,16 +224,21 @@ def envoyer(message, organisme=None):
     # avec ce diagnostic ecrit dedans, et je ne m'en etais pas servi.
     import reseau
     contexte = reseau.contexte()
+
+    # LE MUR EST-IL DEJA CONNU ? Si le port a refuse de repondre il y a moins de
+    # dix minutes, on ne reattend pas : on va droit au secours.
+    if _mur_dresse():
+        return _secours(message, r, "port ferme en sortie, deja constate")
     try:
         if r["tls"]:
-            with smtplib.SMTP(r["serveur"], r["port"], timeout=30) as s:
+            with smtplib.SMTP(r["serveur"], r["port"], timeout=DELAI_SMTP) as s:
                 s.ehlo()
                 s.starttls(context=contexte)
                 s.ehlo()
                 s.login(r["identifiant"], r["mot_de_passe"])
                 s.sendmail(r["adresse"], destinataires, message.as_bytes())
         else:
-            with smtplib.SMTP_SSL(r["serveur"], r["port"], timeout=30,
+            with smtplib.SMTP_SSL(r["serveur"], r["port"], timeout=DELAI_SMTP,
                                   context=contexte) as s:
                 s.login(r["identifiant"], r["mot_de_passe"])
                 s.sendmail(r["adresse"], destinataires, message.as_bytes())
@@ -210,16 +257,32 @@ def envoyer(message, organisme=None):
         # partirait sous la mauvaise entite juridique — deux societes, deux
         # Qualiopi, deux responsabilites. On prefere l'echec franc au courrier
         # parti sous le mauvais nom.
-        voulue = str(r.get("adresse") or "").strip().lower()
-        compte = compte_google()
-        if not voulue or not compte or voulue != compte:
-            print("   (SMTP injoignable, et le secours est refuse : le compte Google "
-                  "est « %s » pour une adresse d'organisme « %s »)"
-                  % (compte or "inconnu", voulue or "inconnue"))
-            raise
-        print("   (SMTP injoignable : %s — envoi par l'API Google sous %s)"
-              % (str(_e)[:70], compte))
-        return _par_api(message)
+        _mur_noter(_e)
+        return _secours(message, r, str(_e)[:70])
+
+
+def _secours(message, r, raison):
+    """L'API Google, quand le SMTP n'a pas pu servir.
+
+    LE VERROU D'IDENTITE NE SE CONTOURNE PAS. L'API envoie sous le compte du
+    jeton. Si ce compte n'est pas l'adresse de l'organisme, le message partirait
+    sous la mauvaise entite juridique — deux societes, deux Qualiopi, deux
+    responsabilites. On prefere l'echec franc au courrier parti sous le mauvais
+    nom.
+    """
+    voulue = str((r or {}).get("adresse") or "").strip().lower()
+    compte = compte_google()
+    if not voulue or not compte or voulue != compte:
+        print("   (SMTP injoignable, et le secours est refuse : le compte Google "
+              "est « %s » pour une adresse d'organisme « %s »)"
+              % (compte or "inconnu", voulue or "inconnue"))
+        raise RuntimeError(
+            "SMTP injoignable et secours refuse : le compte Google « %s » ne "
+            "correspond pas a l'adresse de l'organisme « %s »."
+            % (compte or "inconnu", voulue or "inconnue"))
+    print("   (SMTP injoignable : %s — envoi par l'API Google sous %s)"
+          % (raison, compte))
+    return _par_api(message)
 
 
 def compte_google():

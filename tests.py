@@ -23,6 +23,13 @@ import os
 import sys
 import tempfile
 
+# LA VRAIE PORTE D'ENVOI, CAPTUREE AVANT QUE LES TESTS NE LA REMPLACENT.
+# Plusieurs d'entre eux posent « courrier.envoyer = faux_envoi » et ne le
+# remettent pas : celui qui veut eprouver la vraie porte ne la retrouverait
+# plus. On la garde ici, au chargement, avant qu'aucun test n'ait tourne.
+import courrier as _courrier
+_ENVOYER_REEL = _courrier.envoyer
+
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, DOSSIER)
 os.chdir(DOSSIER)
@@ -1190,6 +1197,105 @@ def tests_convention_du_cycle():
         verifier("le texte du cycle est la (%s)" % ou, phrase in tpl, phrase[:34])
 
 
+def tests_mur_smtp():
+    """LE MUR SMTP SE MESURE UNE FOIS — 25/10/2026.
+
+    Scaleway ferme en sortie les ports 25, 465, 587 et 2525. Le repli sur
+    l'API Google marchait depuis le 23/08/2026, mais on payait le mur A CHAQUE
+    DESTINATAIRE : l'envoi du courriel 01 aux douze praticiens d'Esthetique 360
+    a pris dix minutes, dont neuf d'attente pure.
+
+    CE QUI DOIT TENIR :
+      - le premier courrier essaie le SMTP, les suivants n'attendent plus ;
+      - le souvenir EXPIRE : le jour ou le port s'ouvre, DFM le decouvre seul ;
+      - un refus d'AUTHENTIFICATION n'est pas un mur — sinon un mot de passe
+        faux ferait basculer tous les courriers a l'API en silence ;
+      - le verrou d'identite tient : pas de courrier sous la mauvaise entite.
+    """
+    import socket
+    import time as _t
+    from email.mime.text import MIMEText
+    import courrier as _c
+    print()
+    print("  LE MUR SMTP")
+
+    vrai_smtp, vrai_ssl = _c.smtplib.SMTP, _c.smtplib.SMTP_SSL
+    vrai_reglages, vrai_compte, vraie_api = _c.reglages, _c.compte_google, _c._par_api
+    essais = {"n": 0}
+
+    class Mur:
+        def __init__(self, *a, **k):
+            essais["n"] += 1
+            raise socket.timeout("timed out")
+
+    class Refus:
+        def __init__(self, *a, **k):
+            essais["n"] += 1
+            raise _c.smtplib.SMTPAuthenticationError(535, b"refus")
+
+    partis = []
+    try:
+        _c.reglages = lambda o=None: {"serveur": "x", "port": 587, "tls": True,
+                                      "identifiant": "i", "mot_de_passe": "m",
+                                      "adresse": "of@essai.test"}
+        _c.compte_google = lambda: "of@essai.test"
+        _c._par_api = lambda m: partis.append(m["To"]) or True
+
+        def douze():
+            del partis[:]
+            essais["n"] = 0
+            _c._MUR["jusqu_a"] = 0.0
+            for i in range(12):
+                m = MIMEText("x")
+                m["To"] = "n%d@essai.test" % i
+                _ENVOYER_REEL(m, "mon-organisme")
+
+        print("    douze courriers ne paient le mur qu'une fois")
+        _c.smtplib.SMTP = _c.smtplib.SMTP_SSL = Mur
+        douze()
+        verifier("une seule tentative SMTP", essais["n"] == 1, essais["n"])
+        verifier("et les douze partent quand meme", len(partis) == 12, len(partis))
+        verifier("le mur est retenu", _c._mur_dresse())
+
+        print("    le souvenir expire")
+        verifier("il dure dix minutes", _c.MUR_DUREE == 600, _c.MUR_DUREE)
+        _c._MUR["jusqu_a"] = _t.time() - 1
+        verifier("passe ce delai, DFM reessaie", not _c._mur_dresse())
+
+        print("    un refus d'authentification n'est pas un mur")
+        _c.smtplib.SMTP = _c.smtplib.SMTP_SSL = Refus
+        douze()
+        verifier("chaque courrier retente", essais["n"] == 12, essais["n"])
+        verifier("et le mur reste baisse", not _c._mur_dresse())
+
+        print("    le verrou d'identite tient")
+        _c.smtplib.SMTP = _c.smtplib.SMTP_SSL = Mur
+        _c.compte_google = lambda: "quelqu-un-dautre@essai.test"
+        _c._MUR["jusqu_a"] = 0.0
+        del partis[:]
+        m = MIMEText("x")
+        m["To"] = "z@essai.test"
+        leve = False
+        try:
+            _ENVOYER_REEL(m, "mon-organisme")
+        except Exception:
+            leve = True
+        verifier("le secours est refuse", leve)
+        verifier("et rien n'est parti", partis == [], partis)
+
+        print("    le delai d'attente est court")
+        verifier("cinq secondes, et non trente", _c.DELAI_SMTP == 5, _c.DELAI_SMTP)
+        src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "courrier.py"), encoding="utf-8").read()
+        verifier("plus aucun timeout=30", "timeout=30" not in src)
+        verifier("le SMTP n'a pas ete retire",
+                 "smtplib.SMTP(" in src and "EN SECOURS, JAMAIS EN PREMIER" in src)
+    finally:
+        _c.smtplib.SMTP, _c.smtplib.SMTP_SSL = vrai_smtp, vrai_ssl
+        _c.reglages, _c.compte_google, _c._par_api = vrai_reglages, vrai_compte, vraie_api
+        _c._MUR["jusqu_a"] = 0.0
+
+
 def tests_ordre_de_la_chaine():
     """CE QUE L'ESSAI DE FRANCK A REVELE — 25/10/2026.
 
@@ -1711,7 +1817,7 @@ def main():
                   tests_jalon_validation, tests_fonction_par_defaut,
                   tests_convention_du_cycle, tests_courriel_de_validation,
                   tests_relances_en_modeles, tests_versements,
-                  tests_ordre_de_la_chaine):
+                  tests_ordre_de_la_chaine, tests_mur_smtp):
         try:
             essai()
         except Exception as e:
