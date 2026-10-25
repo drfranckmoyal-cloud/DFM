@@ -957,6 +957,17 @@ def _bloc_retenu(bloc, contexte):
         return not invite
     if si == "invite":
         return invite
+    # UNE BALISE VIDE EMPORTE SA PHRASE — 25/10/2026. « si: date_limite » garde
+    # le bloc seulement quand la session porte une date limite : sans cela, une
+    # session qui n'en a pas verrait partir « Reponse attendue avant le . ».
+    # C'est le meme principe que « payant » : ce n'est pas la valeur qu'il faut
+    # vider, c'est la phrase entiere qu'il faut retirer.
+    #
+    # UN « si » QUI NE NOMME AUCUNE BALISE GARDE LE BLOC, comme avant : une
+    # faute de frappe dans un modele ne doit pas faire disparaitre un
+    # paragraphe en silence.
+    if si in (contexte or {}):
+        return bool(str((contexte or {}).get(si) or "").strip())
     return True
 
 
@@ -972,7 +983,14 @@ def contexte(S, ligne=None, extras=None):
         "nom_prenom": (prenom + " " + nom).strip(),
         "mail": n(ligne.get("mail")).strip(),
         "ville": n(ligne.get("ville")),
-        "formation": n(S.get("nom_formation")),
+        # L'INTITULE COURT, CORRECTEMENT ACCENTUE — 25/10/2026. « nom_formation »
+        # ne sert pas qu'a l'affichage : il fabrique le nom de l'onglet du
+        # classeur et sert de cle aux signatures cote Supabase. Le corriger
+        # orphelinerait des donnees. « nom_court » est donc un champ a part, pour
+        # la seule lecture humaine — meme raison que « lieu_court », et il
+        # retombe sur l'intitule quand il est vide, donc rien ne change pour les
+        # formations qui ne le remplissent pas.
+        "formation": n(S.get("nom_court") or S.get("nom_formation")),
         "titre_formation": n(S.get("titre_complet") or S.get("nom_formation")),
         "dates": n(S.get("date_texte")),
         "horaires": n(S.get("horaires")),

@@ -62,7 +62,18 @@
       <label class="champ" style="grid-column:span 2">
         <span>Intitulé court <b>*</b></span>
         <input type="text" name="nom_formation" placeholder="Usures" oninput="majRecap()" required>
-        <em>Sert de nom de dossier et de référence de paiement</em>
+        <em>Sert de nom de dossier, d'onglet du classeur et de référence de paiement&nbsp;:
+          une fois posé, il ne se change plus</em>
+      </label>
+      {# L'INTITULÉ TEL QU'ON L'ÉCRIT — 25/10/2026. « Esthetique 360 » sans accent
+         dans l'objet d'un courriel fait négligé, mais l'intitulé court fabrique le
+         nom de l'onglet du classeur et sert de clé aux signatures : le corriger
+         orphelinerait des données. Ce champ-ci ne sert qu'à être lu. #}
+      <label class="champ" style="grid-column:span 2">
+        <span>Intitulé pour les courriels</span>
+        <input type="text" name="nom_court" placeholder="Esthétique 360" oninput="majRecap()">
+        <em>Le même intitulé, écrit comme il se lit — accents compris. Vide, les
+          courriels reprennent l'intitulé court tel quel</em>
       </label>
       <label class="champ" style="grid-column:span 2">
         <span>Intitulé complet</span>

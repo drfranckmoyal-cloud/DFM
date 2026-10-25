@@ -710,7 +710,8 @@ _CHAMPS_FORMATION = [
     # LE TYPE EN TETE : c'est le changement le plus lourd de consequences, celui
     # qu'on doit lire en premier dans le journal quand une formation bascule.
     ("type_formation", "type"),
-    ("nom_formation", "intitulé"), ("titre_complet", "titre"), ("tarif", "tarif"),
+    ("nom_formation", "intitulé"), ("nom_court", "intitulé court"),
+    ("titre_complet", "titre"), ("tarif", "tarif"),
     ("places_max", "places"), ("duree_heures", "durée"), ("horaires", "horaires"),
     ("adresse", "lieu"), ("lieu_court", "lieu en abrégé"), ("public", "public"),
     # Le texte d'accueil du formulaire public. Il appartient a la FORMATION
@@ -818,6 +819,11 @@ def enregistrer_nouvelle_formation():
         return jsonify({"ok": False, "message": souci + " Rien n'a ete enregistre."})
     fiche = {
         "nom_formation": nom,
+        # L'INTITULE TEL QU'ON L'ECRIT DANS UN COURRIEL. « nom_formation »
+        # fabrique le nom de l'onglet du classeur et sert de cle aux signatures :
+        # on n'y touche pas. Celui-ci ne sert qu'a etre lu — accents compris.
+        # Vide, la balise {{formation}} retombe sur l'intitule.
+        "nom_court": (d.get("nom_court") or "").strip(),
         "titre_complet": (d.get("titre_complet") or nom).strip(),
         "description": (d.get("description") or "").strip(),
         "public": (d.get("public") or "").strip(),

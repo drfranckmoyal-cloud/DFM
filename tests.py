@@ -1435,6 +1435,40 @@ def tests_relances_en_modeles():
                                               "En attente reglement"),
              _sv.calculer_statut(inv))
 
+    print("    une balise vide emporte sa phrase")
+    S2 = {"adresse": "x", "nom_formation": "Essai", "date_limite": "2026-11-07",
+          "jours": ["2027-01-06"]}
+    avec = _m.rendre({"objet": "o", "blocs": [
+        {"type": "texte", "si": "date_limite",
+         "contenu": "Réponse attendue avant le {{date_limite}}."}]},
+        _m.contexte(S2, {"prenom": "Camille"}))["html"]
+    sans = _m.rendre({"objet": "o", "blocs": [
+        {"type": "texte", "si": "date_limite",
+         "contenu": "Réponse attendue avant le {{date_limite}}."}]},
+        _m.contexte(dict(S2, date_limite=""), {"prenom": "Camille"}))["html"]
+    verifier("la phrase part quand la session porte la date",
+             "Réponse attendue" in avec)
+    verifier("elle disparait entierement quand la session n'en porte pas",
+             "Réponse attendue" not in sans)
+    verifier("et jamais « avant le . »", "avant le ." not in sans)
+    inconnu = _m.rendre({"objet": "o", "blocs": [
+        {"type": "texte", "si": "coquille", "contenu": "Un paragraphe."}]},
+        _m.contexte(S2, {"prenom": "Camille"}))["html"]
+    verifier("un « si » qui ne nomme rien garde le bloc", "Un paragraphe." in inconnu)
+
+    print("    l'intitule des courriels peut porter ses accents")
+    verifier("sans nom_court, c'est l'intitule court",
+             _m.contexte({"nom_formation": "Esthetique 360", "adresse": "x"})["formation"]
+             == "Esthetique 360")
+    verifier("avec nom_court, c'est lui",
+             _m.contexte({"nom_formation": "Esthetique 360", "adresse": "x",
+                          "nom_court": "Esthétique 360"})["formation"]
+             == "Esthétique 360")
+    verifier("et l'intitule court n'a pas bouge",
+             '"nom_formation": nom,' in open(os.path.join(
+                 os.path.dirname(os.path.abspath(__file__)), "app.py"),
+                 encoding="utf-8").read())
+
     print("    la fiche d'une formation peut porter ses propres relances")
     verifier("le champ est journalise",
              "modele_mail_relance_signature" in source
