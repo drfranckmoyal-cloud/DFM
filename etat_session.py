@@ -53,7 +53,11 @@ for l in regles:
         encaisse += float(str(l["montant_recu"]).replace(",", ".") or 0)
     except ValueError:
         pass
-attendu = len(actifs) * float(S["tarif"])
+# LA SOMME DES PRIX DE CHACUN, et non le tarif multiplie par le nombre —
+# 25/10/2026. Depuis Esthetique 360, un inscrit peut avoir un prix a lui, et un
+# invite ne doit rien. Une formation ou personne ne porte de prix propre
+# retombe exactement sur l'ancien calcul.
+attendu = sum(suivi.montant_attendu(l, S["tarif"]) for l in actifs)
 annules = len(groupes.get("Annulee", []))
 occupation = f"{len(actifs)}/{S['places_max']}"
 if len(actifs) >= S["places_max"]:

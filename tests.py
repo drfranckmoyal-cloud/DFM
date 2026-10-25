@@ -87,7 +87,20 @@ def _demande(nom, prenom, mail, demande="Je confirme ma demande d'inscription", 
             "ville": "Paris", "fonction": "Chirurgien-dentiste", "demande": demande,
             "connu_par": "", "dejeuner": "Oui", "restrictions": "", "image": "", "pmr": "Non",
             "code_session": FICHE["code"], "organisme": "mon-organisme",
-            "horodateur": "2026-10-18T09:56:44.131591+00:00"}
+            "horodateur": _maintenant_iso()}
+
+
+def _maintenant_iso():
+    """L'horodateur d'une demande qui ARRIVE MAINTENANT.
+
+    IL ETAIT ECRIT EN DUR — « 2026-10-18T09:56:44 ». Le 24/10 la suite passait,
+    le 25/10 quatre controles tombaient : l'accuse de reception ecarte les
+    demandes de plus de sept jours (accuser_reception.JOURS_MAX), et la date
+    gravee venait de les depasser. Un test qui pourrit avec le calendrier
+    finit par accuser le code a sa place.
+    """
+    from datetime import datetime as _dt, timezone as _tz
+    return _dt.now(_tz.utc).isoformat()
 
 
 def tests_import():
@@ -1215,6 +1228,19 @@ def tests_ordre_de_la_chaine():
     rap = open(os.path.join(ici, "envoyer_rappel.py"), encoding="utf-8").read()
     verifier("la convocation ecartait deja ses pieces illisibles",
              "ne doit pas empecher la convocation de partir" in rap)
+
+    print("    la page de signature montre le prix de la personne")
+    sig = open(os.path.join(ici, "envoyer_mail_signature.py"), encoding="utf-8").read()
+    verifier("le lien ne porte plus le tarif de la session",
+             '"montant": S.get("tarif")' not in sig)
+    verifier("il porte le montant de la ligne",
+             '"montant": _montant_affiche(ligne, S)' in sig)
+    verifier("qui passe par montant_attendu", "suivi.montant_attendu(" in sig)
+    verifier("sans decimale inutile", 'float(v).is_integer()' in sig)
+    etat = open(os.path.join(ici, "etat_session.py"), encoding="utf-8").read()
+    verifier("le bilan de session compte les prix de chacun",
+             "sum(suivi.montant_attendu(" in etat
+             and "len(actifs) * float" not in etat)
 
     print("    la facture attend le mail de confirmation")
     gen = open(os.path.join(ici, "generer_factures.py"), encoding="utf-8").read()

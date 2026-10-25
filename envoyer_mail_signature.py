@@ -41,6 +41,16 @@ programme_bytes = documents.piece("programme", CODE)
 if not programme_bytes:
     print("   ATTENTION : programme introuvable. Les mails partiront sans.")
 logo_bytes = __import__("profil").logo(__import__("sessions").organisme_de(S["code"]))
+def _montant_affiche(ligne, S):
+    """Ce que la page de signature doit montrer : le prix de CETTE personne.
+
+    Sans decimale quand il n'y en a pas — « 4500 » et non « 4500.0 », que la
+    page afficherait tel quel.
+    """
+    v = suivi.montant_attendu(ligne, S.get("tarif"))
+    return ("%d" % v) if float(v).is_integer() else ("%.2f" % v)
+
+
 for ligne in a_contacter:
     prenom = ligne["prenom"]
     nom_prenom = f"{prenom} {ligne['nom']}".strip()
@@ -84,7 +94,18 @@ for ligne in a_contacter:
         "formation": S.get("titre_complet") or S["nom_formation"],
         "dates": S.get("date_texte") or "",
         "lieu": S.get("adresse") or "",
-        "montant": S.get("tarif") or "",
+        # LE MONTANT EST CELUI DE LA PERSONNE, PAS CELUI DE LA SESSION —
+        # 25/10/2026, trouve par l'essai de Franck.
+        #
+        # La page de signature affichait « 6000 € TTC » a quelqu'un dont le prix
+        # avait ete arrete a 4 500 € en validant sa demande. C'est le montant
+        # qu'il voit JUSTE AVANT DE SIGNER : il doit etre celui de sa
+        # convention, et d'aucun autre.
+        #
+        # Le defaut ne datait pas d'aujourd'hui, mais il ne pouvait pas se voir
+        # avant Esthetique 360 : jusque-la tout le monde payait le tarif de la
+        # session. Un invite y verra « 0 € », ce que porte aussi sa convention.
+        "montant": _montant_affiche(ligne, S),
         # PLUS DE PARAMETRE « convention » : la page masque son bouton quand il
         # est absent — « un bouton mort serait pire que pas de bouton », dit son
         # propre commentaire. Le document est desormais dans le mail.
