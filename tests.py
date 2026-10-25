@@ -1177,6 +1177,80 @@ def tests_convention_du_cycle():
         verifier("le texte du cycle est la (%s)" % ou, phrase in tpl, phrase[:34])
 
 
+def tests_ordre_de_la_chaine():
+    """CE QUE L'ESSAI DE FRANCK A REVELE — 25/10/2026.
+
+    Il a signe sa convention et recu SA FACTURE au lieu de sa convention
+    signee. Trois defauts, et les trois sont gardes ici.
+
+      1. LE MAIL DE CONFIRMATION MOURAIT SUR UNE PIECE ABSENTE. Il annoncait
+         « plan d'acces introuvable, le mail partira sans », puis attachait
+         quand meme et levait sur un None. Esthetique 360 n'a pas de fiche
+         d'acces : la confirmation n'est jamais partie.
+
+      2. LA FACTURE N'ATTENDAIT RIEN. Depuis qu'une formation peut facturer
+         des l'inscription, « signe_le » suffisait a la declencher — et comme
+         elle n'a besoin d'aucune piece, elle partait quand la confirmation
+         echouait. L'ordre est desormais une CONDITION, pas un rang d'etape.
+
+      3. LE TEXTE DE LA FACTURE PARLAIT D'UN REGLEMENT RECU. Il n'y en avait
+         qu'un, ecrit pour une facture acquittee. Il est parti a quelqu'un qui
+         n'avait rien verse.
+    """
+    import mails as _m
+    print()
+    print("  L'ORDRE DE LA CHAINE, ET CE QUI L'A CASSE")
+    ici = os.path.dirname(os.path.abspath(__file__))
+
+    print("    une piece absente ne tue plus le courrier")
+    for fichier, ce_que_c_est in (("envoyer_mail_confirmation.py", "la confirmation"),
+                                  ("envoyer_mail_signature.py", "la convention a signer")):
+        src = open(os.path.join(ici, fichier), encoding="utf-8").read()
+        bloc = src[src.index("message.attach(logo)"):]
+        nus = [l for l in bloc.splitlines()
+               if "MIMEApplication(" in l and "if " not in l]
+        gardes = bloc.count("if ") >= bloc.count("MIMEApplication(")
+        verifier("%-24s chaque piece est gardee" % ce_que_c_est, gardes,
+                 "%d piece(s), %d garde(s)" % (bloc.count("MIMEApplication("), bloc.count("if ")))
+    rap = open(os.path.join(ici, "envoyer_rappel.py"), encoding="utf-8").read()
+    verifier("la convocation ecartait deja ses pieces illisibles",
+             "ne doit pas empecher la convocation de partir" in rap)
+
+    print("    la facture attend le mail de confirmation")
+    gen = open(os.path.join(ici, "generer_factures.py"), encoding="utf-8").read()
+    verifier("« mail2_envoye_le » est dans la condition",
+             'l["signe_le"] and l["mail2_envoye_le"]' in gen)
+    verifier("et la selection d'avant n'a pas bouge",
+             'l["paiement_recu_le"] and not l["facture_le"]' in gen)
+
+    print("    le texte de la facture suit l'etat de la facture")
+    verifier("l'usage « facture-a-regler » existe", "facture-a-regler" in _m.USAGES)
+    verifier("DFM en fournit un texte", bool(_m.defaut("facture-a-regler")))
+    S = {"tarif": "6000", "adresse": "x", "nom_formation": "Essai",
+         "titre_complet": "Essai", "jours": ["2027-01-06"],
+         "mail_contact": "contact@essai.test"}
+    r = _m.rendre(_m.pour_formation("", "facture-a-regler"),
+                  _m.contexte(S, {"prenom": "Camille", "montant_du": "5000"}))
+    import html as _h
+    propre = _h.unescape(r["html"])
+    verifier("il n'annonce aucun reglement recu",
+             "reçu ton règlement" not in propre and "facture acquittée" not in propre)
+    verifier("il dit au contraire qu'elle ne l'est pas encore",
+             "pas encore acquittée" in propre)
+    verifier("il annonce le montant de la personne", "5 000" in r["html"], r["html"][:0])
+    verifier("et porte l'IBAN", "IBAN" in r["html"])
+    verifier("aucune balise oubliee", "{{" not in r["html"] and "}}" not in r["html"])
+    env = open(os.path.join(ici, "envoyer_facture.py"), encoding="utf-8").read()
+    verifier("l'envoi choisit d'apres « paiement_recu_le »",
+             'ligne.get("paiement_recu_le")' in env and '"facture-a-regler"' in env)
+    verifier("et non d'apres un reglage de formation",
+             "facture_a_l_inscription" not in env)
+    ancien = _m.rendre(_m.pour_formation("", "facture"),
+                       _m.contexte(S, {"prenom": "Camille"}))
+    verifier("la facture acquittee, elle, dit toujours la meme chose",
+             "reçu ton règlement" in _h.unescape(ancien["html"]))
+
+
 def tests_versements():
     """PLUSIEURS VERSEMENTS SUR UNE MEME LIGNE — 25/10/2026, pour Esthetique 360.
 
@@ -1336,7 +1410,7 @@ def tests_versements():
     verifier("sans lui, la selection d'avant est intacte",
              'l["paiement_recu_le"] and not l["facture_le"]' in gen)
     verifier("avec lui, elle part a la convention signee",
-             'l["signe_le"] and not l["facture_le"]' in gen)
+             'l["signe_le"] and l["mail2_envoye_le"]' in gen)
     verifier("et porte la somme entiere", "montant_attendu" in gen)
     verifier("sans bloc « acquittee »", "À régler avant le début" in gen)
     verifier("un invite n'est jamais facture", 'not l.get("invite_le")' in gen)
@@ -1610,7 +1684,8 @@ def main():
                   tests_session_cycle, tests_balises_du_cycle,
                   tests_jalon_validation, tests_fonction_par_defaut,
                   tests_convention_du_cycle, tests_courriel_de_validation,
-                  tests_relances_en_modeles, tests_versements):
+                  tests_relances_en_modeles, tests_versements,
+                  tests_ordre_de_la_chaine):
         try:
             essai()
         except Exception as e:

@@ -46,7 +46,20 @@ for ligne in a_envoyer:
         print("   Facture introuvable, ni en local ni dans le Drive.")
         continue
     import mails as _mails
-    _modele = _mails.pour_formation(S.get("formation", ""), "facture")
+    # LE TEXTE SUIT L'ETAT DE LA FACTURE, PAS UN REGLAGE — 25/10/2026.
+    #
+    # Il n'y en avait qu'un, ecrit pour une facture deja payee : « nous avons
+    # bien recu ton reglement — ci-joint ta facture acquittee ». Depuis qu'une
+    # formation peut facturer des l'inscription, cette phrase est partie a
+    # quelqu'un qui n'avait rien verse. C'est arrive le 25/10/2026, a Franck
+    # lui-meme, pendant son essai.
+    #
+    # ON REGARDE LA LIGNE, pas la fiche de la formation : une facture est
+    # acquittee ou elle ne l'est pas, et c'est « paiement_recu_le » qui le dit.
+    # Le reglage de la formation decide QUAND la facture part ; il n'a pas a
+    # decider ce qu'on en ecrit.
+    _usage = "facture" if (ligne.get("paiement_recu_le") or "").strip() else "facture-a-regler"
+    _modele = _mails.pour_formation(S.get("formation", ""), _usage)
     _ctx = _mails.contexte(S, ligne, {})
     _rendu = _mails.rendre(_modele, _ctx)
     html = _rendu["html"]

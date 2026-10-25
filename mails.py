@@ -35,6 +35,14 @@ USAGES = {
     "facture": {"nom": "Facture acquittée",
                 "quand": "Part dès que le règlement est enregistré",
                 "icone": "ti-file-euro", "couleur": "#0f9e6a"},
+    # LA FACTURE QUI N'EST PAS ACQUITTEE — 25/10/2026. L'usage « facture »
+    # n'avait qu'un texte, ecrit pour une facture deja payee : « nous avons
+    # bien recu ton reglement ». Depuis qu'une formation peut facturer DES
+    # L'INSCRIPTION, cette phrase part a quelqu'un qui n'a rien paye. Deux
+    # situations, deux textes.
+    "facture-a-regler": {"nom": "Facture à régler",
+                "quand": "Part avec la facture quand elle précède le règlement",
+                "icone": "ti-file-euro", "couleur": "#d4890a"},
     "attestation": {"nom": "Attestation de formation",
                     "quand": "Part à la clôture, après validation manuelle",
                     "icone": "ti-certificate", "couleur": "#4f7ef8"},
@@ -338,6 +346,8 @@ DEFAUTS = {
                 "objet": "Vous êtes invité·e · {{titre_formation}}"},
  "relance-inscription": {"titre": "Relance du questionnaire — texte d'origine",
                 "objet": "Votre inscription · {{formation}}"},
+ "facture-a-regler": {"titre": "Facture à régler — texte d'origine",
+                "objet": "Ta facture · {{titre_formation}}"},
 }
 TYPES_BLOCS = {
     "texte": {"nom": "Paragraphe", "icone": "ti-align-left",
@@ -668,6 +678,18 @@ BLOCS_DEFAUTS = {
   {"type": "texte", "contenu": "Ensuite, tout se déroule normalement : convention de formation, informations pratiques, questionnaires et attestation de fin de formation."},
   {"type": "texte", "contenu": "En cas de question, répondez simplement à ce mail."},
   {"type": "signature", "contenu": "Au plaisir de vous accueillir,\n**{{signature}}, {{marque}}**"},
+ ],
+ # LA FACTURE A REGLER — 25/10/2026. Au tutoiement, comme le texte de la
+ # facture acquittee dont elle est la jumelle : les deux partent au meme
+ # praticien, selon qu'il a paye ou non.
+ "facture-a-regler": [
+  {"type": "texte", "contenu": "Bonjour **{{prenom}}**,"},
+  {"type": "texte", "contenu": "Tu trouveras ci-joint **ta facture** pour la formation **« {{titre_formation}} »**."},
+  {"type": "texte", "contenu": "Elle porte le montant convenu, **{{tarif}} €**, TVA non applicable. Elle n'est pas encore acquittée : c'est ton règlement qui la soldera."},
+  {"type": "encadre", "ton": "bleu", "contenu": "**Par virement**\nIBAN : {{iban}}\nBIC : {{bic}}\nAu nom de : {{organisme}}\nMotif : {{formation}} + ton nom"},
+  {"type": "texte", "contenu": "Chaque versement que tu feras donnera lieu à un reçu ; la facture, elle, reste celle-ci et ne change pas."},
+  {"type": "texte", "contenu": "En cas de question, réponds simplement à ce mail."},
+  {"type": "signature", "contenu": "Bonne journée,\n**{{signature}}, {{marque}}**"},
  ],
  # LA RELANCE DU QUESTIONNAIRE — 25/10/2026. Au vouvoiement, comme les autres
  # textes fournis avec DFM : c'est le texte de n'importe quel organisme, et

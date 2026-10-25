@@ -40,8 +40,19 @@ _FICHE_F = (__import__("sessions").FORMATIONS.get(S.get("formation") or "") or {
 AVANT_REGLEMENT = bool(_FICHE_F.get("facture_a_l_inscription"))
 if AVANT_REGLEMENT:
     print("-> Facture emise des l'inscription (reglage de la formation).")
+    # ELLE ATTEND LE MAIL DE CONFIRMATION — 25/10/2026, apres l'essai de Franck.
+    #
+    # « signe_le » seul ne suffisait pas. Le mail de confirmation, lui, a besoin
+    # de la convention signee et des pieces de la session : quand l'une manque,
+    # il ne part pas — et la facture, qui n'a besoin de rien, partait a sa
+    # place. Franck a signe sa convention d'essai et a recu SA FACTURE au lieu
+    # de sa convention signee.
+    #
+    # L'ORDRE EST UNE REGLE, PAS UN HASARD D'ORDONNANCEMENT : « ton inscription
+    # est confirmee » precede « voici ta facture ». On l'ecrit donc dans la
+    # condition, et non dans la place de l'etape au sein de dfm.py.
     a_facturer = [l for l in lignes
-                  if l["signe_le"] and not l["facture_le"]
+                  if l["signe_le"] and l["mail2_envoye_le"] and not l["facture_le"]
                   and not l.get("invite_le")
                   and suivi.calculer_statut(l) not in
                       suivi.PAS_ENCORE_INSCRIT + ("Annulee", "Annulation demandee")]

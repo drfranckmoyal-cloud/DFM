@@ -83,12 +83,25 @@ for ligne in a_envoyer:
         pj_conv = MIMEApplication(convention_bytes, _subtype="pdf")
         pj_conv.add_header("Content-Disposition", "attachment", filename=f"Convention signee - {nom_prenom}.pdf")
         message.attach(pj_conv)
-    pj_rib = MIMEApplication(rib_bytes, _subtype="pdf")
-    pj_rib.add_header("Content-Disposition", "attachment", filename=f"RIB - {S.get('organisme') or 'organisme'}.pdf")
-    message.attach(pj_rib)
-    pj_acces = MIMEApplication(acces_bytes, _subtype="pdf")
-    pj_acces.add_header("Content-Disposition", "attachment", filename="Informations d'acces.pdf")
-    message.attach(pj_acces)
+    # UNE PIECE MANQUANTE NE DOIT PAS TUER LE MAIL — 25/10/2026.
+    #
+    # Les deux lignes qui precedent disaient deja « ATTENTION : plan d'acces
+    # introuvable, le mail partira sans » — puis attachaient quand meme, et le
+    # script mourait sur un None. Esthetique 360 n'a pas de fiche d'acces : la
+    # confirmation n'est jamais partie, et la facture, qui ne demande aucune
+    # piece, est partie a sa place. Franck a recu la facture au lieu de la
+    # convention signee, le 25/10/2026, et c'est ainsi qu'on l'a su.
+    #
+    # La convention etait deja gardee par un « if » ; les deux autres ne
+    # l'etaient pas. Elles le sont.
+    if rib_bytes:
+        pj_rib = MIMEApplication(rib_bytes, _subtype="pdf")
+        pj_rib.add_header("Content-Disposition", "attachment", filename=f"RIB - {S.get('organisme') or 'organisme'}.pdf")
+        message.attach(pj_rib)
+    if acces_bytes:
+        pj_acces = MIMEApplication(acces_bytes, _subtype="pdf")
+        pj_acces.add_header("Content-Disposition", "attachment", filename="Informations d'acces.pdf")
+        message.attach(pj_acces)
     # L'ENVOI PASSE PAR LA PORTE « courrier », plus par l'API Gmail. C'est
     # l'organisme DE LA SESSION qui decide d'ou part le mail : deux entites,
     # deux adresses, et un mail parti sous la mauvaise identite ne se rattrape pas.

@@ -115,9 +115,15 @@ for ligne in a_contacter:
     logo.add_header("Content-ID", "<logo>")
     logo.add_header("Content-Disposition", "inline", filename="logo.png")
     message.attach(logo)
-    piece = MIMEApplication(programme_bytes, _subtype="pdf")
-    piece.add_header("Content-Disposition", "attachment", filename=f"Programme {S['nom_formation']}.pdf")
-    message.attach(piece)
+    # MEME GARDE QUE LA CONVENTION JUSTE EN DESSOUS — 25/10/2026. Une formation
+    # sans programme depose faisait mourir l'envoi sur un None, et personne ne
+    # recevait sa convention a signer. C'est ce defaut, dans le mail de
+    # confirmation, qui a fait partir la facture a la place de la convention
+    # signee le 25/10/2026.
+    if programme_bytes:
+        piece = MIMEApplication(programme_bytes, _subtype="pdf")
+        piece.add_header("Content-Disposition", "attachment", filename=f"Programme {S['nom_formation']}.pdf")
+        message.attach(piece)
     if convention_bytes:
         conv = MIMEApplication(convention_bytes, _subtype="pdf")
         conv.add_header("Content-Disposition", "attachment",
