@@ -696,10 +696,23 @@ def _lien_produit(sortie):
     correspondait, et l'interface repondait « la feuille n'a pas ete produite »
     alors que le PDF venait d'etre depose. Le lien enregistre restait celui de
     l'ancien document.
+
+    ON EXTRAIT L'ADRESSE, PAS LA LIGNE — 25/10/2026. Elle rendait la ligne
+    ENTIERE. Tant que le script imprimait l'adresse seule, cela revenait au
+    meme ; depuis qu'il annonce « -> Feuille rangee. https://... », c'est la
+    phrase complete qui etait enregistree comme lien. L'ecran tentait alors
+    d'ouvrir « -> Feuille rangee. https://... » et repondait par une erreur —
+    constate sur Masterclass octobre et Usures novembre le 25/10/2026, a la
+    cloture des inscriptions.
     """
+    import re as _re
     for l in (sortie or "").splitlines():
-        if "docs.google.com" in l or "drive.google.com" in l:
-            return l.strip()
+        if "docs.google.com" not in l and "drive.google.com" not in l:
+            continue
+        m = _re.search(r"https?://\S+", l)
+        if m:
+            # Une adresse en fin de phrase emporte sa ponctuation.
+            return m.group(0).rstrip(".,;:)»\"'")
     return ""
 
 

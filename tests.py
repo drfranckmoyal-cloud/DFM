@@ -1197,6 +1197,62 @@ def tests_convention_du_cycle():
         verifier("le texte du cycle est la (%s)" % ou, phrase in tpl, phrase[:34])
 
 
+def tests_lien_produit():
+    """L'ADRESSE, PAS LA PHRASE — 25/10/2026.
+
+    « _lien_produit » rendait la LIGNE ENTIERE imprimee par un script. Tant que
+    celui-ci n'imprimait que l'adresse, cela revenait au meme. Depuis qu'il
+    annonce « -> Feuille rangee. https://... », c'est la phrase complete qui
+    etait enregistree comme lien, et l'ecran tentait de l'ouvrir : erreur.
+
+    Constate le 25/10/2026 sur Masterclass octobre et Usures novembre, a la
+    cloture des inscriptions. Les feuilles etaient bien produites ; c'est leur
+    adresse qui ne menait nulle part.
+    """
+    print()
+    print("  L'ADRESSE D'UN DOCUMENT PRODUIT")
+    source = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py"),
+                  encoding="utf-8").read()
+    bloc = source[source.index("def _lien_produit("):]
+    # Jusqu'a la fin de la fonction, et non jusqu'a la premiere ligne vide :
+    # celle-ci tombe au milieu du docstring.
+    bloc = bloc[:bloc.index("\n# Champs dont la modification")]
+    verifier("elle ne rend plus la ligne entiere", "return l.strip()" not in bloc)
+    verifier("elle cherche une adresse", 'https?://' in bloc)
+    verifier("les deux hotes sont toujours acceptes",
+             "docs.google.com" in bloc and "drive.google.com" in bloc)
+
+    # On rejoue la fonction sans importer app, qui met plus d'une minute.
+    import re as _re
+
+    def extraire(sortie):
+        for l in (sortie or "").splitlines():
+            if "docs.google.com" not in l and "drive.google.com" not in l:
+                continue
+            m = _re.search(r"https?://\S+", l)
+            if m:
+                return m.group(0).rstrip(".,;:)»\"'")
+        return ""
+
+    for sortie, attendu, quoi in (
+            ("-> Feuille rangee. https://drive.google.com/file/d/1N/view",
+             "https://drive.google.com/file/d/1N/view", "la phrase du script"),
+            ("https://drive.google.com/file/d/1a/view",
+             "https://drive.google.com/file/d/1a/view", "l'adresse seule"),
+            ("-> Doc : https://docs.google.com/document/d/1x/edit.",
+             "https://docs.google.com/document/d/1x/edit", "un point final"),
+            ("-> ECHEC : rien", "", "aucune adresse"),
+            ("", "", "sortie vide")):
+        verifier("%-22s -> adresse propre" % quoi, extraire(sortie) == attendu,
+                 extraire(sortie))
+
+    print("    et le script imprime bien une phrase, pas une adresse nue")
+    gen = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "generer_emargement.py"), encoding="utf-8").read()
+    verifier("« Feuille rangee. » precede l'adresse",
+             'print("-> Feuille rangee. " + lien)' in gen)
+
+
 def tests_mur_smtp():
     """LE MUR SMTP SE MESURE UNE FOIS — 25/10/2026.
 
@@ -1817,7 +1873,8 @@ def main():
                   tests_jalon_validation, tests_fonction_par_defaut,
                   tests_convention_du_cycle, tests_courriel_de_validation,
                   tests_relances_en_modeles, tests_versements,
-                  tests_ordre_de_la_chaine, tests_mur_smtp):
+                  tests_ordre_de_la_chaine, tests_mur_smtp,
+                  tests_lien_produit):
         try:
             essai()
         except Exception as e:
