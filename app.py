@@ -4610,8 +4610,8 @@ def _q_reglages(code):
     S = fiche_session(code)
     fin = S.get("date_fin") or S.get("date_debut") or ""
     defauts = {"init": {"date": S.get("date_debut") or "", "heure": _par("heure_init", "08:30")},
-               "fin": {"date": fin, "heure": _par("heure_fin", "16:00")},
-               "satisfaction": {"date": fin, "heure": _par("heure_satisfaction", "16:15")},
+               "fin": {"date": fin, "heure": _par("heure_fin", "15:30")},
+               "satisfaction": {"date": fin, "heure": _par("heure_satisfaction", "15:30")},
                "froid": {"date": _q_plus_tard(fin, int(_par("delai_froid", 90))), "heure": "09:00"}}
     d = _q_lire().get(code, {})
     plan = d.get("planning") or {}

@@ -45,12 +45,16 @@ SCHEMA = [
     {"cle": "heure_init", "section": "automatismes", "type": "heure", "defaut": "08:30",
      "libelle": "Évaluation d'entrée",
      "aide": "Heure de déclenchement proposée, le premier jour de formation."},
-    {"cle": "heure_fin", "section": "automatismes", "type": "heure", "defaut": "16:00",
+    # 15H30 POUR LES DEUX — 25/10/2026, decision de Franck. Les heures d'origine,
+    # 16h00 et 16h15, supposaient une journee finissant a 17h. Les deux partent
+    # desormais ENSEMBLE, une heure et demie avant la fin : les participants les
+    # remplissent avant de partir, et non le soir chez eux.
+    {"cle": "heure_fin", "section": "automatismes", "type": "heure", "defaut": "15:30",
      "libelle": "Évaluation de sortie",
      "aide": "Heure de déclenchement proposée, le dernier jour de formation."},
-    {"cle": "heure_satisfaction", "section": "automatismes", "type": "heure", "defaut": "16:15",
+    {"cle": "heure_satisfaction", "section": "automatismes", "type": "heure", "defaut": "15:30",
      "libelle": "Questionnaire de satisfaction",
-     "aide": "Juste après l'évaluation de sortie, pendant que les participants sont encore présents."},
+     "aide": "En même temps que l'évaluation de sortie, pendant que les participants sont encore présents."},
     {"cle": "envois_auto_autorises", "section": "automatismes", "type": "booleen", "defaut": True,
      "libelle": "Autoriser les envois sans validation",
      "aide": "Si vous décochez, DFM demandera toujours confirmation avant d'envoyer un mail programmé."},
