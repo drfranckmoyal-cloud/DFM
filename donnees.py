@@ -1,5 +1,4 @@
 import sessions as _sessions
-from sessions import nombre as _nombre
 from sessions import session, formation, SESSIONS, FORMATIONS, sessions_de, SESSION_ACTIVE
 from connexion import service_sheets
 from datetime import datetime, date
@@ -182,6 +181,12 @@ def _lire_onglet(S):
             l["besoin_adaptation"] = _acc.declare(l)
         except Exception:
             l["besoin_adaptation"] = False
+        # CE QUI EST VERSE ET CE QU'IL RESTE — 25/10/2026. Porte par la ligne,
+        # comme le statut : un inscrit peut desormais payer en plusieurs fois,
+        # et le gabarit n'a pas a savoir comment on additionne des virements.
+        l["verse"] = suivi.total_verse(l)
+        l["solde"] = suivi.solde(l, S.get("tarif"))
+        l["nb_versements"] = len(suivi.versements(l))
         lignes.append(l)
     return lignes
 def _accessibilite(actifs):
@@ -210,15 +215,11 @@ def _resume(S, lignes, fiche_sheet):
     import suivi as _sv
     actifs = [l for l in lignes if l["statut_calcule"] not in
               _sv.PAS_ENCORE_INSCRIT + ("Annulee", "Annulation demandee", "A recontacter")]
-    encaisse = 0.0
-    for l in actifs:
-        if l["paiement_recu_le"]:
-            try:
-                encaisse += float(str(l["montant_recu"]).replace(",", ".").replace(" ", "") or 0)
-            except ValueError:
-                pass
-    # Tolerant : une fiche ancienne peut contenir "975 €" ou "1 200" (B6).
-    tarif = _nombre(S["tarif"])
+    # L'ENCAISSE COMPTE LES ACOMPTES — 25/10/2026. Elle ne comptait que les
+    # lignes SOLDEES : « if l["paiement_recu_le"] ». Depuis que l'on peut
+    # verser en plusieurs fois, quatre mille euros deja encaisses seraient
+    # restes invisibles jusqu'au dernier virement.
+    encaisse = sum(_sv.total_verse(l) for l in actifs)
     maxi = S["places_max"]
     debut = datetime.strptime(S["date_debut"], "%Y-%m-%d").date()
     fin = datetime.strptime(S["date_fin"], "%Y-%m-%d").date()
@@ -227,7 +228,12 @@ def _resume(S, lignes, fiche_sheet):
     # du restant du. Les compter fabriquerait un impaye qui n'existe pas.
     invites = [l for l in actifs if l.get("invite_le")]
     payants = [l for l in actifs if not l.get("invite_le")]
-    attendu = len(payants) * tarif
+    # L'ATTENDU EST LA SOMME DES PRIX DE CHACUN, et non le tarif multiplie par
+    # le nombre — 25/10/2026. Depuis Esthetique 360, un inscrit peut avoir un
+    # prix a lui, arrete au moment ou sa demande est validee. Une formation
+    # courte, ou personne ne porte de prix propre, retombe exactement sur
+    # l'ancien calcul : « montant_attendu » rend alors le tarif de la session.
+    attendu = sum(_sv.montant_attendu(l, S["tarif"]) for l in payants)
     # Le mode est porte jusqu'aux ecrans, mais ne change RIEN au calcul :
     # palier 2, il se declare et s'affiche, il n'agit pas encore.
     _mode = _sessions.mode(S["code"])
@@ -566,12 +572,14 @@ def tous_praticiens():
             if statut not in (("A recontacter", "Annulee", "Annulation demandee")
                               + __import__("suivi").PAS_ENCORE_INSCRIT):
                 p["participations"] += 1
+            # « regle » compte les SESSIONS soldees ; « total_paye » compte
+            # l'ARGENT. Les deux se confondaient tant qu'un reglement etait
+            # unique — depuis le 25/10/2026, un praticien peut avoir verse
+            # quatre mille euros sur une session qui n'est pas soldee, et cette
+            # somme ne doit pas disparaitre de sa fiche.
             if l["paiement_recu_le"]:
                 p["regle"] += 1
-                try:
-                    p["total_paye"] += float(str(l["montant_recu"]).replace(",", ".").replace(" ", "") or 0)
-                except ValueError:
-                    pass
+            p["total_paye"] += __import__("suivi").total_verse(l)
             if l["horodateur"] > p["derniere"]:
                 p["derniere"] = l["horodateur"]
     for p in par_mail.values():

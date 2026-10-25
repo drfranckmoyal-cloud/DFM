@@ -668,7 +668,16 @@ html[data-sombre] .tab-valider:hover{background:#3a2f1f}
         </td>
         <td>{% if l.mail1_envoye_le %}<span class="chip chip-g"><span class="dot dot-g"></span>Env.</span>{% else %}<span class="chip chip-gray">—</span>{% endif %}</td>
         <td>{% if l.signe_le %}<span class="chip chip-g"><span class="dot dot-g"></span>Reçu</span>{% elif l.mail1_envoye_le %}<button type="button" class="rel-btn" title="Relancer pour la signature de la convention" data-mail="{{ l.mail }}" onclick="event.stopPropagation();relancer(this)"><i class="ti ti-bell" style="font-size:11px"></i>Relancer</button>{% else %}<span class="chip chip-gray">—</span>{% endif %}</td>
-        <td>{% if l.invite_le %}<span class="chip chip-inv" title="Invité·e par l'organisme — aucun règlement demandé"><span class="dot dot-inv"></span>Invité·e</span>{% elif l.paiement_recu_le %}<span class="chip chip-g"><span class="dot dot-g"></span>{{ l.montant_recu }} €</span> <button type="button" class="cor-btn" title="Retirer ce reglement saisi par erreur" data-mail="{{ l.mail }}" data-nom="{{ l.prenom }} {{ l.nom }}" onclick="event.stopPropagation();corrigerReglement(this)"><i class="ti ti-eraser" style="font-size:11px"></i></button>{% else %}<button type="button" class="reg-btn" title="Enregistrer un reglement recu" data-mail="{{ l.mail }}" data-nom="{{ l.nom }} {{ l.prenom }}" onclick="event.stopPropagation();ouvrirReglement(this)"><i class="ti ti-cash" style="font-size:12px"></i>{% if l.mail2_envoye_le %}Att.{% else %}Saisir{% endif %}</button>{% if l.mail2_envoye_le %} <button type="button" class="rel-btn" title="Relancer pour le reglement" data-mail="{{ l.mail }}" onclick="event.stopPropagation();relancer(this)"><i class="ti ti-bell" style="font-size:11px"></i>Relancer</button>{% endif %}{% endif %}</td>
+        {# LA COLONNE DE L'ARGENT — refaite le 25/10/2026.
+           Elle ne savait dire que deux choses : « réglé » ou « rien ». Un
+           inscrit qui a versé deux acomptes sur quatre y paraissait n'avoir
+           rien payé. Une seule porte désormais : la pastille ouvre la fenêtre
+           des règlements, qui montre chaque versement et permet d'en ajouter
+           un ou d'en retirer un. #}
+        <td>{% if l.invite_le %}<span class="chip chip-inv" title="Invité·e par l'organisme — aucun règlement demandé"><span class="dot dot-inv"></span>Invité·e</span>
+        {% elif l.paiement_recu_le %}<button type="button" class="chip chip-g chip-clic" title="Voir les règlements de ce praticien" data-mail="{{ l.mail }}" data-nom="{{ l.prenom }} {{ l.nom }}" onclick="event.stopPropagation();ouvrirReglement(this)"><span class="dot dot-g"></span>{{ l.montant_recu }} €{% if l.nb_versements > 1 %} <em>·{{ l.nb_versements }}</em>{% endif %}</button>
+        {% elif l.verse %}<button type="button" class="chip chip-part chip-clic" title="Règlement partiel — voir le détail et saisir un versement" data-mail="{{ l.mail }}" data-nom="{{ l.prenom }} {{ l.nom }}" onclick="event.stopPropagation();ouvrirReglement(this)"><span class="dot dot-part"></span>{{ l.verse|round|int }} € <em>/ {{ (l.verse + l.solde)|round|int }}</em></button>
+        {% else %}<button type="button" class="reg-btn" title="Enregistrer un reglement recu" data-mail="{{ l.mail }}" data-nom="{{ l.nom }} {{ l.prenom }}" onclick="event.stopPropagation();ouvrirReglement(this)"><i class="ti ti-cash" style="font-size:12px"></i>{% if l.mail2_envoye_le %}Att.{% else %}Saisir{% endif %}</button>{% if l.mail2_envoye_le %} <button type="button" class="rel-btn" title="Relancer pour le reglement" data-mail="{{ l.mail }}" onclick="event.stopPropagation();relancer(this)"><i class="ti ti-bell" style="font-size:11px"></i>Relancer</button>{% endif %}{% endif %}</td>
         <td>{% if l.lien_facture %}<a href="{{ l.lien_facture }}" target="_blank" class="chip chip-b" title="Ouvrir la facture dans le Drive" onclick="event.stopPropagation()"><i class="ti ti-receipt" style="font-size:12px"></i></a>{% elif l.invite_le %}<span class="chip chip-inv" title="Invité·e par l'organisme — aucune facture n'est due, la case n'est pas un manque">//</span>{% else %}<span class="chip chip-gray">—</span>{% endif %}</td>
         <td class="col-sep">{% if l.score_init %}<span class="chip chip-g" title="Score a l entree"><span class="dot dot-g"></span>{{ l.score_init }}%</span>{% else %}<span class="chip chip-gray">—</span>{% endif %}</td>
         <td style="white-space:nowrap">{% if l.score_fin %}<span class="chip chip-g" title="Score en sortie"><span class="dot dot-g"></span>{{ l.score_fin }}%</span> <a class="icon-btn" title="Ouvrir le recapitulatif pedagogique" target="_blank" href="/session/{{ s.session.code }}/recap/{{ l.mail }}" onclick="event.stopPropagation()"><i class="ti ti-file-text"></i></a><button type="button" class="icon-btn" title="Envoyer le recapitulatif par mail" onclick="event.stopPropagation();envoyerRecap(this)" data-mail="{{ l.mail }}" data-nom="{{ l.nom }} {{ l.prenom }}"><i class="ti ti-send"></i></button>{% else %}<span class="chip chip-gray">—</span>{% endif %}</td>
@@ -1443,6 +1452,23 @@ function supExecuter(bouton){
 .reg-ok{background:var(--success);color:#fff}
 .reg-l{display:flex;align-items:flex-start;gap:8px;font-size:13px;padding:5px 0}
 .reg-err{background:#fdeaea;border:1px solid #f0b8b8;color:#8a2020;border-radius:8px;padding:11px 13px;font-size:12px;margin-bottom:14px}
+.reg-fait{background:#eafaf3;border:1px solid #9fe1cb;color:#0f6e56;border-radius:8px;padding:10px 13px;
+font-size:12px;margin-bottom:14px;display:flex;align-items:center;gap:7px}
+.reg-compte{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);
+border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px}
+.reg-compte>div{background:var(--carte);padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.reg-compte span{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.reg-compte b{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+.reg-compte .reg-reste b{color:#d4890a}
+.reg-compte .reg-solde b{color:var(--success)}
+.reg-liste{border:1px solid var(--border2);border-radius:10px;margin-bottom:16px;overflow:hidden}
+.reg-v{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border)}
+.reg-v:last-child{border-bottom:none}
+.reg-vg{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.reg-vg b{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.reg-vg span{font-size:11.5px;color:var(--muted)}
+.reg-vg em{font-size:10.5px;color:var(--muted);font-style:normal;word-break:break-all;opacity:.75}
+.reg-recu{color:var(--accent);display:inline-flex;align-items:center;font-size:14px;text-decoration:none}
 </style>
 <div class="reg-voile" id="reg_voile"><div class="reg-modale" id="reg_modale"></div></div>
 <script>
@@ -1459,21 +1485,90 @@ function regAujourdhui(){
   return j + "/" + m + "/" + d.getFullYear();
 }
 function regNomSeul(complet){ return (complet || "").split(" ")[0]; }
+// LA FENETRE DES REGLEMENTS — refaite le 25/10/2026.
+//
+// Elle ne savait saisir QU'UN versement, proposait le tarif entier, et se
+// fermait. Pour un cycle ou l'on verse trois ou quatre fois dans l'annee, il
+// fallait qu'elle montre ce qui est deja paye, propose LE RESTE, et reste
+// ouverte pour le suivant.
+var REG_ETAT = null;
+function regEuros(n){
+  return (Math.round((n || 0) * 100) / 100).toLocaleString("fr-FR") + " €";
+}
 function ouvrirReglement(bouton){
   REG_MAIL = bouton.dataset.mail || "";
   REG_NOM = bouton.dataset.nom || "";
-  var ref = (REG_FORM + "-" + REG_SESS + "-" + regNomSeul(REG_NOM)).toUpperCase();
-  var h = "<div class=\"reg-t\">Enregistrer un règlement</div><div class=\"reg-st\">" + REG_NOM + "</div>";
-  h += "<div class=\"reg-deux\"><div class=\"reg-f\"><label>Montant reçu</label><input type=\"number\" id=\"reg_montant\" value=\"" + REG_TARIF + "\"></div>";
-  h += "<div class=\"reg-f\"><label>Mode</label><select id=\"reg_mode\"><option>Virement</option><option>Stripe</option><option>Cheque</option><option>Especes</option><option>Autre</option></select></div></div>";
-  h += "<div class=\"reg-f\"><label>Date du règlement</label><input type=\"text\" id=\"reg_date\" value=\"" + regAujourdhui() + "\" placeholder=\"JJ/MM/AAAA\"></div>";
-  h += "<div class=\"reg-ref\">Référence enregistrée : <b>" + ref + "</b></div>";
-  h += "<div class=\"reg-pied\"><button class=\"btn btn-ghost\" onclick=\"regFermer()\">Annuler</button><button class=\"btn reg-ok\" onclick=\"regValider(this)\"><i class=\"ti ti-check\"></i>Enregistrer</button></div>";
+  regOuvrir("<div class=\"reg-t\">Règlements</div><div class=\"reg-st\">Lecture...</div>");
+  regCharger();
+}
+function regCharger(){
+  return fetch("/session/" + REG_CODE + "/reglement/etat?mail="
+               + encodeURIComponent(REG_MAIL))
+  .then(function(r){return r.json()}).then(function(j){
+    if(!j.ok){ regOuvrir("<div class=\"reg-err\">" + (j.message || "Erreur")
+      + "</div><div class=\"reg-pied\"><button class=\"btn btn-ghost\" onclick=\"regFermer()\">Fermer</button></div>"); return; }
+    REG_NOM = j.nom || REG_NOM;
+    REG_ETAT = j.etat;
+    regDessiner();
+  });
+}
+function regEchappe(t){
+  return (t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                  .replace(/"/g, "&quot;");
+}
+function regDessiner(message){
+  var e = REG_ETAT || {versements: [], du: 0, verse: 0, solde: 0};
+  var h = "<div class=\"reg-t\">Règlements</div><div class=\"reg-st\">" + regEchappe(REG_NOM) + "</div>";
+  if(message){ h += "<div class=\"reg-fait\"><i class=\"ti ti-circle-check\"></i>" + message + "</div>"; }
+  if(e.invite){
+    h += "<div class=\"reg-ref\">Cette personne est <b>invitée</b> : aucun règlement ne lui est demandé.</div>";
+    h += "<div class=\"reg-pied\"><button class=\"btn btn-ghost\" onclick=\"regRecharger()\">Fermer</button></div>";
+    regOuvrir(h); return;
+  }
+  // LE COMPTE, EN HAUT. C'est la premiere chose qu'on vient voir.
+  h += "<div class=\"reg-compte\">";
+  h += "<div><span>Dû</span><b>" + regEuros(e.du) + "</b></div>";
+  h += "<div><span>Versé</span><b>" + regEuros(e.verse) + "</b></div>";
+  h += "<div class=\"" + (e.solde > 0 ? "reg-reste" : "reg-solde") + "\"><span>"
+     + (e.solde > 0 ? "Reste" : "Soldé") + "</span><b>" + regEuros(e.solde) + "</b></div>";
+  h += "</div>";
+  // CHAQUE VERSEMENT, avec de quoi le retirer s'il a ete saisi par erreur.
+  if((e.versements || []).length){
+    h += "<div class=\"reg-liste\">";
+    (e.versements || []).forEach(function(v, i){
+      h += "<div class=\"reg-v\"><div class=\"reg-vg\"><b>" + regEchappe(v.montant)
+         + " €</b><span>" + regEchappe(v.le) + " · " + regEchappe(v.mode || "—") + "</span>"
+         + (v.reference ? "<em>" + regEchappe(v.reference) + "</em>" : "") + "</div>"
+         + (v.recu ? "<a class=\"reg-recu\" href=\"" + regEchappe(v.recu)
+                   + "\" target=\"_blank\" title=\"Le reçu de ce versement\"><i class=\"ti ti-file-text\"></i></a>" : "")
+         + "<button type=\"button\" class=\"cor-btn\" title=\"Retirer ce versement saisi par erreur\" onclick=\"regRetirer(" + (i + 1) + ")\"><i class=\"ti ti-eraser\" style=\"font-size:11px\"></i></button></div>";
+    });
+    h += "</div>";
+  }
+  if(e.solde > 0 || !(e.versements || []).length){
+    h += "<div class=\"reg-deux\"><div class=\"reg-f\"><label>Montant reçu</label><input type=\"number\" id=\"reg_montant\" step=\"0.01\" value=\"" + (e.solde || "") + "\"></div>";
+    h += "<div class=\"reg-f\"><label>Mode</label><select id=\"reg_mode\"><option>Virement</option><option>Stripe</option><option>Cheque</option><option>Especes</option><option>Autre</option></select></div></div>";
+    h += "<div class=\"reg-deux\"><div class=\"reg-f\"><label>Date du règlement</label><input type=\"text\" id=\"reg_date\" value=\"" + regAujourdhui() + "\" placeholder=\"JJ/MM/AAAA\"></div>";
+    h += "<div class=\"reg-f\"><label>Référence <span style=\"text-transform:none;letter-spacing:0\">(facultative)</span></label><input type=\"text\" id=\"reg_ref\" placeholder=\"VIR-4471\"></div></div>";
+    h += "<div class=\"reg-pied\"><button class=\"btn btn-ghost\" onclick=\"regRecharger()\">Fermer</button><button class=\"btn reg-ok\" onclick=\"regValider(this)\"><i class=\"ti ti-check\"></i>Enregistrer ce versement</button></div>";
+  } else {
+    h += "<div class=\"reg-pied\"><button class=\"btn btn-primary\" onclick=\"regRecharger()\">Fermer</button></div>";
+  }
   regOuvrir(h);
+}
+// Fermer RECHARGE la page : les statuts, les compteurs et le bandeau du haut
+// ont bouge, et les laisser perimes a l'ecran serait pire que le temps perdu.
+function regRecharger(){ window.location.href = window.location.pathname; }
+function regErreur(bouton, texte, libelle){
+  if(bouton){ bouton.disabled = false; bouton.innerHTML = libelle; }
+  var m = document.getElementById("reg_modale");
+  var d = m.querySelector(".reg-err");
+  if(!d){ d = document.createElement("div"); d.className = "reg-err"; m.insertBefore(d, m.firstChild); }
+  d.textContent = texte || "Erreur";
 }
 function regValider(bouton){
   var montant = (document.getElementById("reg_montant").value || "").trim();
-  if(!montant){ alert("Indique le montant reçu."); return; }
+  if(!montant){ regErreur(null, "Indique le montant reçu."); return; }
   bouton.disabled = true;
   bouton.innerHTML = "Enregistrement...";
   var fd = new FormData();
@@ -1481,33 +1576,31 @@ function regValider(bouton){
   fd.append("montant", montant);
   fd.append("mode", document.getElementById("reg_mode").value);
   fd.append("date", document.getElementById("reg_date").value);
+  fd.append("reference", (document.getElementById("reg_ref") || {}).value || "");
   fetch("/session/" + REG_CODE + "/reglement", {method:"POST", body:fd})
   .then(function(r){return r.json()}).then(function(j){
-    if(!j.ok){
-      bouton.disabled = false;
-      bouton.innerHTML = "<i class=\"ti ti-check\"></i>Enregistrer";
-      var m = document.getElementById("reg_modale");
-      if(!m.querySelector(".reg-err")){
-        var d = document.createElement("div");
-        d.className = "reg-err";
-        d.textContent = j.message || "Erreur";
-        m.insertBefore(d, m.firstChild);
-      } else {
-        m.querySelector(".reg-err").textContent = j.message || "Erreur";
-      }
-      return;
-    }
-    var h = "<div class=\"reg-t\">Règlement enregistré</div><div class=\"reg-st\">" + j.nom + "</div>";
-    h += "<div class=\"reg-l\"><i class=\"ti ti-circle-check\" style=\"color:var(--success)\"></i><span>" + j.montant + " € — " + j.mode + " — " + j.date + "</span></div>";
-    h += "<div class=\"reg-l\"><i class=\"ti ti-hash\" style=\"color:var(--muted)\"></i><span style=\"word-break:break-all\">" + j.reference + "</span></div>";
-    h += "<div class=\"reg-l\"><i class=\"ti ti-info-circle\" style=\"color:var(--muted)\"></i><span>La facture sera générée au prochain lancement du traitement.</span></div>";
-    h += "<div class=\"reg-pied\"><button class=\"btn btn-primary\" onclick=\"window.location.href=window.location.pathname\">Fermer</button></div>";
-    regOuvrir(h);
+    if(!j.ok){ regErreur(bouton, j.message, "<i class=\"ti ti-check\"></i>Enregistrer ce versement"); return; }
+    REG_ETAT = j.etat;
+    regDessiner(j.montant + " € enregistrés"
+                + (j.etat.solde > 0 ? " — il reste " + regEuros(j.etat.solde)
+                                    : " — le compte est soldé"));
   }).catch(function(e){
-    bouton.disabled = false;
-    bouton.innerHTML = "<i class=\"ti ti-check\"></i>Enregistrer";
-    alert("Erreur : " + e);
+    regErreur(bouton, "Erreur : " + e, "<i class=\"ti ti-check\"></i>Enregistrer ce versement");
   });
+}
+function regRetirer(rang){
+  var motif = prompt("Pourquoi retirez-vous ce versement ?\n(virement rejeté, saisi deux fois, mauvaise personne…)");
+  if(motif === null) return;
+  var fd = new FormData();
+  fd.append("mail", REG_MAIL);
+  fd.append("rang", rang);
+  fd.append("motif", motif || "");
+  fetch("/session/" + REG_CODE + "/reglement/corriger", {method:"POST", body:fd})
+  .then(function(r){return r.json()}).then(function(j){
+    if(!j.ok){ regErreur(null, j.message); return; }
+    REG_ETAT = j.etat;
+    regDessiner("versement retiré — " + (j.ancien.montant || "") + " €");
+  }).catch(function(e){ regErreur(null, "Erreur : " + e); });
 }
 </script>
 <style>
@@ -1746,6 +1839,17 @@ function relEnvoyer(bouton){
 .cor-btn:hover{border-color:var(--danger);color:var(--danger)}
 .chip-inv{background:#fdf3e3;color:#8a5606;border:1px solid #f0dcb4}
 .dot-inv{background:#d4890a}
+/* LE REGLEMENT PARTIEL — 25/10/2026. L'ambre de DFM, celui des demandes a
+   valider : quelque chose est commence et attend la suite. Le vert reste
+   reserve a ce qui est solde. */
+.chip-part{background:#fdf3e3;color:#8a5606;border:1px solid #f0dcb4}
+.dot-part{background:#d4890a}
+.chip em{font-style:normal;opacity:.65;font-weight:400}
+/* Une pastille qui s'ouvre doit se voir cliquable, sans cesser d'etre une
+   pastille : meme forme, meme couleur, et le curseur qui le dit. */
+.chip-clic{cursor:pointer;font-family:inherit;border:1px solid transparent}
+.chip-clic:hover{filter:brightness(.96)}
+.chip-clic.chip-part:hover,.chip-clic.chip-g:hover{border-color:currentColor}
 .bulk-danger{color:var(--danger) !important;border-color:rgba(228,103,103,.4) !important}
 .bulk-danger:hover{background:rgba(228,103,103,.12) !important}
 .an-l{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px}
@@ -1823,46 +1927,6 @@ function anEcranMotif(noms){
   faOuvrir(h);
 }
 var IN_CIBLES = [], IN_RETIRER = false;
-function corrigerReglement(bouton){
-  var mail = bouton.dataset.mail, nom = bouton.dataset.nom || mail;
-  var h = '<div class="fa-t">Retirer ce règlement</div>'
-        + '<div class="fa-st">' + nom + '</div>'
-        + '<div class="fa-bloc fa-orange">Les quatre informations du règlement seront vidées d\'un coup : '
-        + '<b>montant, mode, référence et date</b>. Le statut repassera en « En attente règlement ».</div>'
-        + '<div class="fa-bloc fa-neutre">L\'opération est <b>inscrite au journal</b> avec le montant retiré : '
-        + 'un règlement effacé sans trace serait pire que pas d\'effacement.<br><br>'
-        + 'Si une facture a déjà été émise, <b>elle n\'est pas supprimée</b> — une pièce comptable ne '
-        + 's\'efface pas depuis DFM.</div>'
-        + '<div class="fa-bloc fa-neutre">Motif (facultatif, joint au journal) :'
-        + '<input type="text" id="cor_motif" placeholder="ex. saisi sur le mauvais praticien" '
-        + 'style="width:100%;margin-top:7px;padding:8px 10px;border:1px solid var(--border2);border-radius:8px;'
-        + 'font-size:12.5px;font-family:inherit;background:var(--carte);color:var(--text)"></div>'
-        + '<div class="fa-pied"><button class="btn btn-ghost" onclick="faFermer()">Annuler</button>'
-        + '<button class="btn btn-danger" onclick="corrigerConfirmer(\'' + mail + '\')">Retirer le règlement</button></div>';
-  faOuvrir(h);
-}
-function corrigerConfirmer(mail){
-  var m = document.getElementById("cor_motif");
-  var motif = m ? (m.value || "").trim() : "";
-  faOuvrir('<div class="fa-t">Correction en cours...</div>');
-  var fd = new FormData();
-  fd.append("mail", mail);
-  if(motif) fd.append("motif", motif);
-  fetch("/session/" + FA_CODE + "/reglement/corriger", {method:"POST", body:fd})
-  .then(function(r){return r.json()}).then(function(j){
-    if(!j.ok){ faOuvrir('<div class="fa-t">' + (j.message || "Erreur") + '</div>' + faFerme()); return; }
-    var h = '<div class="fa-t">Règlement retiré</div>'
-          + '<div class="fa-st">' + j.nom + ' — ' + j.statut + '</div>'
-          + '<div class="fa-bloc fa-neutre">Retiré : <b>' + j.ancien.montant + ' €</b> '
-          + (j.ancien.mode || '') + ' du ' + (j.ancien.date || '').slice(0,10) + '</div>';
-    if(j.facture){
-      h += '<div class="fa-bloc fa-orange">Une facture avait été émise pour ce règlement. '
-         + 'Elle reste dans le Drive : à vous de décider ce qu\'elle devient.</div>';
-    }
-    h += '<div class="fa-pied"><button class="btn btn-primary" onclick="location.reload()">Fermer</button></div>';
-    faOuvrir(h);
-  }).catch(function(e){ faOuvrir('<div class="fa-t">Erreur : ' + e.message + '</div>' + faFerme()); });
-}
 function inviterParAdresse(){
   var h = '<div class="fa-t">Inviter un participant</div>'
         + '<div class="fa-st">Il recevra le formulaire d\'inscription habituel et le remplira '

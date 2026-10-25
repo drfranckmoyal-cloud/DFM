@@ -19,7 +19,9 @@
 <button class="btn btn-ghost" title="Journal de ventes pour le comptable : factures emises uniquement" onclick="rgExportCompta()"><i class="ti ti-file-spreadsheet"></i>Export comptable</button>
 {% endblock %}
 {% block corps %}
-<style>.chip-inv{background:#fdf3e3;color:#8a5606;border:1px solid #f0dcb4}.dot-inv{background:#d4890a}</style>
+<style>.chip-inv{background:#fdf3e3;color:#8a5606;border:1px solid #f0dcb4}.dot-inv{background:#d4890a}.chip-part{background:#fdf3e3;color:#8a5606;border:1px solid #f0dcb4}
+.dot-part{background:#d4890a}
+</style>
 <style>
 .rg-periode{border:1px solid var(--border2);border-radius:8px;padding:7px 10px;font-size:12px;background:var(--carte);color:var(--text);cursor:pointer;font-family:inherit}
 .rg-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
@@ -125,7 +127,11 @@
   </tr></thead>
   <tbody id="rg_corps">
   {% for l in lignes %}
-    <tr data-paye="{{ 'invite' if l.invite else ('oui' if l.paye else 'non') }}" data-formation="{{ l.formation }}" data-annee="{{ l.annee }}"
+    {# TROIS ETATS ET NON DEUX — 25/10/2026. « partiel » s'ajoute entre « non »
+       et « oui » : un acompte n'est ni une attente ni un reglement. Le filtre
+       « En attente » le garde avec les impayes, puisqu'il reste de l'argent a
+       encaisser — c'est ce qu'on vient chercher sur cette page. #}
+    <tr data-paye="{{ 'invite' if l.invite else ('oui' if l.paye else ('partiel' if l.partiel else 'non')) }}" data-formation="{{ l.formation }}" data-annee="{{ l.annee }}"
         data-debut="{{ l.debut }}" data-paiement="{{ l.paiement_iso }}" data-du="{{ l.du }}" data-recu="{{ l.recu }}"
         data-jours="{{ l.jours if l.jours is not none else -1 }}" data-nom="{{ l.nom }}"
         data-mail="{{ l.mail }}" data-session="{{ l.session }}"
@@ -135,7 +141,7 @@
       <td><span class="rg-tag"><span class="rg-dot" style="background:{{ l.couleur }}"></span>{{ l.formation }}</span>
           <br><a class="rg-sess" href="/session/{{ l.session }}" title="Ouvrir la session">{{ l.session_texte }}</a></td>
       <td class="rg-montant">{{ l.du|round|int }} €</td>
-      <td>{% if l.invite %}<span class="chip chip-inv" title="Invité·e par l'organisme — aucun règlement demandé"><span class="dot dot-inv"></span>Invité·e</span>{% elif l.paye %}<span class="chip chip-g"><span class="dot dot-g"></span>Réglé</span>{% else %}<span class="chip chip-w"><span class="dot dot-w"></span>En attente</span>{% endif %}</td>
+      <td>{% if l.invite %}<span class="chip chip-inv" title="Invité·e par l'organisme — aucun règlement demandé"><span class="dot dot-inv"></span>Invité·e</span>{% elif l.paye %}<span class="chip chip-g"><span class="dot dot-g"></span>Réglé{% if l.nb_versements > 1 %} · {{ l.nb_versements }} versements{% endif %}</span>{% elif l.partiel %}<span class="chip chip-part" title="{{ l.nb_versements }} versement(s) reçu(s) — il reste {{ (l.du - l.recu)|round|int }} €"><span class="dot dot-part"></span>{{ l.recu|round|int }} € reçus</span>{% else %}<span class="chip chip-w"><span class="dot dot-w"></span>En attente</span>{% endif %}</td>
       <td>{% if l.invite or l.paye or l.jours is none %}<span style="color:var(--border2)">—</span>{% elif l.jours >= 30 %}<span class="rg-age rg-age2">{{ l.jours }} j</span>{% elif l.jours >= 14 %}<span class="rg-age rg-age1">{{ l.jours }} j</span>{% else %}<span class="rg-age rg-age0">{{ l.jours }} j</span>{% endif %}</td>
       <td class="rg-mode">{{ l.mode or '—' }}</td>
       <td>{% if l.lien_facture %}<a href="{{ l.lien_facture }}" target="_blank" class="rg-num" title="Ouvrir la facture">{{ l.numero_facture or 'Ouvrir' }}</a>{% else %}<span style="color:var(--border2)">—</span>{% endif %}</td>
@@ -220,9 +226,10 @@ function rgFiltrer(){
   for(var i = 0; i < lignes.length; i++){
     var tr = lignes[i], ok = true;
     var j = parseInt(tr.dataset.jours || -1, 10);
-    var enRetard = (tr.dataset.paye === "non" && j >= 30);
+    var enRetard = ((tr.dataset.paye === "non" || tr.dataset.paye === "partiel") && j >= 30);
     if(RG_FILTRE === "payes" && tr.dataset.paye !== "oui") ok = false;
-    if(RG_FILTRE === "attente" && tr.dataset.paye !== "non") ok = false;
+    if(RG_FILTRE === "attente" && tr.dataset.paye !== "non"
+       && tr.dataset.paye !== "partiel") ok = false;
     if(RG_FILTRE === "retard" && !enRetard) ok = false;
     if(RG_FILTRE.indexOf("formation:") === 0 && tr.dataset.formation !== RG_FILTRE.slice(10)) ok = false;
     if(bornes){
@@ -284,7 +291,9 @@ function rgExporter(){
   for(var i = 0; i < lignes.length; i++){
     var tr = lignes[i], c = tr.querySelectorAll("td");
     out.push([tr.dataset.nom, tr.dataset.mail, tr.dataset.formation, c[1].querySelector("a").textContent.trim(),
-              tr.dataset.du, tr.dataset.recu, tr.dataset.paye === "oui" ? "Regle" : "En attente",
+              tr.dataset.du, tr.dataset.recu,
+              tr.dataset.paye === "oui" ? "Regle"
+                : (tr.dataset.paye === "partiel" ? "Reglement partiel" : "En attente"),
               tr.dataset.jours, c[5].textContent.trim(), tr.dataset.facturenum || "",
               c[7].textContent.trim()].join(";"));
   }

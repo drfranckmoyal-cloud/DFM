@@ -50,6 +50,11 @@ COL = {
     # « valide_le » est posee quand le responsable valide la demande. C'est a ce
     # moment, et seulement a ce moment, que le prix de la personne est arrete.
     "a_valider_le": 50, "valide_le": 51,
+    # LES VERSEMENTS — 25/10/2026. Voir « versements() » plus bas : une ligne
+    # par virement, dans une seule cellule. Au bout de la rangee, comme les
+    # deux precedentes : une colonne inseree ailleurs decalerait tout le
+    # classeur.
+    "versements": 52,
 }
 
 # CE QUI N'OCCUPE PAS ENCORE UNE PLACE. Une file d'attente et une demande non
@@ -165,8 +170,35 @@ def calculer_statut(ligne, mode="individuel"):
     if ligne.get("invite_le"):
         return "Invitee"
     if not ligne["paiement_recu_le"]:
+        # UN ACOMPTE N'EST PAS UNE ATTENTE — 25/10/2026. « paiement_recu_le »
+        # garde son sens : la date ou le compte est SOLDE. Tant qu'il reste
+        # quelque chose a payer, la case est vide — et une ligne qui porte
+        # deja des versements ne doit plus etre annoncee comme n'ayant rien
+        # regle. Une ligne qui n'en porte aucun retombe mot pour mot sur le
+        # comportement d'avant : c'est ce qui laisse les formations courtes
+        # intactes.
+        if (ligne.get("versements") or "").strip():
+            return "Reglement partiel"
         return "En attente reglement"
     return "Reglee"
+def euros(brut):
+    """Un montant saisi, lu comme un nombre. Zero si l'on n'y comprend rien.
+
+    « 1 234,50 € », « 6 000 », « 975 » : la saisie varie, le nombre non. La
+    regle vivait dans « montant_attendu » ; elle en sort le 25/10/2026 parce
+    que les versements en ont besoin eux aussi, et qu'une regle recopiee est
+    une regle qu'on corrige a un endroit sur deux.
+    """
+    import re as _re
+    # On garde les chiffres, le separateur et le signe ; on jette le reste
+    # (l'euro, les espaces fines).
+    propre = _re.sub(r"[^0-9.,-]", "", str(brut or "")).replace(",", ".")
+    try:
+        return float(propre) if propre not in ("", "-", ".", "-.") else 0.0
+    except ValueError:
+        return 0.0
+
+
 def montant_attendu(ligne, tarif_session=None):
     """Ce que cette personne doit, en euros. Zero pour un invite.
 
@@ -193,19 +225,103 @@ def montant_attendu(ligne, tarif_session=None):
     Le tarif de la session se passe en argument : « suivi » ne sait pas lire
     une session, et n'a pas a l'apprendre pour une division.
     """
-    import re as _re
     if str(ligne.get("invite_le") or "").strip():
         return 0.0
     brut = str(ligne.get("montant_du") or "").strip()
     if not brut:
         brut = str(tarif_session or "").strip()
-    # « 1 234,50 € » doit se lire comme « 975 » : on garde les chiffres, le
-    # separateur et le signe, on jette le reste (euro, espaces fines).
-    propre = _re.sub(r"[^0-9.,-]", "", brut).replace(",", ".")
-    try:
-        return float(propre) if propre not in ("", "-", ".", "-.") else 0.0
-    except ValueError:
-        return 0.0
+    return euros(brut)
+
+
+# ---------------------------------------------------------------------------
+# LES VERSEMENTS D'UN INSCRIT
+# ---------------------------------------------------------------------------
+# POURQUOI UNE LISTE, ET PAS QUATRE CASES — 25/10/2026, pour Esthetique 360.
+#
+# DFM ne savait enregistrer QU'UN SEUL reglement par personne : quatre cases,
+# une date, un montant, un mode, une reference. Le second etait refuse. Pour
+# une formation de deux jours a 975 euros, cela suffisait. Pour un cycle d'un
+# an a 6 000 euros, ou chacun verse quand il peut, cela ne suffit plus.
+#
+# LA FORME : une ligne par versement, dans UNE seule cellule.
+#
+#     12/01/2027 | 2000 | Virement | VIR-0042 | https://.../recu.pdf
+#     15/03/2027 | 2000 | Virement | VIR-0109 |
+#
+# C'est l'idiome de DFM — les relances empilent deja leurs dates separees par
+# « | » dans une case. Et c'est LISIBLE DANS LE CLASSEUR, ce qu'un bloc JSON
+# n'aurait pas ete : Franck relit le classeur.
+#
+# LES QUATRE CASES D'ORIGINE NE DISPARAISSENT PAS. « montant_recu » porte
+# desormais le TOTAL verse, et c'est ce que tous les ecrans existants lisaient
+# deja. « paiement_recu_le » garde son sens exact : la date ou le compte est
+# solde — donc vide tant qu'il reste quelque chose. Aucun ecran n'a eu a
+# changer de lecture.
+#
+# ET LES 58 INSCRITS D'AVANT ? Leur cellule est vide, mais leurs quatre cases
+# sont remplies : « versements() » leur reconstitue un versement unique. Pour
+# eux, la liste existe sans avoir jamais ete ecrite.
+SEPARATEUR_VERSEMENT = "\n"
+SEPARATEUR_CHAMP = " | "
+CHAMPS_VERSEMENT = ("le", "montant", "mode", "reference", "recu")
+
+
+def _propre(valeur):
+    """Une valeur de versement, debarrassee de ce qui couperait la ligne.
+
+    Une reference de virement ne contient legitimement ni « | » ni retour a la
+    ligne. Si elle en porte un, c'est une coquille de saisie — et la laisser
+    passer casserait la relecture de TOUS les versements de la personne.
+    """
+    return str(valeur or "").replace("|", "/").replace("\n", " ").replace("\r", " ").strip()
+
+
+def versements(ligne):
+    """Les versements de cette personne, du plus ancien au plus recent.
+
+    Chaque versement est un dictionnaire : le, montant, mode, reference, recu.
+    « montant » reste du texte — c'est ce qui a ete saisi ; « total_verse »
+    s'occupe de le compter.
+    """
+    brut = (ligne.get("versements") or "").strip()
+    if not brut:
+        # UNE LIGNE D'AVANT LE 25/10/2026 : son reglement unique vit encore
+        # dans les quatre cases. On le rend sous la meme forme que les autres,
+        # pour que l'appelant n'ait jamais deux cas a traiter.
+        if not (ligne.get("paiement_recu_le") or "").strip():
+            return []
+        return [{"le": (ligne.get("paiement_recu_le") or "").strip(),
+                 "montant": str(ligne.get("montant_recu") or "").strip(),
+                 "mode": (ligne.get("mode_paiement") or "").strip(),
+                 "reference": (ligne.get("reference_paiement") or "").strip(),
+                 "recu": ""}]
+    liste = []
+    for rangee in brut.split(SEPARATEUR_VERSEMENT):
+        if not rangee.strip():
+            continue
+        morceaux = [m.strip() for m in rangee.split("|")]
+        morceaux += [""] * (len(CHAMPS_VERSEMENT) - len(morceaux))
+        liste.append(dict(zip(CHAMPS_VERSEMENT, morceaux)))
+    return liste
+
+
+def versements_texte(liste):
+    """La cellule a ecrire, depuis une liste de versements."""
+    return SEPARATEUR_VERSEMENT.join(
+        SEPARATEUR_CHAMP.join(_propre((v or {}).get(c, "")) for c in CHAMPS_VERSEMENT)
+        for v in (liste or []))
+
+
+def total_verse(ligne):
+    """Ce qui a ete encaisse de cette personne, tous versements confondus."""
+    return sum(euros(v.get("montant")) for v in versements(ligne))
+
+
+def solde(ligne, tarif_session=None):
+    """Ce qu'il reste a payer. Jamais negatif : un trop-percu n'est pas une
+    dette a rebours, et l'afficher en negatif ferait croire a une erreur de
+    saisie la ou il n'y a qu'un arrondi."""
+    return max(0.0, montant_attendu(ligne, tarif_session) - total_verse(ligne))
 
 
 def ecrire(numero_ligne, champ, valeur, code=None):

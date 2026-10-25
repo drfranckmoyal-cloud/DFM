@@ -211,6 +211,26 @@
         </label>
       </div>
 
+      {# LA FACTURE EMISE A L'INSCRIPTION — 25/10/2026, pour Esthétique 360.
+         DFM n'émet sa facture qu'APRÈS le règlement complet, et elle part
+         acquittée. Pour un cycle réglé en plusieurs virements, cela voudrait
+         dire pas de facture avant septembre. Décoché, rien ne change — c'est
+         le cas de toutes les formations existantes. #}
+      <div class="champ champ-case" style="grid-column:span 2">
+        <label class="case">
+          <input type="checkbox" name="facture_a_l_inscription" value="1">
+          <span>
+            <b>Facturer dès l'inscription, puis un reçu par versement</b>
+            <em>La facture part dès que la convention est signée, pour la somme
+              entière et <b>à régler</b> — et non acquittée. Chaque virement reçoit
+              ensuite son propre reçu, qui dit ce qui a été versé et ce qu'il reste.
+              <b>À cocher pour une formation réglée en plusieurs fois</b>&nbsp;; à
+              laisser décoché pour une formation payée en une fois, où la facture
+              acquittée suit le règlement.</em>
+          </span>
+        </label>
+      </div>
+
       {# TROIS CHAMPS QUE LA CONVENTION ET L'ATTESTATION LISAIENT DEJA sans
          qu'on puisse les saisir : ils étaient gravés dans le code, avec des
          valeurs pensées pour les formations de composite. Laissés vides, ces

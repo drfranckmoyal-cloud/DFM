@@ -38,6 +38,12 @@ CATEGORIES = {
     "convention": ("dossier_conventions", "Conventions", ""),
     "convention_signee": ("dossier_signees", "Conventions signees", "-PDF"),
     "facture": ("dossier_factures", "Factures", ""),
+    # LE RECU D'UN VERSEMENT — 25/10/2026. Range LOCALEMENT a part (la
+    # categorie fait le dossier), mais depose dans le MEME dossier Drive que
+    # les factures : c'est la meme famille de pieces, elles se cherchent
+    # ensemble, et un nouveau dossier Drive aurait demande une cle de plus sur
+    # chaque fiche de session.
+    "recu": ("dossier_factures", "Factures", ""),
     "attestation": ("dossier_attestations", "Attestations", ""),
     "emargement": ("dossier_emargement", "Emargement", ""),
 }

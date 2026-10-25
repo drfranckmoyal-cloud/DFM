@@ -5,7 +5,7 @@ S = session()
 ORDRE = ["Annulation demandee", "Demande à valider", "File d'attente",
          "A recontacter", "A contacter",
          "En attente signature", "Convention a generer", "Mail 2 a envoyer",
-         "En attente reglement", "Reglee", "Annulee"]
+         "En attente reglement", "Reglement partiel", "Reglee", "Annulee"]
 lignes = suivi.lire_lignes()
 debut = datetime.strptime(S["date_debut"], "%Y-%m-%d").date()
 reste = (debut - date.today()).days
@@ -70,6 +70,9 @@ for statut in ORDRE:
         detail = ""
         if statut == "En attente reglement" and l["mail2_envoye_le"]:
             detail = f"  - mail 2 le {l['mail2_envoye_le'][:10]}"
+        elif statut == "Reglement partiel":
+            detail = (f"  - {suivi.total_verse(l):.0f} EUR verses, "
+                      f"reste {suivi.solde(l, S['tarif']):.0f} EUR")
         elif statut == "Reglee":
             detail = f"  - {l['montant_recu']} EUR par {l['mode_paiement']}"
             if l["facture_le"]:

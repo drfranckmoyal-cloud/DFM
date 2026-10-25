@@ -1,0 +1,139 @@
+{#
+  REÇU DE VERSEMENT — 25/10/2026, pour les règlements échelonnés.
+
+  CE QUE C'EST, ET CE QUE CE N'EST PAS. Un reçu n'est pas une facture : il ne
+  cree pas la creance, il en constate un paiement partiel. La facture reste
+  unique et porte la somme entiere ; chaque virement recoit un reçu qui dit ce
+  qui a ete verse, et ce qu'il reste. C'est la pratique courante en organisme
+  de formation, et la decision de Franck du 25/10/2026.
+
+  LA MISE EN FORME EST CELLE DE LA FACTURE, delibrement : les deux pieces
+  partent au meme praticien et doivent se reconnaitre. Seule la couleur du
+  filet change — le vert de l'encaisse plutot que le bleu de la creance.
+
+  AUCUNE MENTION DE PENALITE NI D'ARTICLE 293 B au pied : un reçu ne les porte
+  pas, elles appartiennent a la facture. Celle d'enregistrement prefectoral,
+  elle, reste : elle identifie l'organisme.
+#}<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Reçu {{ f.numero }} — {{ f.destinataire }}</title>
+<style>
+  :root { --vert:#0f6e56; --vert-pale:#eafaf3; --trait:#d7dcea; --gris:#5b6172; }
+
+  @page { size: A4 portrait; margin: 18mm 19mm 15mm; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+         color:#16191f; font-size:10.5pt; line-height:1.55; }
+
+  .haut { display:flex; justify-content:space-between; align-items:flex-start; gap:30px;
+          border-bottom:2.5px solid var(--vert); padding-bottom:12px; margin-bottom:26px; }
+  .of { font-size:9.5pt; line-height:1.55; color:var(--gris); }
+  .of b { display:block; font-size:13pt; color:var(--vert); margin-bottom:3px; }
+  .ref { text-align:right; flex:none; }
+  .ref h1 { font-size:21pt; color:var(--vert); margin:0 0 2px; letter-spacing:.5px; }
+  .ref .num { font-size:13pt; font-weight:600; font-variant-numeric:tabular-nums; }
+  .ref .d { font-size:9pt; color:var(--gris); margin-top:2px; }
+
+  h2 { font-size:8.5pt; text-transform:uppercase; letter-spacing:1px; color:var(--gris);
+       margin:0 0 7px; font-weight:700; }
+  .client { background:var(--vert-pale); border-left:3px solid var(--vert);
+            border-radius:0 7px 7px 0; padding:12px 15px; margin-bottom:24px; }
+  .client .n { font-size:12.5pt; font-weight:600; }
+
+  table { width:100%; border-collapse:collapse; }
+  .desi th { text-align:left; font-size:8pt; text-transform:uppercase; letter-spacing:.7px;
+             color:var(--gris); font-weight:700; padding:0 0 7px; border-bottom:1.5px solid var(--vert); }
+  .desi td { padding:11px 0; border-bottom:1px solid #eef0f5; vertical-align:top; }
+  .desi .l { color:var(--gris); width:132px; }
+  .desi .v b { font-weight:600; }
+
+  .tot { margin-top:18px; margin-left:auto; width:min(320px,100%); }
+  .tot td { padding:6px 0; font-size:10.5pt; }
+  .tot td.m { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .tot tr.g td { border-top:2px solid var(--vert); padding-top:9px; font-weight:700;
+                 color:var(--vert); font-size:12.5pt; }
+  .tot tr.r td { color:var(--gris); }
+
+  .etat { margin-top:26px; background:var(--vert-pale); border-radius:9px; padding:14px 17px;
+          page-break-inside:avoid; }
+  .etat .t { font-weight:600; margin-bottom:3px; color:var(--vert); }
+  .etat.du { background:#fdf6ec; }
+  .etat.du .t { color:#8a5606; }
+
+  .mentions { margin-top:26px; padding-top:11px; border-top:1px solid var(--trait);
+              font-size:8pt; color:var(--gris); line-height:1.6; }
+</style>
+</head>
+<body>
+
+<div class="haut">
+  <div class="of">
+    <b>{{ f.organisme }}</b>
+    {{ f.adresse_organisme }}<br>
+    SIRET&nbsp;: {{ f.siret }}
+    {% if f.mention_declaration %}<br>{{ f.mention_declaration }}{% endif %}
+  </div>
+  <div class="ref">
+    <h1>Reçu</h1>
+    <div class="num">{{ f.numero }}</div>
+    <div class="d">Établi le {{ f.date_facture }}</div>
+  </div>
+</div>
+
+<h2>Reçu de</h2>
+<div class="client">
+  <div class="n">{{ f.civilite }}{{ f.destinataire }}</div>
+</div>
+
+<h2>Versement</h2>
+<table class="desi">
+  <thead><tr><th colspan="2">Action de formation professionnelle continue</th></tr></thead>
+  <tbody>
+    <tr><td class="l">Intitulé</td>
+      <td class="v"><b>{{ f.titre_formation }}</b></td></tr>
+    <tr><td class="l">Dates</td><td class="v">{{ f.date_formation }}</td></tr>
+    <tr><td class="l">Reçu le</td><td class="v"><b>{{ f.paiement.le }}</b></td></tr>
+    <tr><td class="l">Mode de règlement</td><td class="v">{{ f.paiement.mode }}</td></tr>
+    {% if f.paiement.reference and f.paiement.reference != '-' %}
+    <tr><td class="l">Référence</td><td class="v">{{ f.paiement.reference }}</td></tr>
+    {% endif %}
+    {% if f.facture %}
+    <tr><td class="l">Facture</td><td class="v">{{ f.facture }}</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+
+<table class="tot">
+  <tr class="g"><td>Montant de ce versement</td><td class="m">{{ f.unitaire }} €</td></tr>
+  <tr class="r"><td>Versé à ce jour</td><td class="m">{{ f.verse }} € sur {{ f.total }} €</td></tr>
+  {% if f.reste %}
+  <tr class="r"><td>Reste à régler</td><td class="m">{{ f.reste }} €</td></tr>
+  {% endif %}
+  <tr class="r"><td>TVA</td><td class="m">Non applicable</td></tr>
+</table>
+
+{% if f.reste %}
+<div class="etat du">
+  <div class="t">Règlement partiel</div>
+  <div>Il reste <b>{{ f.reste }} €</b> à régler{% if f.echeance %} {{ f.echeance }}{% endif %}.
+  {% if f.rib %}Par virement&nbsp;: {{ f.rib }}{% endif %}</div>
+</div>
+{% else %}
+<div class="etat">
+  <div class="t">Compte soldé</div>
+  <div>La totalité de la somme due a été réglée. Aucun versement n'est attendu.</div>
+</div>
+{% endif %}
+
+<div class="mentions">
+  Ce reçu constate un versement&nbsp;; il ne remplace pas la facture, qui porte la
+  totalité de la somme due.<br>
+  TVA non applicable, article 293 B du Code général des impôts.<br>
+  Organisme enregistré auprès du préfet de région d'Île-de-France. Cet enregistrement
+  ne vaut pas agrément de l'État.
+</div>
+
+</body>
+</html>

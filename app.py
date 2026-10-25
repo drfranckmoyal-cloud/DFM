@@ -720,6 +720,7 @@ _CHAMPS_FORMATION = [
     ("modules", "modules"), ("moyens", "moyens pédagogiques"),
     ("prerequis", "prérequis"), ("nature_action", "nature de l'action"),
     ("validation_manuelle", "validation des demandes une par une"),
+    ("facture_a_l_inscription", "facture émise dès l'inscription"),
     ("programme_id", "programme"), ("prerequis_id", "matériel et prérequis"),
     ("acces_id", "informations d'accès"),
     ("pieces_rappel", "pièces du rappel"),
@@ -842,6 +843,12 @@ def enregistrer_nouvelle_formation():
         # formations existantes, ou une inscription part directement en
         # convention.
         "validation_manuelle": bool(d.get("validation_manuelle")),
+        # LA FACTURE AVANT LE REGLEMENT — 25/10/2026. Voir generer_factures.py :
+        # cochee, la facture part des la convention signee, pour la somme
+        # entiere et A REGLER ; chaque virement recoit ensuite son recu.
+        # Decochee, DFM garde son comportement d'origine — facture acquittee
+        # apres paiement complet — et aucune formation existante ne bouge.
+        "facture_a_l_inscription": bool(d.get("facture_a_l_inscription")),
         "duree_heures": (d.get("duree_heures") or "14 heures").strip(),
         "tarif": _tarif_propre,
         "places_max": int(d.get("places_max") or 14),
@@ -2430,14 +2437,114 @@ def _lettre(i):
         i, r = divmod(i - 1, 26)
         s = chr(65 + r) + s
     return s
+def _etat_reglement(ligne, S):
+    """Ce que l'ecran doit savoir de l'argent d'une personne, en un seul endroit.
+
+    Les versements, ce qui est encaisse, ce qui reste. Trois ecrans le
+    demandent — la fenetre de saisie, la liste des inscrits, la page des
+    reglements — et chacun le recalculait a sa facon.
+    """
+    import suivi as _suivi
+    liste = _suivi.versements(ligne)
+    du = _suivi.montant_attendu(ligne, (S or {}).get("tarif"))
+    verse = _suivi.total_verse(ligne)
+    return {"versements": liste, "nombre": len(liste),
+            "du": du, "verse": verse, "solde": max(0.0, du - verse),
+            "solde_le": (ligne.get("paiement_recu_le") or "").strip(),
+            "invite": bool((ligne.get("invite_le") or "").strip())}
+
+
+def _poser_recu(S, code, ligne, liste, rang, verse, du, solde):
+    """Fabrique le recu d'un versement, le range, et rend (lien, souci).
+
+    LA REFERENCE LUI EST PROPRE — « R-2027-DURAND-2 » — et n'entre pas au
+    registre des factures : cette serie-la est une suite continue, cloisonnee
+    par organisme, et y meler des recus la trouerait. Le NUMERO DE LA FACTURE,
+    lui, est rappele dans le corps du recu quand il existe : c'est ce qui
+    rattache le versement a la creance.
+    """
+    import documents
+    import recu as _recu
+    nom = (ligne.get("nom") or "").strip()
+    nom_prenom = ((ligne.get("prenom") or "") + " " + nom).strip()
+    ref = "R-%s-%s-%d" % (S.get("code_session") or "", nom.upper() or "X", rang)
+    numero_facture = ""
+    try:
+        import factures as _reg
+        for f in _reg.de_la_session(code) or []:
+            if (f.get("client_nom") or "").strip().lower() == nom_prenom.lower():
+                numero_facture = f.get("numero") or ""
+                break
+    except Exception:
+        numero_facture = ""
+    octets = _recu.fabriquer(S, ref, nom_prenom, liste[rang - 1], verse, du,
+                             civilite="Docteur ", numero_facture=numero_facture,
+                             echeance="avant le début du dernier module"
+                             if (S.get("modules") or []) else "")
+    _r, lien, souci = documents.ranger(code, "recu", "Recu %s - %s.pdf" % (ref, nom_prenom),
+                                       octets)
+    # Le rangement local a reussi des que « _r » existe ; « lien » n'est que la
+    # copie Drive. On rend le lien s'il y en a un, la reference locale sinon —
+    # ce qui compte est que le recu soit retrouvable.
+    from urllib.parse import quote as _q
+    return (lien or ("/document?ref=" + _q(_r) if _r else "")), souci
+
+
+@app.route("/session/<code>/reglement/etat")
+def etat_reglement(code):
+    """Ou en est l'argent de cette personne : les versements, le total, le reste.
+
+    La fenetre de saisie s'en sert pour s'ouvrir sur un etat vrai — ce qui est
+    deja verse, et ce qu'il reste — au lieu de proposer le tarif entier a
+    quelqu'un qui a deja paye les deux tiers.
+    """
+    if code not in SESSIONS:
+        return jsonify({"ok": False, "message": "Session inconnue"})
+    import suivi as _suivi
+    S = fiche_session(code)
+    mail = (request.args.get("mail") or "").strip().lower()
+    try:
+        lignes = _suivi.lire_lignes_de(code)
+    except Exception as e:
+        return jsonify({"ok": False, "message": "Lecture du suivi : " + str(e)})
+    cible = next((l for l in lignes
+                  if (l.get("mail") or "").strip().lower() == mail), None)
+    if cible is None:
+        return jsonify({"ok": False, "message": "Praticien introuvable dans cette session"})
+    return jsonify({"ok": True,
+                    "nom": ((cible.get("prenom") or "") + " "
+                            + (cible.get("nom") or "")).strip(),
+                    "statut": _suivi.calculer_statut(cible, _suivi._mode_de(cible, code)),
+                    "etat": _etat_reglement(cible, S)})
+
+
 @app.route("/session/<code>/reglement", methods=["POST"])
 def enregistrer_reglement(code):
+    """Un versement de plus sur la ligne d'un inscrit.
+
+    ELLE N'EN ACCEPTAIT QU'UN — jusqu'au 25/10/2026, elle repondait « un
+    reglement est deja enregistre pour ce praticien » et refusait le second.
+    Pour une formation de deux jours, un virement suffisait. Pour un cycle
+    d'un an a 6 000 euros, ou chacun verse quand il peut, non.
+
+    CE QUI EST ECRIT, ET POURQUOI :
+
+      versements          la liste, une ligne par virement — la verite
+      montant_recu        le TOTAL verse ; c'est ce que lisent tous les ecrans
+                          existants, et ils continuent de dire juste
+      mode / reference    ceux du DERNIER versement, pour les memes ecrans
+      paiement_recu_le    SEULEMENT quand le compte est solde. C'est ce qui
+                          fait basculer le statut en « Reglee » — un acompte
+                          laisse « Reglement partiel ».
+
+    Un trop-percu solde quand meme : mieux vaut un statut juste qu'une ligne
+    bloquee en attente pour deux euros d'arrondi.
+    """
     if code not in SESSIONS:
         return jsonify({"ok": False, "message": "Session inconnue"})
     _g = _of_garde("reglement")
     if _g:
         return jsonify({"ok": False, "message": _g})
-    from connexion import service_sheets
     from datetime import datetime as dt
     import suivi as _suivi
     import journal
@@ -2446,10 +2553,13 @@ def enregistrer_reglement(code):
     montant = (request.form.get("montant") or "").strip()
     mode = (request.form.get("mode") or "Virement").strip()
     quand = (request.form.get("date") or "").strip() or dt.now().strftime("%d/%m/%Y")
+    reference = (request.form.get("reference") or "").strip()
     if not mail:
         return jsonify({"ok": False, "message": "Praticien non identifie"})
     if not montant:
         return jsonify({"ok": False, "message": "Le montant est obligatoire"})
+    if _suivi.euros(montant) <= 0:
+        return jsonify({"ok": False, "message": "Le montant doit etre un nombre positif."})
     try:
         lignes = _suivi.lire_lignes_de(code)
     except Exception as e:
@@ -2462,48 +2572,108 @@ def enregistrer_reglement(code):
     if cible is None:
         return jsonify({"ok": False, "message": "Praticien introuvable dans cette session"})
     numero = cible["_numero"]
+    nom = cible.get("nom") or ""
+    nom_prenom = ((cible.get("prenom") or "") + " " + nom).strip()
 
-    def valeur(cle):
-        return cible.get(cle) or ""
-    if valeur("paiement_recu_le"):
-        return jsonify({"ok": False, "message": "Un reglement est deja enregistre pour ce praticien."})
-    nom = valeur("nom")
-    reference = (S["nom_formation"] + "-" + S["code_session"] + "-" + nom).upper()
-    ecritures = {
-        "montant_recu": montant,
-        "mode_paiement": mode,
-        "reference_paiement": reference,
-        "paiement_recu_le": quand,
-    }
-    if not valeur("montant_du"):
-        ecritures["montant_du"] = S.get("tarif", "")
+    liste = _suivi.versements(cible)
+    if not reference:
+        # LA REFERENCE FABRIQUEE garde la forme d'avant — FORMATION-SESSION-NOM
+        # — et prend un rang des le deuxieme versement. Deux pieces comptables
+        # ne peuvent pas porter la meme reference.
+        reference = (S["nom_formation"] + "-" + S["code_session"] + "-" + nom).upper()
+        if liste:
+            reference += "-%d" % (len(liste) + 1)
+    liste.append({"le": quand, "montant": montant, "mode": mode,
+                  "reference": reference, "recu": ""})
+
+    cible["versements"] = _suivi.versements_texte(liste)
+    if not (cible.get("montant_du") or "").strip():
+        cible["montant_du"] = S.get("tarif", "")
+    verse = _suivi.total_verse(cible)
+    du = _suivi.montant_attendu(cible, S.get("tarif"))
+    solde = max(0.0, du - verse)
+    cible["montant_recu"] = ("%g" % verse)
+    cible["mode_paiement"] = mode
+    cible["reference_paiement"] = reference
+    if solde <= 0:
+        cible["paiement_recu_le"] = quand
+    ecritures = {c: cible[c] for c in ("versements", "montant_du", "montant_recu",
+                                       "mode_paiement", "reference_paiement",
+                                       "paiement_recu_le")}
+    ecritures["statut"] = _suivi.calculer_statut(cible, _suivi._mode_de(cible, code))
     try:
         _suivi.ecrire_plusieurs(numero, ecritures, code)
     except Exception as e:
         return jsonify({"ok": False, "message": "Enregistrement impossible : " + str(e)})
+    reste = ("solde" if solde <= 0 else "reste %g EUR" % solde)
     try:
-        journal.ecrire("Règlement enregistré", nom, mode + " " + str(montant) + " EUR", montant, code)
+        journal.ecrire("Règlement enregistré", nom_prenom,
+                       "%s %s EUR du %s — %s" % (mode, montant, quand[:10], reste),
+                       montant, code,
+                       "versement n° %d sur cette ligne\n"
+                       "référence : %s\n"
+                       "encaissé en tout : %g € sur %g € dus\n"
+                       "%s" % (len(liste), reference, verse, du,
+                               ("compte soldé le " + quand[:10]) if solde <= 0
+                               else ("reste à régler : %g €" % solde)))
     except Exception:
         pass
+    # LE RECU DU VERSEMENT, s'il y a lieu.
+    #
+    # PAS POUR UN PAIEMENT UNIQUE ET COMPLET. Celui-la recoit deja sa facture
+    # acquittee, qui dit la meme chose : un recu de plus ferait deux pieces
+    # pour un seul mouvement. C'est aussi ce qui laisse les formations courtes
+    # exactement dans l'etat d'avant.
+    #
+    # SON ECHEC N'ANNULE RIEN. L'argent est encaisse et enregistre ; un PDF qui
+    # ne se fabrique pas ne doit pas faire croire que le virement a ete perdu.
+    # On le dit, et l'ecran le montre.
+    lien_recu, souci_recu = "", ""
+    if len(liste) > 1 or solde > 0:
+        try:
+            lien_recu, souci_recu = _poser_recu(S, code, cible, liste, len(liste),
+                                                verse, du, solde)
+        except Exception as e:
+            souci_recu = str(e)[:120]
+        if lien_recu:
+            liste[-1]["recu"] = lien_recu
+            cible["versements"] = _suivi.versements_texte(liste)
+            try:
+                _suivi.ecrire(numero, "versements", cible["versements"], code)
+            except Exception:
+                pass
+    etat = _etat_reglement(cible, S)
     return jsonify({"ok": True, "reference": reference, "montant": montant,
-                    "mode": mode, "date": quand, "nom": nom, "ligne": numero})
+                    "mode": mode, "date": quand, "nom": nom, "ligne": numero,
+                    "statut": ecritures["statut"], "etat": etat,
+                    "recu": lien_recu, "souci_recu": souci_recu})
+
+
 @app.route("/session/<code>/reglement/corriger", methods=["POST"])
 def corriger_reglement(code):
-    """Retire un reglement saisi par erreur : vide les quatre colonnes d'un
-    coup, recalcule le statut, et journalise le montant retire.
-    Un reglement efface sans trace serait pire que pas d'effacement — la piste
-    d'audit doit montrer qu'il a existe puis qu'il a ete retire, et par quoi."""
+    """Retire UN versement saisi par erreur, et recalcule le reste.
+
+    ELLE VIDAIT LES QUATRE CASES D'UN COUP — jusqu'au 25/10/2026, un seul
+    reglement existait, et le corriger voulait dire l'effacer. Avec plusieurs
+    versements, il faut designer CELUI qu'on retire : « rang », a partir de 1.
+    Sans rang, on retire le dernier — c'est le geste de celui qui vient de se
+    tromper en saisissant.
+
+    CE QUI EST RETIRE EST CONSIGNE, PAS EFFACE. La piste d'audit doit montrer
+    que ce versement a existe, qu'il a ete retire, et par quel motif : un
+    reglement qui disparait sans trace est pire que pas de correction du tout.
+    """
     if code not in SESSIONS:
         return jsonify({"ok": False, "message": "Session inconnue"})
     _g = _of_garde("reglement")
     if _g:
         return jsonify({"ok": False, "message": _g})
-    from connexion import service_sheets
     import suivi as _suivi
     import journal
     S = fiche_session(code)
     mail = (request.form.get("mail") or "").strip().lower()
     motif = (request.form.get("motif") or "").strip()
+    rang = (request.form.get("rang") or "").strip()
     if not mail:
         return jsonify({"ok": False, "message": "Praticien non identifie"})
     try:
@@ -2517,43 +2687,63 @@ def corriger_reglement(code):
             break
     if cible is None:
         return jsonify({"ok": False, "message": "Praticien introuvable"})
-    if not cible.get("paiement_recu_le"):
+
+    liste = _suivi.versements(cible)
+    if not liste:
         return jsonify({"ok": False, "message": "Aucun reglement enregistre pour ce praticien."})
-    ancien = {"montant": cible.get("montant_recu") or "",
-              "mode": cible.get("mode_paiement") or "",
-              "reference": cible.get("reference_paiement") or "",
-              "date": cible.get("paiement_recu_le") or ""}
-    # Les quatre colonnes sont videes ensemble : en laisser une remplie
-    # produirait une ligne incoherente, mi-payee mi-impayee.
-    vides = ["montant_recu", "mode_paiement", "reference_paiement", "paiement_recu_le"]
-    for c in vides:
-        cible[c] = ""
-    ecritures = {c: "" for c in vides}
-    ecritures["statut"] = _suivi.calculer_statut(cible)
+    try:
+        i = (int(rang) - 1) if rang else (len(liste) - 1)
+    except ValueError:
+        return jsonify({"ok": False, "message": "Versement mal designe."})
+    if not 0 <= i < len(liste):
+        return jsonify({"ok": False, "message": "Ce versement n'existe pas sur cette ligne."})
+    retire = liste.pop(i)
+    ancien = {"montant": retire.get("montant") or "", "mode": retire.get("mode") or "",
+              "reference": retire.get("reference") or "", "date": retire.get("le") or ""}
+
+    # LES QUATRE CASES SUIVENT LA LISTE, elles ne la commandent pas. Vider la
+    # liste les vide ; en retirer un versement laisse le total et le dernier
+    # mode a jour. Une case qui resterait remplie produirait une ligne
+    # incoherente, mi-payee mi-impayee — c'est ce que l'ancienne version
+    # evitait en les vidant toutes les quatre d'un coup.
+    cible["versements"] = _suivi.versements_texte(liste)
+    verse = _suivi.total_verse(cible)
+    du = _suivi.montant_attendu(cible, S.get("tarif"))
+    solde = max(0.0, du - verse)
+    dernier = liste[-1] if liste else {}
+    cible["montant_recu"] = ("%g" % verse) if liste else ""
+    cible["mode_paiement"] = dernier.get("mode") or ""
+    cible["reference_paiement"] = dernier.get("reference") or ""
+    cible["paiement_recu_le"] = (dernier.get("le") or "") if (liste and solde <= 0) else ""
+    ecritures = {c: cible[c] for c in ("versements", "montant_recu", "mode_paiement",
+                                       "reference_paiement", "paiement_recu_le")}
+    ecritures["statut"] = _suivi.calculer_statut(cible, _suivi._mode_de(cible, code))
     try:
         _suivi.ecrire_plusieurs(cible["_numero"], ecritures, code)
     except Exception as e:
         return jsonify({"ok": False, "message": "Enregistrement impossible : " + str(e)})
+
     nom_prenom = ((cible.get("prenom") or "") + " " + (cible.get("nom") or "")).strip()
     detail = "retiré : " + str(ancien["montant"]) + " € " + (ancien["mode"] or "") \
              + " du " + (ancien["date"] or "")[:10]
     if motif:
         detail += " — " + motif
-    long = ("montant : " + str(ancien["montant"]) + " € → (vide)\n"
-            "mode : " + (ancien["mode"] or "(vide)") + " → (vide)\n"
-            "référence : " + (ancien["reference"] or "(vide)") + " → (vide)\n"
-            "date de règlement : " + (ancien["date"] or "(vide)") + " → (vide)\n"
-            "nouveau statut : " + _suivi.calculer_statut(cible)
+    long = ("versement retiré : " + str(ancien["montant"]) + " € "
+            + (ancien["mode"] or "") + " du " + (ancien["date"] or "(sans date)") + "\n"
+            "référence : " + (ancien["reference"] or "(vide)") + "\n"
+            "il en reste " + str(len(liste)) + " sur cette ligne\n"
+            "encaissé en tout : " + ("%g" % verse) + " € sur " + ("%g" % du) + " € dus\n"
+            "nouveau statut : " + ecritures["statut"]
             + (("\nmotif : " + motif) if motif else ""))
     try:
         journal.ecrire("Règlement corrigé", nom_prenom, detail, "", code, long)
     except Exception:
         pass
-    facture = bool(cible.get("facture_le"))
     return jsonify({"ok": True, "nom": nom_prenom, "ancien": ancien,
-                    "statut": _suivi.calculer_statut(cible),
-                    "facture": facture,
-                    "lien_facture": cible.get("lien_facture") or ""})
+                    "statut": ecritures["statut"],
+                    "facture": bool(cible.get("facture_le")),
+                    "lien_facture": cible.get("lien_facture") or "",
+                    "etat": _etat_reglement(cible, S)})
 def _grilles_suivi(codes):
     """Les lignes de plusieurs sessions, DANS LA FORME DU CLASSEUR.
 
@@ -3900,11 +4090,13 @@ def page_reglements():
             # UN INVITE NE DOIT RIEN, et un montant vide vaut le tarif.
             # La regle est dans suivi.montant_attendu, et nulle part ailleurs.
             du = _suivi.montant_attendu(d, S.get("tarif"))
-            try:
-                recu = float(str(d.get("montant_recu") or 0).replace(",", ".") or 0)
-            except Exception:
-                recu = 0
+            # CE QUI EST ENCAISSE, ACOMPTES COMPRIS — 25/10/2026. La page ne
+            # comptait l'argent que des lignes SOLDEES (« recu if paye else 0 ») :
+            # quatre mille euros deja verses sur un cycle y paraissaient comme
+            # zero, et le total encaisse de la page s'en trouvait faux.
+            recu = _suivi.total_verse(d)
             paye = bool(d.get("paiement_recu_le"))
+            partiel = bool(recu) and not paye
             # Un invite ne doit apparaitre ni comme impaye, ni comme recette :
             # son du est nul et il n'est pas relancable.
             invite = bool(d.get("invite_le"))
@@ -3920,8 +4112,10 @@ def page_reglements():
                 "session_texte": S.get("date_texte") or "",
                 "couleur": couleur,
                 "du": du,
-                "recu": recu if paye else 0,
+                "recu": recu,
                 "paye": paye,
+                "partiel": partiel,
+                "nb_versements": len(_suivi.versements(d)),
                 "mode": d.get("mode_paiement") or "",
                 "reference": d.get("reference_paiement") or "",
                 "date_paiement": (d.get("paiement_recu_le") or "")[:10],
@@ -3941,6 +4135,7 @@ def page_reglements():
     attendu = sum(x["du"] for x in lignes)
     encaisse = sum(x["recu"] for x in lignes)
     nb_payes = len([x for x in lignes if x["paye"]])
+    nb_partiels = len([x for x in lignes if x["partiel"]])
     nb_invites = len([x for x in lignes if x["invite"]])
     nb_factures = len([x for x in lignes if x["facture_le"]])
     annees = sorted({x["annee"] for x in lignes if x["annee"]}, reverse=True)
@@ -3949,6 +4144,7 @@ def page_reglements():
                            nb_total=len(lignes), nb_payes=nb_payes,
                            nb_attente=len(lignes) - nb_payes - nb_invites,
                            nb_invites=nb_invites, nb_factures=nb_factures,
+                           nb_partiels=nb_partiels,
                            formations=sorted(formations.items()), annees=annees,
                            annee_courante=dt.now().year, periode_defaut=_par_periode())
 def _gr_mail(S, ligne, action, pdf_bytes, logo_bytes):

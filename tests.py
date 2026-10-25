@@ -1177,6 +1177,176 @@ def tests_convention_du_cycle():
         verifier("le texte du cycle est la (%s)" % ou, phrase in tpl, phrase[:34])
 
 
+def tests_versements():
+    """PLUSIEURS VERSEMENTS SUR UNE MEME LIGNE — 25/10/2026, pour Esthetique 360.
+
+    DFM n'acceptait QU'UN reglement par personne : quatre cases, et un refus
+    pour le second. Un cycle d'un an a 6 000 euros se regle en plusieurs
+    virements.
+
+    CE QUI DOIT TENIR, ET C'EST TOUT L'ENJEU : les inscrits des formations
+    courtes ne doivent rien voir changer. Leur cellule de versements est vide,
+    mais leurs quatre cases sont remplies — DFM doit leur reconstituer un
+    versement unique sans qu'on ait rien reecrit chez eux.
+    """
+    import suivi as _sv
+    print()
+    print("  LES VERSEMENTS")
+    vide = {c: "" for c in _sv.COL}
+    # une ligne arrivee jusqu'a l'etape du reglement
+    pret = dict(vide, mail1_envoye_le="x", signe_le="x", convention_pdf_le="x",
+                mail2_envoye_le="x")
+
+    print("    un montant saisi se lit comme un nombre")
+    for brut, attendu in (("975", 975.0), ("6 000", 6000.0), ("2 000,00 €", 2000.0),
+                          ("1234.5", 1234.5), ("", 0.0), ("beaucoup", 0.0)):
+        verifier("« %s » vaut %g" % (brut, attendu),
+                 _sv.euros(brut) == attendu, _sv.euros(brut))
+
+    print("    une ligne d'AVANT retrouve son versement unique")
+    ancien = dict(pret, montant_du="975", montant_recu="975",
+                  paiement_recu_le="12/10/2026", mode_paiement="Virement",
+                  reference_paiement="USURES-NOV26-DUPONT")
+    v = _sv.versements(ancien)
+    verifier("un seul versement", len(v) == 1, len(v))
+    verifier("avec son montant", v[0]["montant"] == "975", v[0])
+    verifier("sa date", v[0]["le"] == "12/10/2026", v[0])
+    verifier("et son mode", v[0]["mode"] == "Virement", v[0])
+    verifier("sans cellule de versements", not ancien["versements"])
+    verifier("le total est le sien", _sv.total_verse(ancien) == 975.0)
+    verifier("elle ne doit plus rien", _sv.solde(ancien) == 0.0)
+    verifier("et son statut n'a pas bouge",
+             _sv.calculer_statut(ancien) == "Reglee", _sv.calculer_statut(ancien))
+
+    print("    une ligne qui n'a rien paye n'invente pas de versement")
+    verifier("aucun versement", _sv.versements(dict(pret)) == [])
+    verifier("le statut est celui d'avant",
+             _sv.calculer_statut(dict(pret, montant_du="975")) == "En attente reglement",
+             _sv.calculer_statut(dict(pret, montant_du="975")))
+
+    print("    trois virements s'ecrivent et se relisent")
+    trois = [{"le": "12/01/2027", "montant": "2000", "mode": "Virement",
+              "reference": "VIR-0042", "recu": "https://essai.test/r1.pdf"},
+             {"le": "15/03/2027", "montant": "2 000,00 €", "mode": "Virement",
+              "reference": "VIR-0109", "recu": ""},
+             {"le": "02/06/2027", "montant": "1500", "mode": "Carte",
+              "reference": "", "recu": ""}]
+    cellule = _sv.versements_texte(trois)
+    verifier("une ligne par virement", cellule.count("\n") == 2, repr(cellule))
+    cycle = dict(pret, montant_du="6000", versements=cellule)
+    relu = _sv.versements(cycle)
+    verifier("les trois reviennent", len(relu) == 3, len(relu))
+    verifier("dans l'ordre", [x["le"] for x in relu] == [x["le"] for x in trois], relu)
+    verifier("le recu du premier est garde",
+             relu[0]["recu"] == "https://essai.test/r1.pdf", relu[0])
+    verifier("5 500 encaisses", _sv.total_verse(cycle) == 5500.0, _sv.total_verse(cycle))
+    verifier("il reste 500", _sv.solde(cycle) == 500.0, _sv.solde(cycle))
+    verifier("le statut dit « Reglement partiel »",
+             _sv.calculer_statut(cycle) == "Reglement partiel",
+             _sv.calculer_statut(cycle))
+
+    print("    une reference ne peut pas couper la ligne")
+    sale = _sv.versements_texte([{"le": "01/01/2027", "montant": "100",
+                                  "mode": "Virement",
+                                  "reference": "A | B\nC", "recu": ""}])
+    verifier("le « | » de trop est neutralise", sale.count("|") == 4, repr(sale))
+    verifier("et le retour a la ligne aussi", "\n" not in sale, repr(sale))
+    verifier("le versement se relit entier",
+             len(_sv.versements(dict(pret, versements=sale))) == 1, repr(sale))
+
+    print("    le dernier virement solde, et le statut suit")
+    solde_ = dict(cycle, paiement_recu_le="20/09/2027",
+                  versements=_sv.versements_texte(
+                      trois + [{"le": "20/09/2027", "montant": "500",
+                                "mode": "Virement", "reference": "VIR-0311",
+                                "recu": ""}]))
+    verifier("6 000 encaisses", _sv.total_verse(solde_) == 6000.0)
+    verifier("plus rien a payer", _sv.solde(solde_) == 0.0)
+    verifier("« Reglee »", _sv.calculer_statut(solde_) == "Reglee",
+             _sv.calculer_statut(solde_))
+
+    print("    un invite ne doit rien, meme si un versement est saisi")
+    inv = dict(cycle, invite_le="24/10/2026")
+    verifier("son solde est nul", _sv.solde(inv) == 0.0, _sv.solde(inv))
+    verifier("et son statut reste « Invitee »",
+             _sv.calculer_statut(inv) == "Invitee", _sv.calculer_statut(inv))
+
+    print("    un trop-percu ne fabrique pas une dette a rebours")
+    trop = dict(pret, montant_du="975",
+                versements=_sv.versements_texte([{"le": "01/01/2027", "montant": "1000",
+                                                  "mode": "Virement", "reference": "",
+                                                  "recu": ""}]))
+    verifier("le solde ne passe pas sous zero", _sv.solde(trop) == 0.0, _sv.solde(trop))
+
+    print("    les ecrans comptent les acomptes, et les prix de chacun")
+    ici = os.path.dirname(os.path.abspath(__file__))
+    source = open(os.path.join(ici, "donnees.py"), encoding="utf-8").read()
+    resume = source[source.index("def _resume("):]
+    resume = resume[:resume.index("\ndef ")]
+    verifier("l'encaisse passe par total_verse", "total_verse(l)" in resume)
+    verifier("elle ne se limite plus aux lignes soldees",
+             'if l["paiement_recu_le"]:' not in resume)
+    verifier("la fiche d'un praticien compte ses acomptes aussi",
+             'p["total_paye"] += __import__("suivi").total_verse(l)' in source)
+    verifier("l'attendu est la somme des montants dus",
+             "montant_attendu" in source and "len(payants) * tarif" not in source)
+
+    print("    la saisie accepte un versement de plus, et en retire un seul")
+    app_ = open(os.path.join(ici, "app.py"), encoding="utf-8").read()
+    bloc = app_[app_.index("def enregistrer_reglement("):]
+    bloc = bloc[:bloc.index("@app.route", 10)]
+    # On cherche le REFUS, pas la phrase : le commentaire de la route cite
+    # encore l'ancien message pour dire ce qui a change, et c'est voulu.
+    verifier("le refus du second reglement a disparu",
+             'message": "Un reglement est deja enregistre' not in bloc)
+    verifier("elle ajoute a la liste", "liste.append(" in bloc)
+    verifier("montant_recu porte le total", '"%g" % verse' in bloc)
+    verifier("paiement_recu_le n'est pose qu'au solde",
+             "if solde <= 0:" in bloc and 'cible["paiement_recu_le"] = quand' in bloc)
+    corr = app_[app_.index("def corriger_reglement("):]
+    corr = corr[:corr.index("def _grilles_suivi(")]
+    verifier("la correction designe un rang", '"rang"' in corr)
+    verifier("et ne vide plus les quatre cases d'un coup",
+             'vides = ["montant_recu"' not in corr)
+
+    print("    le recu d'un versement")
+    import recu as _recu
+    S = {"tarif": "6000", "adresse": "61 rue Balard - 75015 Paris",
+         "jours": ["2027-01-06", "2027-01-07"], "nom_formation": "Essai",
+         "titre_complet": "Essai", "organisme": "mon-organisme",
+         "mail_contact": "contact@essai.test"}
+    d = _recu.pour(S, "R-ESS-DURAND-2", "Camille DURAND",
+                   {"le": "15/03/2027", "montant": "2000", "mode": "Virement",
+                    "reference": "VIR-0109"}, 4000.0, 6000.0, civilite="Docteur ")
+    verifier("il porte le montant de CE versement",
+             d["unitaire"] == "2 000", repr(d["unitaire"]))
+    verifier("ce qui est verse en tout", d["verse"] == "4 000", repr(d["verse"]))
+    verifier("et ce qu'il reste", d["reste"] == "2 000", repr(d["reste"]))
+    fini = _recu.pour(S, "R-ESS-DURAND-3", "Camille DURAND",
+                      {"le": "20/09/2027", "montant": "2000", "mode": "Virement",
+                       "reference": ""}, 6000.0, 6000.0)
+    verifier("un compte solde ne porte PAS de reste", fini["reste"] == "",
+             repr(fini["reste"]))
+    import documents as _doc
+    verifier("le recu a une categorie de rangement", "recu" in _doc.CATEGORIES)
+
+    print("    la facture peut preceder le reglement, sur reglage seulement")
+    gen = open(os.path.join(ici, "generer_factures.py"), encoding="utf-8").read()
+    verifier("le reglage existe", "facture_a_l_inscription" in gen)
+    verifier("sans lui, la selection d'avant est intacte",
+             'l["paiement_recu_le"] and not l["facture_le"]' in gen)
+    verifier("avec lui, elle part a la convention signee",
+             'l["signe_le"] and not l["facture_le"]' in gen)
+    verifier("et porte la somme entiere", "montant_attendu" in gen)
+    verifier("sans bloc « acquittee »", "À régler avant le début" in gen)
+    verifier("un invite n'est jamais facture", 'not l.get("invite_le")' in gen)
+    verifier("le reglage est sur la fiche",
+             '"facture_a_l_inscription": bool(' in app_)
+    ecran = open(os.path.join(ici, "templates", "formation_creer.html"),
+                 encoding="utf-8").read()
+    verifier("et a l'ecran", 'name="facture_a_l_inscription"' in ecran)
+
+
 def tests_relances_en_modeles():
     """LES DEUX RELANCES SONT DEVENUES DES MODELES — 25/10/2026.
 
@@ -1387,7 +1557,7 @@ def main():
                   tests_session_cycle, tests_balises_du_cycle,
                   tests_jalon_validation, tests_fonction_par_defaut,
                   tests_convention_du_cycle, tests_courriel_de_validation,
-                  tests_relances_en_modeles):
+                  tests_relances_en_modeles, tests_versements):
         try:
             essai()
         except Exception as e:

@@ -25,7 +25,28 @@ annee = datetime.now().year
 print(f"-> Session : {S['nom_formation']} ({S['code']})")
 print("-> Lecture du suivi...")
 lignes = suivi.lire_lignes_de(CODE)
-a_facturer = [l for l in lignes if l["paiement_recu_le"] and not l["facture_le"]]
+# LA FACTURE PEUT PRECEDER LE REGLEMENT — 25/10/2026, reglage de la formation.
+#
+# DFM n'a jamais emis de facture avant d'avoir encaisse : « paiement_recu_le et
+# pas encore facture ». Pour une formation de deux jours payee en une fois,
+# c'est juste, et la facture part acquittee. Pour un cycle d'un an regle en
+# quatre virements, cela voudrait dire pas de facture avant le dernier — alors
+# que le praticien en a besoin des le depart pour la faire prendre en charge.
+#
+# COCHEE SUR LA FICHE, la facture part des que la CONVENTION EST SIGNEE, pour
+# la somme entiere, A REGLER. Chaque virement recoit ensuite son recu.
+# DECOCHEE, rien ne change : c'est le cas des quatre formations en service.
+_FICHE_F = (__import__("sessions").FORMATIONS.get(S.get("formation") or "") or {})
+AVANT_REGLEMENT = bool(_FICHE_F.get("facture_a_l_inscription"))
+if AVANT_REGLEMENT:
+    print("-> Facture emise des l'inscription (reglage de la formation).")
+    a_facturer = [l for l in lignes
+                  if l["signe_le"] and not l["facture_le"]
+                  and not l.get("invite_le")
+                  and suivi.calculer_statut(l) not in
+                      suivi.PAS_ENCORE_INSCRIT + ("Annulee", "Annulation demandee")]
+else:
+    a_facturer = [l for l in lignes if l["paiement_recu_le"] and not l["facture_le"]]
 if not a_facturer:
     print("-> Aucune facture a generer.")
     exit()
@@ -69,18 +90,36 @@ for ligne in a_facturer:
     nom_prenom = f"{ligne['prenom']} {ligne['nom']}".strip()
     numero = f"{prefixe}{prochain:03d}"
     print(f"-> {numero} pour {nom_prenom}...")
-    montant = ligne["montant_recu"] or S["tarif"]
+    # LA SOMME ENTIERE QUAND LA FACTURE PRECEDE : « montant_recu » ne vaut
+    # alors rien, ou un acompte. C'est le prix convenu avec la personne qu'il
+    # faut, celui-la meme que porte sa convention.
+    if AVANT_REGLEMENT:
+        montant = suivi.montant_attendu(ligne, S.get("tarif"))
+    else:
+        montant = ligne["montant_recu"] or S["tarif"]
     # LE DOCUMENT EST FABRIQUE EN LOCAL. Les valeurs reproduisent exactement
     # l'ancien texte : civilite « Docteur », un seul participant, et la facture
     # ACQUITTEE — elle n'est emise qu'apres paiement. Afficher un IBAN sur une
     # facture acquittee inviterait a payer deux fois.
     import facture as _fac
-    pdf_bytes = _fac.fabriquer(
-        S, numero, nom_prenom, float(str(montant).replace(",", ".") or 0), 1,
-        civilite="Docteur ",
-        paiement={"le": ligne["paiement_recu_le"],
-                  "mode": ligne["mode_paiement"] or "virement",
-                  "reference": ligne["reference_paiement"] or "-"})
+    if AVANT_REGLEMENT:
+        # Pas de bloc « acquittee » : la facture porte l'IBAN, comme celle
+        # d'un client. Afficher un paiement qui n'a pas eu lieu serait faux ;
+        # afficher les deux inviterait a payer deux fois.
+        pdf_bytes = _fac.fabriquer(
+            S, numero, nom_prenom, float(str(montant).replace(",", ".") or 0), 1,
+            civilite="Docteur ",
+            mention_reglement="À régler avant le début du dernier module",
+            ligne_reglement="Par virement sur le compte ci-dessous. "
+                            "Le règlement peut être échelonné ; chaque versement "
+                            "donne lieu à un reçu.")
+    else:
+        pdf_bytes = _fac.fabriquer(
+            S, numero, nom_prenom, float(str(montant).replace(",", ".") or 0), 1,
+            civilite="Docteur ",
+            paiement={"le": ligne["paiement_recu_le"],
+                      "mode": ligne["mode_paiement"] or "virement",
+                      "reference": ligne["reference_paiement"] or "-"})
     import documents
     nom_pdf = f"Facture {numero} - {nom_prenom}.pdf"
     ref, lien, _souci = documents.ranger(CODE, "facture", nom_pdf, pdf_bytes)
