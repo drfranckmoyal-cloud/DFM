@@ -1197,6 +1197,66 @@ def tests_convention_du_cycle():
         verifier("le texte du cycle est la (%s)" % ou, phrase in tpl, phrase[:34])
 
 
+def tests_miroir_debloque():
+    """UNE COPIE ABANDONNEE DOIT POUVOIR ETRE REJOUEE — 26/10/2026.
+
+    Au-dela de dix echecs, une copie vers le classeur est mise de cote : elle
+    reste en file, visible comme « le classeur est en retard », mais plus rien
+    ne la retente — pas meme le bouton « rattraper ». Le jour ou la cause est
+    reparee, l'alerte ne part donc jamais.
+
+    C'est arrive le 25/10/2026 : la colonne « versements » est la 53e, les
+    onglets du classeur en comptaient 52, et Google refusait l'ecriture. Une
+    fois les onglets elargis, l'alerte est restee affichee toute la nuit.
+
+    ET LA CAUSE PREMIERE EST GARDEE AUSSI : un onglet neuf doit naitre aussi
+    large que « suivi.COL », et non a un nombre recopie a la main.
+    """
+    import base as _b
+    import suivi as _sv
+    print()
+    print("  LA FILE DE RECOPIE VERS LE CLASSEUR")
+    _isoler()
+
+    print("    une copie abandonnee revient dans la file")
+    ident = _b.miroir_deposer("mon-organisme", "FEUILLE", [{"range": "A1", "values": [["x"]]}], "essai")
+    for _ in range(10):
+        _b.miroir_echec(ident, "refus d'essai")
+    verifier("apres dix echecs, plus rien ne la propose",
+             _b.miroir_prochaines(20, 10) == [], _b.miroir_prochaines(20, 10))
+    verifier("elle est pourtant toujours la",
+             _b.miroir_etat(10).get("attente") == 1, _b.miroir_etat(10))
+    rendues = _b.miroir_debloquer()
+    verifier("la debloquer en rend une", rendues == 1, rendues)
+    verifier("et elle est de nouveau proposee",
+             len(_b.miroir_prochaines(20, 10)) == 1)
+    verifier("son dernier souci est oublie",
+             not (_b.miroir_prochaines(20, 10)[0].get("souci") or ""))
+
+    print("    « rattraper » debloque avant de retenter")
+    src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "miroir.py"),
+               encoding="utf-8").read()
+    bloc = src[src.index("def rattraper("):]
+    # Jusqu'a la fin de la fonction : la premiere ligne vide tombe au milieu
+    # du docstring, et l'on y chercherait en vain ce qui vient apres.
+    bloc = bloc[:bloc.index("\nRETARD_VISIBLE_MINUTES")]
+    verifier("il appelle miroir_debloquer", "base.miroir_debloquer()" in bloc)
+    fond = src[src.index("def _boucle("):]
+    verifier("le fil de fond, lui, ne s'acharne pas",
+             "miroir_debloquer" not in fond)
+
+    print("    un onglet neuf nait assez large")
+    app_ = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py"),
+                encoding="utf-8").read()
+    verifier("sa largeur suit les colonnes du suivi",
+             '"columnCount": len(_suivi.COL)' in app_)
+    verifier("et n'est plus un nombre ecrit a la main",
+             '"columnCount": 52' not in app_)
+    verifier("53 colonnes aujourd'hui, A..BA",
+             len(_sv.COL) == 53 and _sv.lettre_colonne(len(_sv.COL) - 1) == "BA",
+             "%d / %s" % (len(_sv.COL), _sv.lettre_colonne(len(_sv.COL) - 1)))
+
+
 def tests_questionnaires_sans_action():
     """L'ENVOI DES QUESTIONNAIRES NE DEMANDE PLUS RIEN — 25/10/2026.
 
@@ -1940,7 +2000,8 @@ def main():
                   tests_convention_du_cycle, tests_courriel_de_validation,
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
-                  tests_lien_produit, tests_questionnaires_sans_action):
+                  tests_lien_produit, tests_questionnaires_sans_action,
+                  tests_miroir_debloque):
         try:
             essai()
         except Exception as e:

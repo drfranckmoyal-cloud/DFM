@@ -122,6 +122,20 @@ def rattraper(limite=500):
     d'un script : sans elle, un script qui depose puis s'arrete laisserait sa
     copie attendre le prochain reveil du serveur.
     """
+    # ON REND LEUR CHANCE AUX COPIES ABANDONNEES — 26/10/2026.
+    #
+    # Au-dela de dix echecs, une copie est mise de cote et plus rien ne la
+    # retente. C'est bien pour le fil de fond, qui ne doit pas s'acharner ;
+    # c'est absurde ici. « Rattraper le classeur » est un geste d'humain, et
+    # un humain ne clique dessus qu'apres avoir repare la cause — il attend
+    # qu'on reessaie TOUT, y compris ce qui avait renonce.
+    #
+    # Sans cela, l'alerte « le classeur est en retard » ne partait plus jamais :
+    # constate le 26/10/2026, apres une nuit entiere a l'afficher pour une
+    # colonne manquante deja ajoutee.
+    rendues = base.miroir_debloquer()
+    if rendues:
+        print("   (%d copie(s) abandonnee(s) rendue(s) a la file)" % rendues)
     total, souci = 0, ""
     while total < limite:
         faites, souci = _passe(min(50, limite - total))

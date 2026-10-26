@@ -564,6 +564,27 @@ def miroir_deposer(organisme, feuille, donnees, quoi=""):
     return cur.lastrowid
 
 
+def miroir_debloquer():
+    """Remet a zero le compteur d'essais des copies abandonnees.
+
+    POURQUOI ELLE EXISTE — 26/10/2026. Une copie qui echoue dix fois est mise
+    de cote : elle reste en file, visible comme « le classeur est en retard »,
+    mais plus rien ne la retente — pas meme le bouton « rattraper ». Le jour ou
+    la cause est reparee, l'alerte ne part donc jamais toute seule.
+
+    C'est arrive avec la colonne « versements » : les onglets du classeur
+    etaient trop etroits d'une colonne, Google refusait l'ecriture, et l'alerte
+    est restee une nuit entiere sans qu'aucun bouton puisse la faire partir.
+
+    Rend le nombre de copies rendues a la file.
+    """
+    c = _conn()
+    n = c.execute("SELECT COUNT(*) FROM miroir_attente WHERE essais >= 10").fetchone()[0]
+    c.execute("UPDATE miroir_attente SET essais = 0, souci = '' WHERE essais >= 10")
+    c.commit()
+    return n
+
+
 def miroir_prochaines(limite=20, essais_max=10):
     """Les copies a tenter, dans l'ordre. Celles qui ont trop echoue restent
     en place mais ne bloquent plus la file : voir miroir_etat."""

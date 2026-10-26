@@ -1139,7 +1139,15 @@ def enregistrer_nouvelle_session():
                 spreadsheetId=feuille,
                 body={"requests": [{"addSheet": {"properties": {
                     "title": onglet,
-                    "gridProperties": {"rowCount": 1002, "columnCount": 52, "frozenRowCount": 1}}}}]},
+                    # LA LARGEUR SUIT LES COLONNES DU SUIVI — 26/10/2026.
+                    # Elle etait ecrite « 52 », juste le jour ou COL en comptait
+                    # 52. La colonne « versements », ajoutee le 25/10, est la
+                    # 53e : le classeur a refuse la copie — « BA17 » n'existait
+                    # pas — et la file de recopie est restee bloquee une nuit.
+                    # Un nombre recopie a la main vieillit mal ; celui-ci suit.
+                    "gridProperties": {"rowCount": 1002,
+                                       "columnCount": len(_suivi.COL),
+                                       "frozenRowCount": 1}}}}]},
             ).execute()
             etapes.append({"ok": True, "texte": f"Onglet « {onglet} » cree"})
         entetes = [None] * len(_suivi.COL)
