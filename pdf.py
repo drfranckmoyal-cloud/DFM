@@ -169,6 +169,14 @@ def depuis_html(html, delai=60):
              # exactement ce qui a ouvert une fenetre bloquante sur le Mac.
              # Sous Linux elle reveille gnome-keyring, absent d'un serveur.
              "--password-store=basic",
+             # SUR LE MAC, CHROME NE CLONE PAS L'APPLICATION. Chaque lancement
+             # copie d'abord Google Chrome.app dans un dossier temporaire (un
+             # clone APFS : presque rien sur le disque, mais 2 Go aux yeux du
+             # Finder), et ne le retire qu'en se refermant de lui-meme. Arrete
+             # par nous, ou mort au bout du delai, il le laisse : 89 clones,
+             # 185 Go apparents le 28/10/2026. Sous Linux, l'option est sans
+             # objet et Chrome l'ignore. Verifie le 29/10/2026 avec Chrome 156.
+             "--disable-features=MacAppCodeSignClone",
              "--print-to-pdf=" + cible, "file://" + source],
             capture_output=True, timeout=delai, env=env)
         if not os.path.exists(cible):
