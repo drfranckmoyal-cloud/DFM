@@ -3106,10 +3106,6 @@ def _auto_boucle():
         if not _AUTO_ETAT["actif"]:
             _AUTO_ETAT["prochain"] = 0
             continue
-        try:
-            _q_auto()
-        except Exception as e:
-            _auto_signaler("boucle des questionnaires", e)
         maintenant = _time.time()
         if not _AUTO_ETAT["prochain"]:
             _AUTO_ETAT["prochain"] = maintenant + _AUTO_ETAT["minutes"] * 60
@@ -3117,9 +3113,48 @@ def _auto_boucle():
         if maintenant >= _AUTO_ETAT["prochain"]:
             _auto_executer()
             _AUTO_ETAT["prochain"] = _time.time() + _AUTO_ETAT["minutes"] * 60
+def _q_boucle():
+    """LE GUET DES QUESTIONNAIRES A SON PROPRE FIL — 31/10/2026.
+
+    Il vivait dans _auto_boucle, qui ne demarre que sous le reloader de Flask ou
+    avec DFM_AUTO=1. Le serveur passe par waitress, sans l'un ni l'autre : DFM en
+    ligne n'a donc JAMAIS envoye un questionnaire tout seul, et rien ne le disait.
+    Masterclass d'octobre s'est tenue sans qu'aucun ne parte.
+
+    POSER DFM_AUTO=1 N'ETAIT PAS LA REPONSE : cela relancerait aussi dfm.py toutes
+    les 15 minutes, en plus des passages du planificateur.
+    """
+    while True:
+        _time.sleep(60)
+        if not _AUTO_ETAT["actif"]:
+            continue
+        try:
+            _q_auto()
+        except Exception as e:
+            _auto_signaler("boucle des questionnaires", e)
+_q_fil = None
+def demarrer_questionnaires():
+    """Lance le guet, une seule fois. Sans effet s'il tourne deja.
+
+    UNE SEULE MACHINE ENVOIE : celle qui est publiee. Un DFM de consultation sur
+    le Mac lit les memes inscrits et une copie de la memoire des envois ; s'il
+    guettait aussi, chaque stagiaire recevrait tout en double, et cela ne se
+    rattrape pas.
+    """
+    global _q_fil
+    if _q_fil and _q_fil.is_alive():
+        return False
+    publie = (_os.environ.get("DFM_PROXY") or "").strip().lower() in ("1", "oui", "true")
+    if not publie and _os.environ.get("DFM_AUTO") != "1":
+        return False
+    _q_fil = _threading.Thread(target=_q_boucle, name="dfm-questionnaires", daemon=True)
+    _q_fil.start()
+    return True
 _auto_charger()
 if _os.environ.get("WERKZEUG_RUN_MAIN") == "true" or _os.environ.get("DFM_AUTO") == "1":
     _threading.Thread(target=_auto_boucle, daemon=True).start()
+if _os.environ.get("DFM_AUTO") == "1":
+    demarrer_questionnaires()
 @app.route("/auto/etat")
 def auto_etat():
     reste = 0
@@ -4728,7 +4763,11 @@ def _q_envoyer_mails(code, quoi, cibles):
                 "que de fa&ccedil;on globale, jamais nominativement.",
                 "Donner mon avis", "3 minutes environ"),
     }
-    sujet_base, corps_txt, bouton, duree = TEXTES.get(quoi, TEXTES["init"])
+    sujet_base, corps_general, bouton, duree = TEXTES.get(quoi, TEXTES["init"])
+    # « LES MEMES QUESTIONS QU'A VOTRE ARRIVEE » N'EST VRAI QUE POUR QUI Y A
+    # REPONDU. A celui qui n'a pas recu l'evaluation d'entree, on ne promet pas
+    # une comparaison que personne ne pourra lui faire.
+    ont_repondu = set(_q_repondants(code).get("init") or []) if quoi == "fin" else set()
     resultats = []
     for personne in cibles:
         mail = (personne.get("mail") or "").strip()
@@ -4736,6 +4775,10 @@ def _q_envoyer_mails(code, quoi, cibles):
             continue
         prenom = (personne.get("nom") or "").split(" ")[0]
         lien = _q_mail_lien(S, code, quoi, mail)
+        corps_txt = corps_general
+        if quoi == "fin" and mail.lower() not in ont_repondu:
+            corps_txt = ("Voici un court questionnaire sur ce que vous avez vu pendant la formation. "
+                         "Vous recevrez ensuite votre score et le corrig&eacute; comment&eacute;.")
         html = ("<div style=\"font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 560px;"
                 " margin: 0 auto; color: #2b2f3a; line-height: 1.6;\">\n"
                 "  <div style=\"padding: 20px 0 4px;\">"
@@ -5024,6 +5067,10 @@ def _q_preparer_au_besoin(code, publiques):
                  ", corrigé déjà figé" if engagee else ""))
     return r
 
+# CE QUI EST PARTI DEPUIS LE DEMARRAGE, EN MEMOIRE. _q_ecrire avale ses erreurs :
+# si la memoire des envois ne s'ecrivait pas — un disque plein, par exemple —, le
+# guet renverrait le meme questionnaire a tout le monde, chaque minute.
+_Q_PARTIS = set()
 def _q_auto():
     from datetime import datetime as dt
     publiques = _sessions_publiques()      # un seul appel, plus un par session
@@ -5042,10 +5089,17 @@ def _q_auto():
                 continue
             r = [ligne_pub]
             for quoi in _Q_TYPES:
-                if not auto.get(quoi) or envois.get(quoi):
+                if not auto.get(quoi) or envois.get(quoi) or (code, quoi) in _Q_PARTIS:
                     continue
                 moment = _q_moment(planning[quoi])
                 if not moment or dt.now() < moment:
+                    continue
+                # L'EVALUATION D'ENTREE NE SE RATTRAPE PAS — 31/10/2026. Elle
+                # mesure ce qu'on sait AVANT : remplie une fois l'evaluation de
+                # sortie arrivee, elle ne mesure plus rien et fausse la
+                # progression portee sur l'attestation.
+                fin_prevue = _q_moment(planning["fin"])
+                if quoi == "init" and fin_prevue and dt.now() >= fin_prevue:
                     continue
                 # PAS DE QUESTIONNAIRE POSTE DES MOIS APRES COUP — 25/10/2026.
                 # L'envoi automatique etant devenu le defaut, toute session
@@ -5066,7 +5120,11 @@ def _q_auto():
                 _sb("Sessions_publiques?session_code=eq." + code, "PATCH", {"ouvert": ouvert})
                 res = _q_envoyer_mails(code, quoi, gens)
                 envoyes = len([e for e in res if e["ok"]])
+                rates = [e["texte"] for e in res if not e["ok"]]
+                if rates:
+                    _auto_signaler(_Q_NOMS[quoi], Exception(" ; ".join(rates)), code)
                 if envoyes:
+                    _Q_PARTIS.add((code, quoi))
                     _q_enregistrer(code, envoi=(quoi, dt.now().strftime("%d/%m/%Y %H:%M")))
                     try:
                         import journal
@@ -9664,6 +9722,7 @@ def planificateur_etat():
     try:
         import planificateur as _p
         return jsonify({"ok": True, "actif": _p.actif(),
+                        "questionnaires": bool(_q_fil and _q_fil.is_alive()),
                         "guet_minutes": _p.GUETTEUR_SECONDES // 60,
                         "passages": ["%dh%02d" % h for h in _p.PASSAGE_HEURES],
                         "sauvegarde": "%dh%02d" % _p.SAUVEGARDE_HEURE,

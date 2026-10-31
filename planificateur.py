@@ -184,7 +184,7 @@ def _guetter_sante():
              "Pour information&nbsp;: %d inscrits et %d entrees de journal se "
              "lisent correctement en ce moment." % (inscrits, entrees)],
             quoi_faire="Rien d'urgent. A me signaler pour que je cherche la cause.",
-            heures=24)
+            heures=24, signature="recyclages")
 
 
 def _guetter_inscriptions():

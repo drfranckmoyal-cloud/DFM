@@ -1323,6 +1323,161 @@ def tests_questionnaires_sans_action():
     verifier("et ceux qui ont deja repondu", "_q_repondants(code)" in auto)
 
 
+def tests_guet_questionnaires():
+    """LE GUET TOURNE VRAIMENT, ET IL N'ENVOIE QUE CE QU'IL DOIT — 31/10/2026.
+
+    Tous les controles ci-dessus lisaient _q_auto. Aucun ne verifiait que quelque
+    chose l'appelait sur le serveur : il ne s'y lancait jamais, et Masterclass
+    d'octobre s'est finie sans un seul questionnaire. Ici, on le fait tourner."""
+    print("\n  LE GUET DES QUESTIONNAIRES")
+    _isoler()
+    src_servir = open(os.path.join(DOSSIER, "servir.py"), encoding="utf-8").read()
+    verifier("le serveur lance le guet", "demarrer_questionnaires()" in src_servir)
+    import app as A
+    from datetime import datetime as dt, timedelta as td
+    src = open(os.path.join(DOSSIER, "app.py"), encoding="utf-8").read()
+    boucle = src[src.index("def _auto_boucle("):src.index("def _q_boucle(")]
+    verifier("la synchro des 15 minutes n'en depend plus", "_q_auto()" not in boucle)
+
+    # UNE SEULE MACHINE ENVOIE.
+    vus, fil = [], A._threading.Thread
+    A._threading.Thread = lambda **k: type("F", (), {
+        "start": lambda s: vus.append(k.get("name")), "is_alive": lambda s: True})()
+    avant = {k: os.environ.pop(k, None) for k in ("DFM_PROXY", "DFM_AUTO")}
+    A._q_fil = None
+    verifier("un DFM local ne guette pas", A.demarrer_questionnaires() is False and vus == [], vus)
+    os.environ["DFM_PROXY"] = "1"
+    verifier("le serveur publie guette", A.demarrer_questionnaires() is True, vus)
+    verifier("une seule fois", A.demarrer_questionnaires() is False and len(vus) == 1, vus)
+    del os.environ["DFM_PROXY"]
+    for k, v in avant.items():
+        if v is not None:
+            os.environ[k] = v
+    A._threading.Thread, A._q_fil = fil, None
+
+    # LE VRAI PASSAGE, portes bouchees.
+    maintenant = dt.now()
+    def plan(entree, sortie):
+        return {"init": {"date": entree.strftime("%Y-%m-%d"), "heure": entree.strftime("%H:%M")},
+                "fin": {"date": sortie.strftime("%Y-%m-%d"), "heure": sortie.strftime("%H:%M")},
+                "satisfaction": {"date": sortie.strftime("%Y-%m-%d"), "heure": sortie.strftime("%H:%M")},
+                "froid": {"date": "2099-01-01", "heure": "09:00"}}
+    partis, reglages = [], {}
+    vrais = {n: getattr(A, n) for n in ("SESSIONS", "_sessions_publiques", "_q_preparer_au_besoin",
+                                        "_q_reglages", "_q_repondants", "_sb", "_q_envoyer_mails",
+                                        "_q_enregistrer", "_auto_signaler")}
+    A.SESSIONS = {"essai": {}}
+    A._sessions_publiques = lambda: {"essai": {"participants": [{"nom": "A", "mail": "a@essai.test"}],
+                                               "ouvert": {}}}
+    A._q_preparer_au_besoin = lambda c, p: None
+    A._q_reglages = lambda c: reglages["valeur"]
+    A._q_repondants = lambda c: {}
+    A._sb = lambda *a, **k: []
+    A._q_envoyer_mails = lambda c, q, g: partis.append(q) or [{"ok": True, "texte": "ok"}]
+    # La memoire des envois ne s'ecrit pas : c'est le cas qu'on veut eprouver.
+    A._q_enregistrer = lambda *a, **k: None
+    A._auto_signaler = lambda *a, **k: None
+    tous = dict.fromkeys(A._Q_TYPES, True)
+    try:
+        A._Q_PARTIS.clear()
+        reglages["valeur"] = (plan(maintenant - td(hours=2), maintenant + td(hours=5)), tous, {})
+        A._q_auto()
+        verifier("en cours de formation : l'entree part", partis == ["init"], partis)
+
+        del partis[:]
+        A._Q_PARTIS.clear()
+        reglages["valeur"] = (plan(maintenant - td(days=3), maintenant - td(days=2)), tous, {})
+        A._q_auto()
+        verifier("formation finie : sortie et satisfaction, PAS l'entree",
+                 partis == ["fin", "satisfaction"], partis)
+
+        del partis[:]
+        A._q_auto()
+        verifier("memoire illisible : rien ne repart au passage suivant", partis == [], partis)
+
+        A._Q_PARTIS.clear()
+        reglages["valeur"] = (plan(maintenant - td(days=3), maintenant - td(days=2)),
+                              dict.fromkeys(A._Q_TYPES, False), {})
+        A._q_auto()
+        verifier("une case decochee retient l'envoi", partis == [], partis)
+    finally:
+        for n, v in vrais.items():
+            setattr(A, n, v)
+        A._Q_PARTIS.clear()
+
+    print("    le texte de sortie ne promet que ce qui est vrai")
+    bloc = src[src.index("def _q_envoyer_mails("):]
+    bloc = bloc[:bloc.index('@app.route("/session/<code>/questionnaires/tableau")')]
+    verifier("sans entree, pas de comparaison annoncee",
+             'quoi == "fin" and mail.lower() not in ont_repondu' in bloc)
+
+
+def tests_alerte_a_compteur():
+    """UN COMPTEUR DANS LE TEXTE NE FAIT PAS UN NOUVEAU SOUCI — 31/10/2026."""
+    print("\n  L'ALERTE A COMPTEUR")
+    _isoler()
+    import importlib
+    import courrier
+    import profil
+    import alerte
+    alerte = importlib.reload(alerte)        # le guet de sante remplace prevenir
+    alerte.MEMOIRE = os.path.join(tempfile.mkdtemp(prefix="dfm-test-"), "etat.json")
+    envois, vrai_envoi, vrai_profil = [], courrier.envoyer, profil.charger
+    courrier.envoyer = lambda *a, **k: envois.append(1)
+    profil.charger = lambda *a, **k: {"mail_contact": "contact@essai.test"}
+    try:
+        for n in (20, 21, 22):
+            alerte.prevenir("recyclage", "objet", ["%d fois" % n], heures=24, signature="recyclages")
+        verifier("trois passages, un seul mail", len(envois) == 1, len(envois))
+        del envois[:]
+        for n in (20, 21):
+            alerte.prevenir("autre", "objet", ["%d fois" % n], heures=24)
+        verifier("sans signature, un texte different reste un autre souci", len(envois) == 2, len(envois))
+    finally:
+        courrier.envoyer, profil.charger = vrai_envoi, vrai_profil
+
+
+def tests_archive_et_verrous():
+    """L'ARCHIVE DU SOIR NE DOIT PAS FAIRE SAUTER LE JOURNAL DE LA BASE — 31/10/2026.
+
+    Le vrai scenario, avec une vraie base : DFM la tient ouverte, l'archive se
+    fabrique dans le meme processus, puis un autre programme l'ouvre et la
+    referme. C'est ce qu'un passage de dfm.py fait des dizaines de fois."""
+    print("\n  L'ARCHIVE ET LES VERROUS DE LA BASE")
+    import sqlite3
+    import subprocess
+    import zipfile
+    import sauvegarde_locale as sl
+    d = tempfile.mkdtemp(prefix="dfm-test-")
+    chemin = os.path.join(d, "dfm.db")
+    tenue = sqlite3.connect(chemin)
+    tenue.execute("PRAGMA journal_mode=WAL")
+    tenue.execute("CREATE TABLE t(v)")
+    tenue.execute("INSERT INTO t VALUES ('encore dans le journal')")
+    tenue.commit()
+    tenue.execute("SELECT * FROM t").fetchall()
+    numero = os.stat(chemin + "-wal").st_ino
+    vrais = sl.DOSSIER, sl.CONTENU
+    sl.DOSSIER, sl.CONTENU = d, ["dfm.db"]
+    try:
+        cible, n = sl.fabriquer(vers=os.path.join(d, "archives"))
+    finally:
+        sl.DOSSIER, sl.CONTENU = vrais
+    subprocess.run([sys.executable, "-c",
+                    "import sqlite3;c=sqlite3.connect(%r);c.execute('select * from t').fetchall();c.close()" % chemin])
+    verifier("le journal de la base survit a l'archive",
+             os.path.exists(chemin + "-wal") and os.stat(chemin + "-wal").st_ino == numero)
+    extrait = os.path.join(d, "extrait")
+    with zipfile.ZipFile(cible) as z:
+        z.extract("dfm.db", extrait)
+    lu = sqlite3.connect(os.path.join(extrait, "dfm.db"))
+    verifier("l'archive contient ce qui etait encore dans le journal",
+             lu.execute("SELECT v FROM t").fetchall() == [("encore dans le journal",)])
+    verifier("et elle se relit sans defaut", lu.execute("PRAGMA integrity_check").fetchone()[0] == "ok")
+    lu.close()
+    tenue.close()
+
+
 def tests_lien_produit():
     """L'ADRESSE, PAS LA PHRASE — 25/10/2026.
 
@@ -2001,7 +2156,8 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_miroir_debloque):
+                  tests_guet_questionnaires, tests_alerte_a_compteur,
+                  tests_archive_et_verrous, tests_miroir_debloque):
         try:
             essai()
         except Exception as e:

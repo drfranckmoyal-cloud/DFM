@@ -23,9 +23,12 @@ elle se demande : --avec-secrets.
     python3 sauvegarde_locale.py [--avec-secrets] [--vers <dossier>]
 """
 import os
+import sqlite3
 import sys
+import tempfile
 import zipfile
 from datetime import datetime
+from urllib.parse import quote
 
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 
@@ -74,7 +77,37 @@ SECRETS = ["credentials.json", "token.json", "config.py", "smtp.json",
            "scellement.json"]
 
 
+def _ajouter_base(z, chemin, base):
+    """LA BASE S'ARCHIVE PAR UNE PHOTO, JAMAIS PAR LE FICHIER — 31/10/2026.
+
+    Cette archive se fabrique DANS le processus de DFM, celui qui tient la base
+    ouverte. Or, sous Linux, ouvrir puis refermer un fichier a la main annule
+    tous les verrous que ce processus avait sur lui. SQLite ne le sait pas : le
+    script suivant se croit seul, et en partant il SUPPRIME le journal de la
+    base (dfm.db-wal) sous les pieds de DFM. Celui-ci continue d'ecrire dans un
+    fichier disparu, et repond « database disk image is malformed » alors que
+    la base est saine, jusqu'a la prochaine relance.
+
+    Reproduit le 31/10/2026 dans un dossier jetable. Les dates collent : la
+    sauvegarde de 19h30, puis la panne au passage de 8h30 le lendemain.
+
+    Et la photo est juste : le fichier seul laissait de cote ce qui etait encore
+    dans le journal de la base.
+    """
+    with tempfile.TemporaryDirectory(prefix="dfm-photo-") as dossier:
+        photo = os.path.join(dossier, "photo.db")
+        source = sqlite3.connect("file:%s?mode=ro" % quote(chemin), uri=True)
+        copie = sqlite3.connect(photo)
+        source.backup(copie)
+        copie.close()
+        source.close()
+        z.write(photo, os.path.relpath(chemin, base))
+    return 1
+
+
 def _ajouter(z, chemin, base):
+    if chemin.endswith(".db"):
+        return _ajouter_base(z, chemin, base)
     if os.path.isfile(chemin):
         z.write(chemin, os.path.relpath(chemin, base))
         return 1

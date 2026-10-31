@@ -115,6 +115,15 @@ def main():
     except Exception as e:
         print("  Planificateur non demarre : %s" % str(e)[:110])
 
+    # LE GUET DES QUESTIONNAIRES, pour la meme raison. Voir app._q_boucle : faute
+    # de cette ligne, aucun questionnaire n'est jamais parti seul du serveur.
+    try:
+        from app import demarrer_questionnaires
+        if demarrer_questionnaires():
+            print("  Questionnaires : guet actif, envois a l'heure prevue.")
+    except Exception as e:
+        print("  Guet des questionnaires non demarre : %s" % str(e)[:110])
+
     # LE FIL DES COPIES, pour la meme raison que le planificateur. C'est lui
     # qui verse dans le classeur Google ce que les clics y ont mis en file —
     # et au demarrage, ce qu'un arret a laisse en attente.

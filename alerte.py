@@ -73,13 +73,19 @@ def deja_envoyee(cle, signature, heures=HEURES_PAR_DEFAUT):
 
 
 def prevenir(cle, objet, paragraphes, organisme="mon-organisme",
-            heures=HEURES_PAR_DEFAUT, quoi_faire=""):
+            heures=HEURES_PAR_DEFAUT, quoi_faire="", signature=None):
     """Ecrit a l'organisme. Rend l'adresse touchee, ou "".
 
     `cle` identifie le genre d'alerte (« base-illisible »), pour ne pas
     confondre deux soucis differents dans la memoire.
+
+    `signature` dit « c'est toujours le meme souci ». Par defaut, c'est le
+    texte. UN TEXTE QUI PORTE UN COMPTEUR DOIT DONNER LA SIENNE : sinon il change
+    a chaque passage, ne ressemble jamais au precedent, et « au plus une fois
+    toutes les 24 heures » devient un mail toutes les dix minutes. Constate le
+    30/10/2026 : 146 mails en une journee et demie.
     """
-    signature = "|".join(paragraphes)
+    signature = signature or "|".join(paragraphes)
     if deja_envoyee(cle, signature, heures):
         return ""
     try:
