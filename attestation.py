@@ -227,6 +227,17 @@ def pour(code_session, ligne, logo=None, attribuer=True):
     except Exception:
         pass
 
+    # LA SIGNATURE ETAIT VIDE, ECRITE EN DUR — corrige le 01/11/2026. Le gabarit
+    # lui reservait sa place, l'organisme avait depose la sienne, et l'attestation
+    # partait quand meme sans. Elle suit l'organisme de la session, comme sur la
+    # convention : jamais celui qui est actif a l'ecran.
+    signature = ""
+    try:
+        import profil as _p
+        signature = _p.image_en_ligne("signature_fichier", _S.organisme_de(code_session) or None) or ""
+    except Exception:
+        pass
+
     libelles = (modele or {}).get("objectifs") or {}
     objectifs = []
     if libelles:
@@ -252,7 +263,7 @@ def pour(code_session, ligne, logo=None, attribuer=True):
         "qualite_signataire": "Responsable pédagogique",
         "ville_of": (S.get("ville") or "").strip() or _ville(b("adresse_organisme")),
         "logo": logo if logo is not None else _logo(S),
-        "signature": "",
+        "signature": signature,
         "titre_formation": S.get("titre_complet") or S.get("nom_formation") or "",
         "public": (S.get("public") or "").strip(),
         "lieu": (S.get("adresse") or "").strip(),

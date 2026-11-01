@@ -1478,6 +1478,50 @@ def tests_archive_et_verrous():
     tenue.close()
 
 
+def tests_attestations_par_vagues():
+    """UNE ATTESTATION SANS RESULTAT NE PART PAS PAR MEGARDE — 01/11/2026.
+
+    La fenetre cochait d'office toute attestation existante. Masterclass d'octobre :
+    onze documents aux cases vides, portant une consigne adressee a l'organisme,
+    auraient suivi les trois complets au premier clic sur « Envoyer »."""
+    print("\n  LES ATTESTATIONS PAR VAGUES")
+    _isoler()
+    gabarit = open(os.path.join(DOSSIER, "templates", "attestation.html"), encoding="utf-8").read()
+    verifier("le stagiaire ne lit plus de consigne a l'organisme",
+             "avant de remettre cette attestation" not in gabarit)
+    source = open(os.path.join(DOSSIER, "attestation.py"), encoding="utf-8").read()
+    verifier("la signature n'est plus vide en dur", '"signature": ""' not in source)
+    verifier("elle suit l'organisme de la session",
+             'image_en_ligne("signature_fichier", _S.organisme_de(code_session)' in source)
+    fenetre = open(os.path.join(DOSSIER, "templates", "session.html"), encoding="utf-8").read()
+    verifier("la fenetre ne coche pas une attestation sans resultat",
+             "if(!g.complete){ etat = '<span class=\"at-etat at-absente\">évaluation de sortie pas encore reçue</span>'; coche = \"\"; }" in fenetre)
+
+    import app as A
+    import suivi as _suivi
+    lignes = [
+        {"_numero": 2, "mail": "a@essai.test", "prenom": "A", "nom": "A", "present": "oui",
+         "attestation_envoyee_le": "01/11/2026", "annule_le": ""},
+        {"_numero": 3, "mail": "b@essai.test", "prenom": "B", "nom": "B", "present": "",
+         "attestation_envoyee_le": "", "annule_le": ""},
+        {"_numero": 4, "mail": "c@essai.test", "prenom": "C", "nom": "C", "present": "oui",
+         "attestation_envoyee_le": "", "annule_le": ""},
+    ]
+    ecrit = []
+    vrais = A.fiche_session, A._lignes_onglet, _suivi.ecrire_lignes
+    A.fiche_session = lambda code: {"code": code}
+    A._lignes_onglet = lambda S: lignes
+    _suivi.ecrire_lignes = lambda donnees, code: ecrit.extend(donnees)
+    try:
+        A._pointer_presences("essai", ["b@essai.test"])
+    finally:
+        A.fiche_session, A._lignes_onglet, _suivi.ecrire_lignes = vrais
+    numeros = {n: d.get("present") for n, d in ecrit}
+    verifier("la deuxieme vague pointe les siens", numeros.get(3) == "oui", numeros)
+    verifier("la premiere vague garde sa presence", 2 not in numeros, numeros)
+    verifier("decocher reste possible pour qui n'a rien recu", numeros.get(4) == "", numeros)
+
+
 def tests_lien_produit():
     """L'ADRESSE, PAS LA PHRASE — 25/10/2026.
 
@@ -2157,7 +2201,8 @@ def main():
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
                   tests_guet_questionnaires, tests_alerte_a_compteur,
-                  tests_archive_et_verrous, tests_miroir_debloque):
+                  tests_archive_et_verrous, tests_attestations_par_vagues,
+                  tests_miroir_debloque):
         try:
             essai()
         except Exception as e:

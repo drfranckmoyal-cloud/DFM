@@ -6315,6 +6315,9 @@ def liste_attestations(code):
         gens.append({"mail": (l.get("mail") or "").strip(),
                      "nom": ((l.get("nom") or "").upper() + " " + (l.get("prenom") or "")).strip(),
                      "prete": bool(lien and "/d/" in lien),
+                     # `attestation_le` ne se pose qu'une fois le resultat connu :
+                     # avant, le document existe mais ses cases sont vides.
+                     "complete": bool(l.get("attestation_le")),
                      "lien": lien,
                      "envoyee_le": l.get("attestation_envoyee_le") or ""})
     gens.sort(key=lambda g: g["nom"])
@@ -6340,6 +6343,11 @@ def _pointer_presences(code, mails_presents):
         if l.get("annule_le"):
             continue
         m = (l.get("mail") or "").strip().lower()
+        # UNE ATTESTATION DEJA PARTIE GARDE SA PRESENCE. Les envois se font
+        # desormais par vagues, au fil des reponses : la fenetre ne recoche pas
+        # ceux qui ont deja recu la leur, et un second envoi les aurait effaces.
+        if m not in retenus and l.get("attestation_envoyee_le"):
+            continue
         valeur = "oui" if m in retenus else ""
         if (l.get("present") or "") == valeur:
             continue

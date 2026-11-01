@@ -2826,6 +2826,7 @@ function ouvrirAttestations(){
       var etat, coche, bloque = "";
       if(!g.prete){ etat = '<span class="at-etat at-absente">attestation non générée</span>'; coche = ""; bloque = " disabled"; }
       else if(g.envoyee_le){ etat = '<span class="at-etat at-deja">déjà envoyée le ' + atEchappe(g.envoyee_le) + ' — cochez pour renvoyer</span>'; coche = ""; }
+      else if(!g.complete){ etat = '<span class="at-etat at-absente">évaluation de sortie pas encore reçue</span>'; coche = ""; }
       else { etat = '<span class="at-etat at-prete">attestation prête</span>'; coche = " checked"; }
       return '<label class="at-ligne"><input type="checkbox" data-mail="' + atEchappe(g.mail) + '"'
         + coche + bloque + ' onchange="atCompter()">'

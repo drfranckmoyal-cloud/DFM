@@ -17,24 +17,24 @@
 <meta charset="utf-8">
 <title>Attestation — {{ a.nom_prenom }}</title>
 <style>
-  @page { size: A4 portrait; margin: 14mm 15mm; }
+  @page { size: A4 portrait; margin: 9mm 15mm; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
-         color: #16191f; font-size: 10.5pt; line-height: 1.5; }
+         color: #16191f; font-size: 10.5pt; line-height: 1.38; }
 
   .entete { display: flex; align-items: flex-start; gap: 16px;
-            border-bottom: 2px solid #16191f; padding-bottom: 10px; margin-bottom: 14px; }
+            border-bottom: 2px solid #16191f; padding-bottom: 8px; margin-bottom: 10px; }
   .logo { max-height: 46px; max-width: 150px; flex: none; }
   .of { flex: 1; min-width: 0; font-size: 8.6pt; line-height: 1.45; color: #3d4250; }
   .of b { font-size: 11pt; color: #16191f; display: block; margin-bottom: 2px; }
   .ref { text-align: right; font-size: 8pt; color: #6b7280; flex: none; line-height: 1.5; }
 
   h1 { font-size: 15pt; text-align: center; letter-spacing: .5px; margin: 0 0 2px; }
-  .loi { text-align: center; font-size: 8.4pt; color: #6b7280; margin-bottom: 14px; }
+  .loi { text-align: center; font-size: 8.4pt; color: #6b7280; margin-bottom: 9px; }
 
-  .certifie { background: #f6f8fc; border-left: 3px solid #16191f; padding: 9px 13px;
-              margin-bottom: 12px; font-size: 10pt; line-height: 1.55; }
-  .qui { font-size: 13pt; font-weight: 600; text-align: center; margin: 4px 0 12px; }
+  .certifie { background: #f6f8fc; border-left: 3px solid #16191f; padding: 7px 13px;
+              margin-bottom: 8px; font-size: 10pt; line-height: 1.45; }
+  .qui { font-size: 13pt; font-weight: 600; text-align: center; margin: 2px 0 8px; }
 
   h2 { font-size: 8.4pt; text-transform: uppercase; letter-spacing: 1px; color: #6b7280;
        margin: 11px 0 5px; padding-bottom: 3px; border-bottom: 1px solid #dfe3ec; }
@@ -73,13 +73,13 @@
           border-radius: 6px; padding: 7px 11px; line-height: 1.45; margin-top: 8px; }
 
   .pied { display: flex; justify-content: space-between; align-items: flex-end;
-          gap: 30px; margin-top: 14px; padding-top: 10px; border-top: 1px solid #dfe3ec; }
+          gap: 30px; margin-top: 9px; padding-top: 6px; border-top: 1px solid #dfe3ec; }
   .fait { font-size: 9.6pt; }
   .sign { text-align: center; font-size: 9.6pt; min-width: 220px; }
   .sign .nom { font-weight: 600; margin-top: 2px; }
   .sign .q { color: #6b7280; font-size: 8.6pt; }
-  .sign img { max-height: 52px; margin: 2px 0; }
-  .mentions { margin-top: 10px; font-size: 7.6pt; color: #8a90a2; line-height: 1.5;
+  .sign img { max-height: 46px; margin: 0; }
+  .mentions { margin-top: 6px; font-size: 7.6pt; color: #8a90a2; line-height: 1.35;
               text-align: justify; }
   /* Le pied et les mentions ne se separent JAMAIS du document : une attestation
      dont la signature part seule sur une deuxieme page n'est pas presentable. */
@@ -163,10 +163,12 @@
   progression de {{ '+' if a.progression >= 0 }}{{ a.progression }} points{% endif %}.</div>
 {% else %}
 {# Des cases toutes vides se lisent « rien n'est acquis ». Il faut DIRE que
-   l'evaluation n'a pas eu lieu, sinon le document accuse le beneficiaire. #}
+   l'evaluation n'a pas eu lieu, sinon le document accuse le beneficiaire.
+   CE TEXTE EST LU PAR LE STAGIAIRE : la consigne a l'organisme qui le terminait
+   vit desormais dans la fenetre d'envoi, qui ne coche pas ces attestations. #}
 <div class="sans">Évaluation de sortie non enregistrée pour cette personne&nbsp;: les cases
   ci-dessus sont vides faute de résultat, et non parce que les objectifs ne seraient pas
-  atteints. Relevez le questionnaire de fin avant de remettre cette attestation.</div>
+  atteints.</div>
 {% endif %}
 {% else %}
 <div class="sans">Aucun objectif n'est déclaré pour cette formation, ou aucune évaluation
