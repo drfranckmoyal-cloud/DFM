@@ -28,6 +28,12 @@ TROIS MODES, ET LE PREMIER EST LE DEFAUT :
   --liste <fichier>  une adresse par ligne, « prenom;nom;mail » ou « mail » seul.
   --a <mail>         une seule adresse nommee.
 
+ET LE PRIX D'UNE PERSONNE :
+
+  --montant <euros>  remplace le tarif de la session dans le courriel, pour UN
+                     seul destinataire. Le prix est adaptable par personne, et
+                     une liste entiere a ce prix serait une erreur : on refuse.
+
 ET LA RELANCE, SEPT JOURS PLUS TARD :
 
   --relance          envoie le courriel 01 BIS au lieu du 01, et ECARTE DE LA
@@ -106,6 +112,8 @@ def main():
                    help="un seul envoi, a l'adresse de l'organisme (defaut)")
     a.add_argument("--liste", default="", help="fichier d'adresses")
     a.add_argument("--a", default="", help="une seule adresse")
+    a.add_argument("--montant", default="",
+                   help="le prix de cette personne, pour un seul destinataire")
     a.add_argument("--relance", action="store_true",
                    help="le courriel 01 bis, en ecartant ceux qui ont deja repondu")
     o = a.parse_args()
@@ -162,10 +170,15 @@ def main():
             return 0
 
     print("-> %d destinataire(s)%s" % (len(gens), "  [ESSAI]" if essai else ""))
+    if o.montant and len(gens) != 1:
+        raise SystemExit("--montant vaut pour une seule personne, et la liste en compte "
+                         "%d. Rien n'a ete envoye." % len(gens))
 
     envoyes = 0
     for prenom, nom, adresse in gens:
         ligne = {"prenom": prenom, "nom": nom, "mail": adresse}
+        if o.montant:
+            ligne["montant_du"] = o.montant
         rendu = _mails.rendre(modele, _mails.contexte(S, ligne))
         html = _mails.poser_logo(rendu["html"], logo)
         objet = rendu["objet"] + ("  [ESSAI]" if essai else "")
@@ -202,7 +215,7 @@ def main():
             import journal as _j
             _j.ecrire("Relance du questionnaire envoyée" if o.relance
                       else "Demande de confirmation envoyée",
-                      (prenom + " " + nom).strip() or adresse, adresse, "", CODE)
+                      (prenom + " " + nom).strip() or adresse, adresse, o.montant, CODE)
         except Exception as e:
             print("   (journal non ecrit : %s)" % str(e)[:70])
 

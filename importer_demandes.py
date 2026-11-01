@@ -88,7 +88,7 @@ def traiter(code, demandes):
     # la garde principale ; celle-ci rattrape le cas ou elle n'aurait pas ete
     # ecrite — reseau coupe entre l'ecriture du suivi et le marquage.
     try:
-        connus = {(l.get("mail") or "").strip().lower()
+        connus = {(l.get("mail") or "").strip().lower(): l
                   for l in suivi.lire_lignes_de(code) if l.get("mail")}
     except Exception as e:
         print("   Suivi illisible : %s" % str(e)[:120])
@@ -114,6 +114,23 @@ def traiter(code, demandes):
         if mail and mail in connus:
             # Deja dans le suivi : la marque a du se perdre. On la repose sans
             # rien recreer, plutot que de laisser la demande revenir sans fin.
+            #
+            # OU BIEN L'ORGANISME L'A INSCRITE LUI-MEME AVANT QU'ELLE NE REPONDE —
+            # 01/11/2026. Ses reponses completent alors ce qui est vide : sans
+            # cela, ses restrictions de repas et son droit a l'image se perdaient
+            # sans un mot. Le nom et le prix deja arretes ne bougent pas.
+            existante = connus[mail]
+            a_completer = {c: d[c] for c in CHAMPS
+                           if c not in ("nom", "prenom", "mail", "demande")
+                           and d.get(c) and not existante.get(c)}
+            if a_completer:
+                try:
+                    suivi.ecrire_plusieurs(existante["_numero"], a_completer, code)
+                    print("   . %-28s reponses reportees sur sa ligne" % qui)
+                except Exception as e:
+                    # Non marquee : le prochain passage reessaiera.
+                    print("   ! %-28s reponses non reportees (%s)" % (qui, str(e)[:60]))
+                    continue
             print("   . %-28s deja dans le suivi, marquee sans doublon" % qui)
             ignorees += 1
             try:

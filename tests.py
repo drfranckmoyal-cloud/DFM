@@ -1478,6 +1478,52 @@ def tests_archive_et_verrous():
     tenue.close()
 
 
+def tests_inscrite_a_la_main():
+    """CONFIRMEE PAR TELEPHONE, ELLE REMPLIT LE FORMULAIRE ENSUITE — 01/11/2026.
+
+    L'import voyait une adresse connue, posait sa marque, et jetait ses reponses."""
+    print("\n  INSCRITE A LA MAIN, PUIS ELLE REPOND")
+    _isoler()
+    import importer_demandes as imp
+    import inscription as I
+    import invitations as inv
+    import sessions as _s
+    import suivi
+
+    _s.SESSIONS[FICHE["code"]] = dict(FICHE)
+    _s.session = lambda c=None: dict(FICHE)
+    _s.etat = lambda c=None: {"statut_session": "ouverte"}
+    suivi.session = lambda c=None: dict(FICHE)
+    suivi.rafraichir_statuts = lambda *a, **k: None
+    marquees = []
+    I.marquer_importee = lambda ident: marquees.append(ident)
+    inv.FICHIER = os.path.join(tempfile.mkdtemp(prefix="dfm-inv-"), "invitations.json")
+
+    suivi.ajouter({"nom": "ESSAI", "prenom": "Amelie", "mail": "amelie@essai.test",
+                   "demande": "Je confirme ma demande d'inscription",
+                   "a_valider_le": "01/11/2026 11:00", "valide_le": "01/11/2026 11:00",
+                   "montant_du": "4750"}, FICHE["code"])
+    l = suivi.lire_lignes_de(FICHE["code"])[0]
+    verifier("inscrite a la main, elle attend sa convention",
+             suivi.calculer_statut(l) == "A contacter", suivi.calculer_statut(l))
+    d = _demande("Autrenom", "Amelie", "Amelie@Essai.Test", ident=40)
+    d["restrictions"] = "Sans porc"
+    cree = imp.traiter(FICHE["code"], [d])
+    lignes = suivi.lire_lignes_de(FICHE["code"])
+    verifier("pas de seconde ligne", cree == 0 and len(lignes) == 1, (cree, len(lignes)))
+    l = lignes[0]
+    verifier("ses reponses completent sa ligne",
+             l["restrictions"] == "Sans porc" and l["ville"] == "Paris", (l["restrictions"], l["ville"]))
+    verifier("le prix arrete ne bouge pas", l["montant_du"] == "4750", l["montant_du"])
+    verifier("le nom saisi par l'organisme ne bouge pas", l["nom"] == "ESSAI", l["nom"])
+    verifier("sa validation reste acquise", bool(l["valide_le"]))
+    verifier("la demande est marquee reprise", marquees == [40], marquees)
+
+    script = open(os.path.join(DOSSIER, "envoyer_validation_cycle.py"), encoding="utf-8").read()
+    verifier("le courriel porte le prix de la personne", 'ligne["montant_du"] = o.montant' in script)
+    verifier("et ce prix ne part pas a toute une liste", "if o.montant and len(gens) != 1:" in script)
+
+
 def tests_attestations_par_vagues():
     """UNE ATTESTATION SANS RESULTAT NE PART PAS PAR MEGARDE — 01/11/2026.
 
@@ -2217,7 +2263,7 @@ def main():
                   tests_lien_produit, tests_questionnaires_sans_action,
                   tests_guet_questionnaires, tests_alerte_a_compteur,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
-                  tests_miroir_debloque):
+                  tests_inscrite_a_la_main, tests_miroir_debloque):
         try:
             essai()
         except Exception as e:
