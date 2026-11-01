@@ -294,6 +294,23 @@ def _ville(adresse):
     return " ".join(morceaux) or bout
 
 
+def valider_par_le_responsable(donnees):
+    """TOUS LES OBJECTIFS ACQUIS, SUR DECISION DU RESPONSABLE PEDAGOGIQUE — 01/11/2026.
+
+    Tranche par Franck pour Masterclass d'octobre : les questionnaires sont partis
+    deux jours apres la formation, faute de guet sur le serveur, et onze stagiaires
+    n'avaient pas d'evaluation de sortie. C'est lui qui signe, l'appreciation est
+    la sienne.
+
+    LE DOCUMENT DIT ALORS CE QUI S'EST PASSE : aucun score invente, et plus la
+    phrase « a l'appui des questionnaires corriges », qui serait fausse ici.
+    """
+    d = dict(donnees)
+    d["objectifs"] = [dict(o, etat="acquis") for o in (d.get("objectifs") or [])]
+    d["valide_responsable"] = True
+    return d
+
+
 def html(donnees):
     """Le document, rendu par le gabarit de DFM."""
     from flask import render_template

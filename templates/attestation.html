@@ -138,9 +138,11 @@
 
 <h2>Objectifs et résultats de l'évaluation des acquis</h2>
 {% if a.objectifs %}
-<div class="expl">Au regard de chaque objectif, les connaissances et compétences du
+<div class="expl">{% if a.valide_responsable %}Au regard de chaque objectif, les connaissances et
+  compétences du stagiaire ont été appréciées par le responsable pédagogique à l'issue
+  de la formation.{% else %}Au regard de chaque objectif, les connaissances et compétences du
   stagiaire sont évaluées à l'appui des questionnaires d'entrée et de sortie
-  corrigés par l'organisme. Le seuil d'acquisition est fixé à {{ a.seuil }}&nbsp;%.</div>
+  corrigés par l'organisme. Le seuil d'acquisition est fixé à {{ a.seuil }}&nbsp;%.{% endif %}</div>
 <table>
   <thead>
     <tr><th>Objectifs de la formation</th>
@@ -161,7 +163,7 @@
 <div class="score">Résultat global à l'évaluation de sortie&nbsp;: <b>{{ a.score_fin }} %</b>
   {%- if a.score_init is not none %} — évaluation d'entrée&nbsp;: {{ a.score_init }} %,
   progression de {{ '+' if a.progression >= 0 }}{{ a.progression }} points{% endif %}.</div>
-{% else %}
+{% elif not a.valide_responsable %}
 {# Des cases toutes vides se lisent « rien n'est acquis ». Il faut DIRE que
    l'evaluation n'a pas eu lieu, sinon le document accuse le beneficiaire.
    CE TEXTE EST LU PAR LE STAGIAIRE : la consigne a l'organisme qui le terminait

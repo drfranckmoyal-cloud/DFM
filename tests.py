@@ -1497,6 +1497,21 @@ def tests_attestations_par_vagues():
     verifier("la fenetre ne coche pas une attestation sans resultat",
              "if(!g.complete){ etat = '<span class=\"at-etat at-absente\">évaluation de sortie pas encore reçue</span>'; coche = \"\"; }" in fenetre)
 
+    print("    la validation par le responsable ne fait pas semblant")
+    import attestation as _att
+    valide = _att.valider_par_le_responsable(
+        {"objectifs": [{"cle": "A", "libelle": "Objectif", "score": None, "etat": ""}],
+         "score_fin": None, "score_init": None, "progression": None, "seuil": 70})
+    verifier("tous les objectifs sont acquis", [o["etat"] for o in valide["objectifs"]] == ["acquis"])
+    rendu = _att.html(valide)
+    verifier("la mention d'absence disparait", "Évaluation de sortie non enregistrée" not in rendu)
+    verifier("elle ne pretend pas a des questionnaires corriges", "questionnaires d'entrée" not in rendu)
+    verifier("elle dit qui a apprecie", "appréciées par le responsable pédagogique" in rendu)
+    verifier("aucun score n'est invente", "Résultat global" not in rendu)
+    ordinaire = _att.html({"objectifs": [{"cle": "A", "libelle": "Objectif", "score": None, "etat": ""}],
+                           "score_fin": None, "score_init": None, "progression": None, "seuil": 70})
+    verifier("sans decision, la mention reste", "Évaluation de sortie non enregistrée" in ordinaire)
+
     import app as A
     import suivi as _suivi
     lignes = [
