@@ -1500,6 +1500,7 @@ def tests_inscrite_a_la_main():
     inv.FICHIER = os.path.join(tempfile.mkdtemp(prefix="dfm-inv-"), "invitations.json")
 
     suivi.ajouter({"nom": "ESSAI", "prenom": "Amelie", "mail": "amelie@essai.test",
+                   "horodateur": "01/11/2026 11:00:00",
                    "demande": "Je confirme ma demande d'inscription",
                    "a_valider_le": "01/11/2026 11:00", "valide_le": "01/11/2026 11:00",
                    "montant_du": "4750"}, FICHE["code"])
