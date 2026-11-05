@@ -1437,6 +1437,24 @@ def tests_alerte_a_compteur():
         courrier.envoyer, profil.charger = vrai_envoi, vrai_profil
 
 
+def tests_echecs_alternes():
+    """DEUX ECHECS DANS LE MEME PASSAGE NE S'ECRIVENT PAS CHAQUE MINUTE — 04/11/2026."""
+    print("\n  LES ECHECS D'ENVOI QUI ALTERNENT")
+    _isoler()
+    import app as A
+    lignes, vrai = [], A.journal.ecrire
+    A.journal.ecrire = lambda *a, **k: lignes.append(a[2])
+    A._AUTO_ERREURS.clear()
+    try:
+        for _minute in range(5):
+            A._auto_signaler("Évaluation de sortie", Exception("panne"), "essai")
+            A._auto_signaler("Questionnaire de satisfaction", Exception("panne"), "essai")
+        verifier("une ligne par erreur et par heure", len(lignes) == 2, lignes)
+    finally:
+        A.journal.ecrire = vrai
+        A._AUTO_ERREURS.clear()
+
+
 def tests_archive_et_verrous():
     """L'ARCHIVE DU SOIR NE DOIT PAS FAIRE SAUTER LE JOURNAL DE LA BASE — 31/10/2026.
 
@@ -2262,7 +2280,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:

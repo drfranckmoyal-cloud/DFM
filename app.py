@@ -3085,17 +3085,19 @@ def _auto_executer():
         _AUTO_ETAT["en_cours"] = False
         _AUTO_VERROU.release()
     return True
-_AUTO_DERNIERE_ERREUR = {"texte": "", "quand": 0}
+# UNE DATE PAR ERREUR, PAS UNE SEULE POUR LA DERNIERE — 04/11/2026. Le guet passe
+# chaque minute. Quand la sortie et la satisfaction echouent dans le meme passage,
+# leurs deux textes s'alternaient : chacun differait du « dernier », et le journal
+# scelle aurait pris deux lignes par minute, sept jours durant.
+_AUTO_ERREURS = {}
 def _auto_signaler(contexte, e, code=""):
     """Inscrit un echec d'envoi automatique au journal, sans le saturer :
     une erreur identique n'est reinscrite qu'au bout d'une heure."""
     texte = contexte + " : " + str(e)[:150]
     maintenant = _time.time()
-    if (texte == _AUTO_DERNIERE_ERREUR["texte"]
-            and maintenant - _AUTO_DERNIERE_ERREUR["quand"] < 3600):
+    if maintenant - _AUTO_ERREURS.get(texte, 0) < 3600:
         return
-    _AUTO_DERNIERE_ERREUR["texte"] = texte
-    _AUTO_DERNIERE_ERREUR["quand"] = maintenant
+    _AUTO_ERREURS[texte] = maintenant
     try:
         journal.ecrire("Envoi automatique en échec", "", texte, "", code)
     except Exception:
