@@ -1657,6 +1657,48 @@ def tests_certificats():
              documents.CATEGORIES["certificat"][0] == documents.CATEGORIES["attestation"][0])
 
 
+def tests_mail_du_certificat():
+    """LE MAIL DU LENDEMAIN — 08/11/2026 : quand il part, et ce qu'il dit."""
+    print("\n  LE MAIL DU CERTIFICAT")
+    _isoler()
+    from datetime import datetime as dt
+    import certificat as C
+    import mails as M
+    garde = (C.fond, C.moment_envoi, C.ETAT)
+    try:
+        C.ETAT = os.path.join(tempfile.mkdtemp(prefix="dfm-cert-"), "etat.json")
+        C.fond = lambda code: "fond.jpg" if code == "avec" else None
+        C.moment_envoi = lambda code: dt(2027, 2, 6, 12, 30)
+        verifier("sans certificat, pas de mail", not C.a_envoyer_maintenant("sans", dt(2027, 2, 6, 13, 0))[0])
+        verifier("pas avant le lendemain a l'heure dite",
+                 not C.a_envoyer_maintenant("avec", dt(2027, 2, 6, 12, 29))[0])
+        verifier("a l'heure dite, il part", C.a_envoyer_maintenant("avec", dt(2027, 2, 6, 12, 31))[0])
+        verifier("une semaine plus tard, il ne part plus seul",
+                 not C.a_envoyer_maintenant("avec", dt(2027, 2, 14, 13, 0))[0])
+        C.poser_envoi("avec", auto=False)
+        verifier("retenu, il ne part pas", not C.a_envoyer_maintenant("avec", dt(2027, 2, 6, 13, 0))[0])
+        C.poser_envoi("avec", auto=True, envoye_le="06/02/2027 12:31")
+        verifier("parti, il ne repart pas", not C.a_envoyer_maintenant("avec", dt(2027, 2, 6, 13, 0))[0])
+    finally:
+        C.fond, C.moment_envoi, C.ETAT = garde
+    print("    ce qu'il dit")
+    f = M.defaut("certificat")
+    verifier("le modele existe et se range parmi les usages", bool(f) and "certificat" in M.USAGES)
+    S = dict(FICHE, marque="Smileclub Formations", signature_mail="Franck")
+    base = {"prenom": "Lea", "nom": "ESSAI", "mail": "lea@essai.test"}
+    ctx = M.contexte(S, base, {"certificat": "1", "lien_satisfaction": "https://essai.test/q",
+                               "satisfaction_a_faire": "1", "satisfaction_faite": ""})
+    h = M.rendre(f, ctx)["html"]
+    verifier("le code promo est dans son cadre", "REMISE10" in h and "dashed" in h)
+    verifier("le bouton mene au questionnaire de la personne", "https://essai.test/q" in h and "Je donne mon avis" in h)
+    ctx2 = M.contexte(S, base, {"certificat": "1", "lien_satisfaction": "https://essai.test/q",
+                                "satisfaction_a_faire": "", "satisfaction_faite": "1"})
+    h2 = M.rendre(f, ctx2)["html"]
+    verifier("qui a deja repondu est remercie, pas supplie",
+             "Je donne mon avis" not in h2 and "d'avoir pris le temps" in h2)
+    verifier("la voie de reclamation reste visible", "Adresser une r" in h)
+
+
 def tests_objectifs_attestation():
     """L'ATTESTATION ECRIT LES OBJECTIFS DE LA FICHE — 08/11/2026 (Usures, objectif C)."""
     print("\n  LES OBJECTIFS DE L'ATTESTATION")
@@ -2509,7 +2551,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:

@@ -46,6 +46,13 @@ USAGES = {
     "attestation": {"nom": "Attestation de formation",
                     "quand": "Part à la clôture, après validation manuelle",
                     "icone": "ti-certificate", "couleur": "#4f7ef8"},
+    # LE MAIL DU LENDEMAIN — 08/11/2026, demande de Franck. Il porte le
+    # certificat et l'attestation, offre un code pour la prochaine formation,
+    # et demande l'avis du stagiaire. Il part tout seul, le lendemain de la
+    # fin de la formation, a l'heure reglee dans les parametres.
+    "certificat": {"nom": "Certificat et remerciements",
+                   "quand": "Part le lendemain de la formation, à l'heure réglée dans les paramètres",
+                   "icone": "ti-certificate", "couleur": "#0f9e6a"},
     "invitation": {"nom": "Apprenant invité",
                    "quand": "Part uniquement quand vous marquez quelqu'un comme invité — jamais par le pipeline",
                    "icone": "ti-gift", "couleur": "#d4890a"},
@@ -340,6 +347,8 @@ DEFAUTS = {
  "rappel": {"titre": "Rappel J-20 — texte d'origine", "objet": "Votre formation approche · {{titre_formation}}"},
  "facture": {"titre": "Facture acquittée — texte d'origine", "objet": "Votre facture · {{titre_formation}}"},
  "attestation": {"titre": "Attestation de formation — texte d'origine", "objet": "Votre attestation · {{titre_formation}}"},
+ "certificat": {"titre": "Certificat et remerciements — texte d'origine",
+                "objet": "Merci {{prenom}} ! Ton certificat · {{titre_formation}}"},
  "accuse-reception": {"titre": "Demande bien reçue — texte d'origine",
                 "objet": "Votre demande d'inscription est bien arrivée · {{formation}}"},
  "invitation": {"titre": "Apprenant invité — texte d'origine",
@@ -659,6 +668,33 @@ BLOCS_DEFAUTS = {
   {"type": "brut", "contenu": "<p style=\"margin:0 0 12px;font-size:14px;line-height:1.55;color:#3d4250;\">Une remarque, une insatisfaction sur le d&eacute;roulement de cette formation ? Dis-le-nous : nous accusons r&eacute;ception et te r&eacute;pondons sous <strong>{{delai_reclamation}} jours</strong>.</p>"},
   {"type": "brut", "contenu": "<p style=\"margin:0;\"><a href=\"{{lien_reclamation}}\" style=\"display:inline-block;background:#4f7ef8;color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:10px 20px;border-radius:7px;\">Adresser une r&eacute;clamation</a></p>"},
   {"type": "brut", "contenu": "</td></tr></table>"},
+ ],
+ # LE MAIL DU LENDEMAIN. Trois choses, dans cet ordre : remercier, remettre
+ # les documents, donner envie de revenir — puis demander l'avis, avec un
+ # bouton qu'on ne peut pas manquer. Le code promo est ecrit en dur : c'est un
+ # texte, Franck le change dans l'editeur de modeles s'il change de code.
+ # « satisfaction_a_faire » et « satisfaction_faite » sont posees par l'envoi :
+ # on ne supplie pas quelqu'un qui a deja repondu, on le remercie.
+ "certificat": [
+  {"type": "texte", "contenu": "Bonjour **{{prenom}}**,"},
+  {"type": "texte", "contenu": "Un immense merci pour ta présence à la formation **« {{titre_formation}} »**. Ce fut un vrai plaisir de partager ces journées avec toi : tes questions, tes cas et ta bonne humeur ont fait la richesse de cette session."},
+  {"type": "texte", "contenu": "Tu trouveras ci-joint ton **certificat de fin de formation**, à afficher fièrement au cabinet, ainsi que ton **attestation de formation**, à conserver pour ton dossier de formation continue."},
+  {"type": "texte", "contenu": "Et si un cas te pose question dans les semaines qui viennent, écris-moi : je reste disponible."},
+  {"type": "brut", "contenu": "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"margin:28px 0;border-collapse:collapse;\"><tr><td style=\"background:#f3f6ff;border:1px solid #dbe4fb;border-radius:14px;padding:22px 22px 20px;text-align:center;\">"
+                              "<p style=\"margin:0 0 6px;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#4f7ef8;font-weight:bold;\">Pour ta prochaine formation</p>"
+                              "<p style=\"margin:0 0 16px;font-size:15px;line-height:1.55;color:#1a1d2e;\">Pour te remercier de ta confiance, profite de <strong>10&nbsp;% de remise</strong> sur ta prochaine inscription chez {{marque}}.</p>"
+                              "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" align=\"center\" style=\"margin:0 auto;\"><tr><td style=\"border:2px dashed #4f7ef8;border-radius:10px;background:#ffffff;padding:12px 28px;font-family:'Courier New',Courier,monospace;font-size:26px;font-weight:bold;letter-spacing:4px;color:#1a1d2e;\">REMISE10</td></tr></table>"
+                              "<p style=\"margin:14px 0 0;font-size:13px;line-height:1.5;color:#5b6172;\">À saisir dans le champ « Code promo » du formulaire d'inscription.<br><a href=\"https://smileclubformations.com\" style=\"color:#4f7ef8;font-weight:bold;\">Découvrir les prochaines formations</a></p>"
+                              "</td></tr></table>"},
+  {"type": "texte", "si": "satisfaction_a_faire", "contenu": "**Une dernière chose, et elle compte énormément pour nous.** Pourrais-tu prendre deux minutes pour nous dire ce que tu as pensé de ces journées ? Chaque réponse est lue, une par une : c'est grâce à elles que la prochaine session sera encore meilleure."},
+  {"type": "bouton", "si": "satisfaction_a_faire", "libelle": "Je donne mon avis", "lien": "{{lien_satisfaction}}", "couleur": "vert", "sous": "Deux minutes, promis. Merci du fond du cœur."},
+  {"type": "texte", "si": "satisfaction_faite", "contenu": "Merci aussi d'avoir pris le temps de répondre au questionnaire de satisfaction : chaque réponse est lue, et la tienne compte."},
+  {"type": "signature", "contenu": "À très bientôt,\n**{{signature}}, {{marque}}**"},
+  {"type": "brut", "contenu": "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"margin-top:26px;border-collapse:collapse;\"><tr><td style=\"border:1px solid #dbe1f0;border-left:4px solid #4f7ef8;border-radius:8px;padding:15px 18px;background:#f7f9ff;\">"
+                              "<p style=\"margin:0 0 7px;font-size:15px;font-weight:bold;color:#1a1d2e;\">R&eacute;clamation</p>"
+                              "<p style=\"margin:0 0 12px;font-size:14px;line-height:1.55;color:#3d4250;\">Une remarque, une insatisfaction sur le d&eacute;roulement de cette formation ? Dis-le-nous : nous accusons r&eacute;ception et te r&eacute;pondons sous <strong>{{delai_reclamation}} jours</strong>.</p>"
+                              "<p style=\"margin:0;\"><a href=\"{{lien_reclamation}}\" style=\"display:inline-block;background:#4f7ef8;color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:10px 20px;border-radius:7px;\">Adresser une r&eacute;clamation</a></p>"
+                              "</td></tr></table>"},
  ],
  # CE MAIL EST LE FILET DE SECURITE DE L'INSCRITE. Sa derniere phrase n'est pas
  # une politesse : c'est elle qui fait de chaque inscrite une deuxieme paire

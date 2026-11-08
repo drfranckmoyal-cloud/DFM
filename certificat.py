@@ -217,3 +217,79 @@ def existant(code_session, ligne):
     """Les octets du certificat deja range pour cette personne, ou None."""
     import documents
     return documents.lire(documents.reference(code_session, "certificat", nom_fichier(ligne)))
+
+
+# ---------------------------------------------------------------------------
+# LE MAIL DU LENDEMAIN — 08/11/2026
+#
+# Le certificat part le lendemain du dernier jour, a l'heure reglee dans les
+# parametres (« heure_certificat »), avec l'attestation, un code pour la
+# prochaine formation et la demande d'avis. Le guet des questionnaires le
+# declenche ; envoyer_certificats.py le compose et l'envoie.
+#
+# UN ENVOI SE RETIENT, comme un questionnaire : « auto » a faux, et rien ne
+# part. Une session dont le lendemain est passe depuis plus de sept jours ne
+# part pas toute seule — un mail de remerciement trois semaines apres la
+# formation n'a plus de sens, et un deploiement ne doit pas reveiller d'anciens
+# envois. L'etat vit dans certificats_etat.json : {code: {auto, envoye_le}}.
+# ---------------------------------------------------------------------------
+ETAT = os.path.join(_DOSSIER, "certificats_etat.json")
+RETARD_MAX_JOURS = 7
+
+
+def etat_envoi(code_session):
+    import fichiers
+    d = (fichiers.lire(ETAT, {}) or {}).get(code_session) or {}
+    return {"auto": d.get("auto", True), "envoye_le": d.get("envoye_le") or ""}
+
+
+def poser_envoi(code_session, **valeurs):
+    import fichiers
+    with fichiers.modifier(ETAT, {}) as tout:
+        d = tout.setdefault(code_session, {})
+        d.update(valeurs)
+    return etat_envoi(code_session)
+
+
+def moment_envoi(code_session):
+    """Le lendemain du dernier jour, a l'heure reglee. None sans journees."""
+    from datetime import datetime, timedelta
+    import jours as _J
+    import sessions as _s
+    try:
+        fin = _J.resume(_s.session(code_session)).get("date_fin")
+    except Exception:
+        fin = None
+    if not fin:
+        return None
+    try:
+        import parametres
+        heure = str(parametres.valeur("heure_certificat", "12:30") or "12:30")
+    except Exception:
+        heure = "12:30"
+    try:
+        h, m = (int(x) for x in heure.split(":")[:2])
+    except ValueError:
+        h, m = 12, 30
+    return datetime.strptime(fin, "%Y-%m-%d") + timedelta(days=1, hours=h, minutes=m)
+
+
+def a_envoyer_maintenant(code_session, maintenant=None):
+    """(oui, raison) : le mail du lendemain doit-il partir maintenant ?"""
+    from datetime import datetime
+    if not fond(code_session):
+        return False, "pas de certificat pour cette formation"
+    e = etat_envoi(code_session)
+    if e["envoye_le"]:
+        return False, "deja envoye le " + e["envoye_le"]
+    if not e["auto"]:
+        return False, "envoi retenu"
+    moment = moment_envoi(code_session)
+    if not moment:
+        return False, "session sans journees"
+    maintenant = maintenant or datetime.now()
+    if maintenant < moment:
+        return False, "prevu le " + moment.strftime("%d/%m/%Y a %H:%M")
+    if (maintenant - moment).days > RETARD_MAX_JOURS:
+        return False, "trop tard pour partir seul"
+    return True, ""

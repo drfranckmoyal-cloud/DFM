@@ -243,6 +243,24 @@ html[data-sombre] .jal-rond{background:#20242f}
       <span><i class="ti ti-coin"></i>{{ s.session.tarif }} € TTC</span>
       <span><i class="ti ti-users"></i>{{ s.places_occupees }} inscrit{{ 's' if s.places_occupees > 1 }}</span>
     </div>
+    {# LE MAIL DU LENDEMAIN — 08/11/2026 : certificat, attestation, code promo et
+       demande d'avis. Seulement pour une formation qui a un certificat. #}
+    {% if certificat %}
+    <div class="session-meta" style="margin-top:6px">
+      <span title="Certificat, attestation, code promo et demande d'avis, le lendemain de la formation"><i class="ti ti-certificate"></i>
+      {% if certificat.envoye_le %}Mail du certificat parti le {{ certificat.envoye_le }}
+      {% elif not certificat.auto %}Mail du certificat <b>retenu</b> · <a href="#" onclick="certAuto(1);return false">rétablir l'envoi</a>
+      {% elif certificat.raison.startswith('prevu') %}Mail du certificat le {{ certificat.moment }} · <a href="#" onclick="certAuto(0);return false">retenir</a>
+      {% else %}Mail du certificat : {{ certificat.raison or 'en cours' }} · <a href="#" onclick="certAuto(0);return false">retenir</a>{% endif %}</span>
+    </div>
+    <script>
+    function certAuto(v){
+      var fd = new FormData(); fd.set("actif", String(v));
+      fetch("/session/{{ s.session.code }}/certificats/auto", {method: "POST", body: fd, headers: {"X-Requested-With": "fetch"}})
+        .then(function(r){ return r.json(); }).then(function(){ location.reload(); });
+    }
+    </script>
+    {% endif %}
   </div>
   <div class="hero-actions" id="hero-actions">
     {% if s.passee or (s.lignes | selectattr('lien_attestation') | list | length) %}<button type="button" class="btn btn-attest" title="Choisir les destinataires, puis envoyer" onclick="ouvrirAttestations()"><i class="ti ti-certificate"></i>Envoyer les attestations</button>{% endif %}

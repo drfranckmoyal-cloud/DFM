@@ -55,6 +55,7 @@ CONTENU = [
     # AJOUTES LE 08/11/2026 : les deux registres qui fixent un prix. Celui des
     # invitations manquait depuis sa creation le 17/10.
     "invitations.json", "codes_promo.json",
+    "certificats_etat.json",         # le mail du lendemain : retenu ou parti
     # LES DOCUMENTS PRODUITS ET DEPOSES. Conventions, factures, attestations,
     # emargements, CV et diplomes des formateurs, programmes et RIB.
     # 4,7 Mo — les caches en sont exclus, voir CACHES ci-dessous.

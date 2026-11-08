@@ -1325,6 +1325,7 @@ def detail_session(code):
         except Exception:
             jalons = []
     return render_template("session.html", s=s, dossiers=dossiers,
+                           certificat=_certificat_info(code),
                            fonctions=_Cf.FONCTIONS,
                            lien_inscription=lien_inscription,
                            etat_inscription=etat_inscription,
@@ -2043,6 +2044,36 @@ def _certificat_present(code, ligne):
         return _cert.present(code, ligne)
     except Exception:
         return False
+
+
+@app.route("/session/<code>/certificats/auto", methods=["POST"])
+def certificats_auto(code):
+    """Retient ou retablit le mail du lendemain d'une session."""
+    if code not in SESSIONS:
+        return jsonify({"ok": False, "message": "Session inconnue"})
+    import certificat as _cert
+    actif = request.form.get("actif") == "1"
+    e = _cert.poser_envoi(code, auto=actif)
+    try:
+        journal.ecrire("Mail du certificat " + ("rétabli" if actif else "retenu"), "", "", "", code)
+    except Exception:
+        pass
+    return jsonify({"ok": True, "etat": e})
+
+
+def _certificat_info(code):
+    """Ce que la fiche de session affiche du mail du lendemain. None sans certificat."""
+    try:
+        import certificat as _cert
+        if not _cert.fond(code):
+            return None
+        e = _cert.etat_envoi(code)
+        m = _cert.moment_envoi(code)
+        pret, raison = _cert.a_envoyer_maintenant(code)
+        return {"auto": e["auto"], "envoye_le": e["envoye_le"],
+                "moment": m.strftime("%d/%m/%Y à %H:%M") if m else "", "raison": raison}
+    except Exception:
+        return None
 
 
 @app.route("/codes-promo")
@@ -3254,6 +3285,44 @@ def _q_boucle():
             _q_auto()
         except Exception as e:
             _auto_signaler("boucle des questionnaires", e)
+        try:
+            _certificats_auto()
+        except Exception as e:
+            _auto_signaler("mail du certificat", e)
+# UNE SEULE TENTATIVE PAR SESSION ET PAR DEMARRAGE. envoyer_certificats.py note
+# lui-meme son passage dans certificats_etat.json ; ceci couvre le cas ou cette
+# ecriture echouerait : on ne renverrait pas le meme mail chaque minute.
+_CERT_PARTIS = set()
+def _certificats_auto():
+    """LE MAIL DU LENDEMAIN — 08/11/2026 : certificat, attestation, code promo,
+    demande d'avis. Voir certificat.a_envoyer_maintenant pour la regle."""
+    import certificat as _cert
+    if not _par("envois_auto_autorises", True):
+        return
+    for code in list(SESSIONS):
+        if code in _CERT_PARTIS:
+            continue
+        try:
+            pret, _raison = _cert.a_envoyer_maintenant(code)
+        except Exception as e:
+            _auto_signaler("certificats " + code, e, code)
+            continue
+        if not pret:
+            continue
+        _CERT_PARTIS.add(code)
+        r = subprocess.run([sys.executable, "envoyer_certificats.py", code],
+                           capture_output=True, text=True, cwd=DOSSIER, timeout=1800)
+        envoyes = r.stdout.count("Certificat envoye.")
+        rates = [l.strip() for l in r.stdout.splitlines() if "NON ENVOYES" in l]
+        if r.returncode != 0 or rates:
+            detail = rates[-1] if rates else ((r.stderr or "").strip().splitlines() or ["erreur"])[-1]
+            _auto_signaler("Mail du certificat", Exception(detail[:150]), code)
+        if envoyes:
+            try:
+                journal.ecrire("Mail du certificat envoyé automatiquement", "",
+                               "%d destinataire(s)" % envoyes, "", code)
+            except Exception:
+                pass
 _q_fil = None
 def demarrer_questionnaires():
     """Lance le guet, une seule fois. Sans effet s'il tourne deja.

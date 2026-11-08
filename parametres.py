@@ -55,6 +55,13 @@ SCHEMA = [
     {"cle": "heure_satisfaction", "section": "automatismes", "type": "heure", "defaut": "15:30",
      "libelle": "Questionnaire de satisfaction",
      "aide": "En même temps que l'évaluation de sortie, pendant que les participants sont encore présents."},
+    # LE MAIL DU LENDEMAIN — 08/11/2026. 12H30 PLUTOT QUE 18H : a 18h un
+    # praticien est encore au fauteuil, et le mail est enfoui sous ceux de la
+    # soiree quand il les lit. A la pause de midi il consulte son telephone, et
+    # deux minutes de questionnaire tiennent entre deux rendez-vous.
+    {"cle": "heure_certificat", "section": "automatismes", "type": "heure", "defaut": "12:30",
+     "libelle": "Certificat et remerciements",
+     "aide": "Heure d'envoi, le lendemain du dernier jour de formation : certificat, attestation, code promo et demande d'avis."},
     {"cle": "envois_auto_autorises", "section": "automatismes", "type": "booleen", "defaut": True,
      "libelle": "Autoriser les envois sans validation",
      "aide": "Si vous décochez, DFM demandera toujours confirmation avant d'envoyer un mail programmé."},
