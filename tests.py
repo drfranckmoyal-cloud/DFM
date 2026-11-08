@@ -1762,6 +1762,46 @@ def tests_certificats_a_imprimer():
         A.SESSIONS.clear(); A.SESSIONS.update(garde[4]); A.fiche_session = garde[5]
 
 
+def tests_accuse_selon_situation():
+    """L'ACCUSE ANNONCE LA BONNE SUITE — 08/11/2026 (Guillaume DUCHENE, liste
+    d'attente, a qui l'on avait promis une convention)."""
+    print("\n  L'ACCUSE DE RECEPTION SELON LA SITUATION")
+    _isoler()
+    import accuser_reception as AR
+    import importer_demandes as imp
+    import mails as M
+    import sessions as _s
+    garde = (imp._capacite, _s.etat)
+    try:
+        _s.etat = lambda c=None: {"statut_session": "ouverte"}
+        imp._capacite = lambda code: (15, 15, True)
+        verifier("session complete : liste d'attente",
+                 AR.situation({"demande": "Je confirme ma demande d'inscription"}, {"formation": "x"}) == "attente")
+        imp._capacite = lambda code: (10, 15, False)
+        verifier("place libre : convention",
+                 AR.situation({"demande": "Je confirme ma demande d'inscription"}, {"formation": "x"}) == "convention")
+        verifier("demande de rappel : on recontacte",
+                 AR.situation({"demande": "Je souhaite être recontacté(e) avant de m'inscrire"}, {}) == "recontact")
+        def casse(code):
+            raise RuntimeError("suivi illisible")
+        imp._capacite = casse
+        verifier("suivi illisible : phrase neutre",
+                 AR.situation({"demande": "Je confirme"}, {"formation": "x"}) == "inconnue")
+    finally:
+        imp._capacite, _s.etat = garde
+    f = M.defaut("accuse-reception")
+    S = dict(FICHE, marque="Smileclub Formations")
+    def rendu(quoi):
+        return M.rendre(f, M.contexte(S, {"prenom": "Guillaume"},
+                                      {"situation_" + s: ("1" if s == quoi else "") for s in AR.SITUATIONS}))["html"]
+    h = rendu("attente")
+    verifier("liste d'attente : aucune convention promise",
+             "liste d'attente" in h and "convention de formation" not in h)
+    verifier("place libre : la convention est annoncee", "convention de formation" in rendu("convention"))
+    verifier("une seule suite annoncee",
+             sum(x in rendu("recontact") for x in ("convention de formation", "liste d'attente", "recontactons")) == 1)
+
+
 def tests_objectifs_attestation():
     """L'ATTESTATION ECRIT LES OBJECTIFS DE LA FICHE — 08/11/2026 (Usures, objectif C)."""
     print("\n  LES OBJECTIFS DE L'ATTESTATION")
@@ -2614,7 +2654,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:

@@ -94,6 +94,37 @@ def _fiche_de(code):
             "date_texte": "", "organisme": ""}, False
 
 
+SITUATIONS = ("convention", "attente", "recontact", "validation", "inconnue")
+
+
+def situation(demande, fiche):
+    """Ce qui attend la personne, pour annoncer la BONNE suite — 08/11/2026.
+
+    L'ACCUSE PROMETTAIT UNE CONVENTION A TOUT LE MONDE. Guillaume DUCHENE,
+    inscrit le 01/11/2026 sur Usures de fevrier deja complete, a recu « vous
+    recevrez votre convention dans les prochains jours », puis le lendemain le
+    mail de liste d'attente : deux messages contradictoires. Meme chose pour une
+    demande de rappel, ou une demande a valider.
+
+    LA PLACE SE JUGE COMME A L'IMPORT (importer_demandes._capacite), qui passe
+    juste apres dans le meme traitement. Et si le suivi ne se lit pas, la
+    phrase reste neutre : ce courrier ne doit dependre de rien pour partir.
+    """
+    if "recontact" in (demande.get("demande") or "").lower():
+        return "recontact"
+    try:
+        import sessions as _s
+        code = demande.get("code_session") or ""
+        if (_s.FORMATIONS.get(fiche.get("formation") or "") or {}).get("validation_manuelle"):
+            return "validation"
+        import importer_demandes as _imp
+        _occ, _maxi, complet = _imp._capacite(code)
+        cloturee = (_s.etat(code).get("statut_session") or "ouverte") == "cloturee"
+        return "attente" if (complet or cloturee) else "convention"
+    except Exception:
+        return "inconnue"
+
+
 def _envoyer(demande, fiche):
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
@@ -107,7 +138,9 @@ def _envoyer(demande, fiche):
     ligne = {"prenom": demande.get("prenom") or "", "nom": demande.get("nom") or "",
              "mail": demande.get("mail") or "", "ville": demande.get("ville") or ""}
     modele = _mails.pour_formation(fiche.get("formation", ""), "accuse-reception")
-    rendu = _mails.rendre(modele, _mails.contexte(fiche, ligne))
+    quoi = situation(demande, fiche)
+    rendu = _mails.rendre(modele, _mails.contexte(
+        fiche, ligne, {"situation_" + s: ("1" if s == quoi else "") for s in SITUATIONS}))
     logo = None
     try:
         import profil

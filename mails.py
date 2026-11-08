@@ -709,7 +709,13 @@ BLOCS_DEFAUTS = {
  "accuse-reception": [
   {"type": "texte", "contenu": "Bonjour **{{prenom}}**,"},
   {"type": "texte", "contenu": "Nous avons bien reçu votre demande d'inscription à la formation **« {{titre_formation}} »** du **{{dates}}**."},
-  {"type": "texte", "contenu": "Vous recevrez votre **convention de formation à signer** dans les prochains jours."},
+  # LA SUITE ANNONCEE DEPEND DE LA SITUATION — 08/11/2026. Une seule de ces
+  # phrases part ; voir accuser_reception.situation.
+  {"type": "texte", "si": "situation_convention", "contenu": "Vous recevrez votre **convention de formation à signer** dans les prochains jours."},
+  {"type": "texte", "si": "situation_attente", "contenu": "Cette session est **complète** : votre demande est inscrite sur la **liste d'attente**. Nous vous préviendrons dès qu'une place se libère, ou nous vous proposerons la prochaine date."},
+  {"type": "texte", "si": "situation_recontact", "contenu": "Comme vous le souhaitez, **nous vous recontactons** très prochainement pour en parler, avant toute inscription."},
+  {"type": "texte", "si": "situation_validation", "contenu": "Votre demande va être **étudiée** : nous revenons vers vous rapidement pour la suite."},
+  {"type": "texte", "si": "situation_inconnue", "contenu": "Nous revenons vers vous très rapidement avec la suite."},
   {"type": "encadre", "ton": "bleu", "contenu": "Si rien ne vous parvient **d'ici une semaine**, répondez simplement à ce message : c'est qu'il y a eu un souci de notre côté."},
   {"type": "signature", "contenu": "À bientôt,\n**{{signature}}, {{marque}}**"},
  ],
