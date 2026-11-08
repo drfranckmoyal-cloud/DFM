@@ -202,6 +202,11 @@ def tableau_de_bord():
                            recents=recents[:8], courbes=courbes,
                            activite=[dict(e, style=journal.style(e["type_action"])) for e in g["journal"][:7]],
                            journal_souci=g.get("journal_souci") or "")
+def _gabarit(nom, cle):
+    """LA NOUVELLE PRESENTATION ET L'ANCIENNE — 08/11/2026. Chaque page
+    redessinee garde sa version d'avant (« <nom>_classique.html »), qu'un
+    reglage de Parametres > Affichage ramene sans rien redeployer."""
+    return nom + ("_classique.html" if _par(cle, "nouvelle") == "classique" else ".html")
 @app.route("/formations")
 def liste_formations():
     g = donnees.global_kpi()
@@ -232,7 +237,7 @@ def liste_formations():
             "docs_ok": len([v for v in docs.values() if v]),
             "docs_total": len(docs),
         })
-    return render_template("formations.html", fiches=fiches)
+    return render_template(_gabarit("formations", "page_formations"), fiches=fiches)
 @app.route("/documents")
 def page_documents():
     """Tout ce que DFM detient, en un seul endroit.
@@ -4513,7 +4518,7 @@ def page_reglements():
     nb_invites = len([x for x in lignes if x["invite"]])
     nb_factures = len([x for x in lignes if x["facture_le"]])
     annees = sorted({x["annee"] for x in lignes if x["annee"]}, reverse=True)
-    return render_template("reglements.html", lignes=lignes, attendu=attendu,
+    return render_template(_gabarit("reglements", "page_reglements"), lignes=lignes, attendu=attendu,
                            encaisse=encaisse, restant=attendu - encaisse,
                            nb_total=len(lignes), nb_payes=nb_payes,
                            nb_attente=len(lignes) - nb_payes - nb_invites,
@@ -5660,7 +5665,7 @@ def page_questionnaires():
     annees = sorted({s["annee"] for s in sessions if s["annee"]}, reverse=True)
     for s in sessions:
         s.pop("gens", None)
-    return render_template("questionnaires.html",
+    return render_template(_gabarit("questionnaires", "page_questionnaires"),
         sessions=sessions, formations=liste_formations, annees=annees,
         g={"participants": total_part,
            "moy_init": _qd_moyenne(tous_init), "moy_fin": _qd_moyenne(tous_fin),
@@ -7372,7 +7377,7 @@ def page_conventions():
     urgentes = [l for l in lignes if l["urgence"] in ("haute", "moyenne")]
     anomalies = [l for l in lignes if l["anomalie"]]
     annees = sorted({(l["debut"] or "0000")[:4] for l in lignes if l["debut"]}, reverse=True)
-    return render_template("conventions.html", lignes=lignes, formations=formations,
+    return render_template(_gabarit("conventions", "page_conventions"), lignes=lignes, formations=formations,
                            annees=annees,
                            nb_total=len(lignes), nb_signees=len(signees),
                            nb_attente=len(attente), nb_non_envoyees=len(non_envoyees),

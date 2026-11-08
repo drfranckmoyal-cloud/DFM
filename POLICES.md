@@ -69,6 +69,8 @@ réduire un nom trop long : si l'on change de police, il faut les remesurer.
 
 `static/space-grotesk-*.woff2` sert aux grands chiffres et aux titres de la
 fiche de session redessinée (`templates/session.html`) : la date, les
-inscrits, l'encaissé, les cartes « à faire ». Elle n'est chargée que par cette
-page. Elle vient de Google Fonts, sous **SIL Open Font 1.1**. L'ancienne
-fiche (`templates/session_classique.html`) ne l'emploie pas.
+inscrits, l'encaissé, les cartes « à faire ». Le même jour, elle a gagné la
+bibliothèque de formations, les questionnaires, les conventions et les
+règlements, par la feuille commune `static/a-plus.css`. Elle n'est chargée que
+par ces pages nouvelles. Elle vient de Google Fonts, sous **SIL Open Font
+1.1**. Les pages classiques (`templates/*_classique.html`) ne l'emploient pas.

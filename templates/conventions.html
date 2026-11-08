@@ -1,104 +1,116 @@
 {% extends "base.html" %}
 {% block titre %}Conventions{% endblock %}
-{% block entete %}Conventions de formation{% endblock %}
-{% block sous_entete %}Toutes sessions confondues · signature, génération et relances{% endblock %}
+{% block entete %}Documents de suivi{% endblock %}
+{% block sous_entete %}{% endblock %}
 {% block actions %}
-<select class="cv-per" id="cv_periode" onchange="cvPeriode()" title="Filtrer sur une periode de session">
-  <option value="tout"{{ " selected" if periode_defaut == "tout" }}>Toutes les sessions</option>
-  <option value="m3"{{ " selected" if periode_defaut == "m3" }}>3 derniers mois</option>
-  <option value="m6"{{ " selected" if periode_defaut == "m6" }}>6 derniers mois</option>
-  <option value="m12"{{ " selected" if periode_defaut == "m12" }}>12 derniers mois</option>
-  <option value="avenir"{{ " selected" if periode_defaut == "avenir" }}>Sessions à venir</option>
-  <option value="annee"{{ " selected" if periode_defaut == "annee" }}>Année en cours</option>
-  <option value="perso">Période personnalisée…</option>
-</select>
-<span id="cv_dates" style="display:none;gap:6px;align-items:center">
-  <input type="date" class="cv-per" id="cv_du" onchange="cvFiltrer()" title="Date de debut">
-  <input type="date" class="cv-per" id="cv_au" onchange="cvFiltrer()" title="Date de fin">
-</span>
-<a class="btn btn-ghost" title="Telecharger la liste au format CSV" href="/conventions/export.csv"><i class="ti ti-download"></i>Exporter</a>
 {% endblock %}
 {% block corps %}
+<link rel="stylesheet" href="{{ statique('a-plus.css') }}">
 <style>
-.cv-per{border:1px solid var(--border2);border-radius:8px;padding:7px 10px;font-size:12px;background:var(--carte);color:var(--text);font-family:inherit;cursor:pointer}
-.cv-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
-.cv-kpi{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden}
-.cv-acc{position:absolute;left:0;top:0;bottom:0;width:3px}
-.cv-lab{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
-.cv-val{font-size:26px;font-weight:500;line-height:1;font-variant-numeric:tabular-nums}
-.cv-sub{font-size:11px;color:var(--muted);margin-top:6px}
-.cv-bande{border-radius:10px;padding:13px 16px;font-size:12.5px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-start;line-height:1.55}
-.cv-rouge{background:#fdeaea;border:1px solid #f0b8b8;color:#8a2020}
-.cv-orange{background:#fdf3e3;border:1px solid #f0cf94;color:#8a5a06}
-.cv-bande i{flex-shrink:0;margin-top:1px;font-size:16px}
-.cv-outils{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap}
-.cv-filtres{display:flex;gap:6px;flex-wrap:wrap}
-.cv-fb{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--carte);color:var(--muted);font-size:12px;cursor:pointer;font-family:inherit}
-.cv-fb.on{background:#eef3fe;color:var(--accent);border-color:var(--accent)}
-.cv-fb.alerte{border-color:#f0b8b8;color:var(--danger)}
-.cv-fb.alerte.on{background:#fdeaea;border-color:var(--danger)}
-.cv-rech{display:flex;align-items:center;gap:6px;background:var(--carte);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;min-width:220px}
-.cv-rech input{border:none;outline:none;font-size:12px;font-family:inherit;width:100%;color:var(--text)}
+.cv-age{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:7px;font:600 11.5px Inter,sans-serif;white-space:nowrap}
+.cv-a0{background:var(--bg);color:var(--muted)}
+.cv-a1{background:#ffefd6;color:#8a4d00}
+.cv-a2{background:#ffe1e1;color:#b11d1d}
+.cv-urg{display:inline-flex;align-items:center;height:22px;font:700 10.5px Inter,sans-serif;padding:0 8px;border-radius:6px;background:#c42525;color:#fff;
+  white-space:nowrap;margin-top:5px;letter-spacing:.2px}
+.cv-urg.moyenne{background:#f08c00;color:#1c0d00}
+.cv-anom{font-size:11px;color:var(--danger);margin-top:4px;display:flex;align-items:center;gap:4px;white-space:normal}
+.cv-vide{padding:34px;text-align:center;color:var(--muted);font-size:13px}
 .cv-tri{cursor:pointer;user-select:none;white-space:nowrap}
-.cv-tri:hover{color:var(--accent)}
+.cv-tri:hover{color:var(--accent) !important}
 .cv-tri i{font-size:11px;opacity:.4}
 .cv-tri.actif i{opacity:1;color:var(--accent)}
-.cv-tag{display:inline-flex;align-items:center;gap:5px;font-size:12px}
-.cv-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.cv-lien{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:11px;text-decoration:none;color:var(--text);white-space:nowrap}
-.cv-lien:hover{border-color:var(--accent);color:var(--accent)}
-.cv-relb{background:none;border:1px dashed var(--border2);border-radius:20px;padding:3px 9px;font-size:10.5px;color:var(--muted);cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
-.cv-relb:hover{border-style:solid;border-color:var(--warn);color:var(--warn);background:#fdf3e3}
-.cv-age{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap}
-.cv-a0{background:var(--bg);color:var(--muted)}
-.cv-a1{background:#fef7ec;color:var(--warn)}
-.cv-a2{background:#fdeaea;color:var(--danger)}
-.cv-urg{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:#fdeaea;color:var(--danger);white-space:nowrap;margin-left:5px}
-.cv-urg.moyenne{background:#fdf3e3;color:var(--warn)}
-.cv-anom{font-size:10.5px;color:var(--danger);margin-top:3px;display:flex;align-items:center;gap:4px}
-.cv-vide{padding:34px;text-align:center;color:var(--muted);font-size:13px}
-.cv-pied{background:#fafafa;font-weight:500}
-.cv-pied td{border-top:2px solid var(--border);padding:12px}
+.cv-pied td{font-weight:600}
+.cv-relb{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px;border-radius:9px;border:0;background:#ffefd6;
+  color:#8a4d00;font:600 12px Inter,sans-serif;cursor:pointer;white-space:nowrap}
+.cv-relb:hover{background:#ffe2b3}
+.cv-lien{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:9px;background:#e3eaff;color:#2448b8;
+  font:600 12px Inter,sans-serif;text-decoration:none;white-space:nowrap}
+.cv-lien:hover{background:#d3defd}
+.cv-lien.gris{background:var(--bg);color:var(--text);padding:0 9px}
+#cv_corps td:last-child{text-align:right}
+html[data-sombre] .cv-a1,html[data-sombre] .cv-relb{background:#3d2c10;color:#f5c87a}
+html[data-sombre] .cv-a2{background:#3e1717;color:#ff9b9b}
+html[data-sombre] .cv-lien{background:#1d2b55;color:#a9c0ff}
+html[data-sombre] .cv-lien.gris{background:var(--bg);color:var(--text)}
 </style>
-<div class="cv-kpis">
-  <div class="cv-kpi"><div class="cv-acc" style="background:var(--accent)"></div>
-    <div class="cv-lab">Conventions</div>
-    <div class="cv-val" id="k_total">{{ nb_total }}</div>
-    <div class="cv-sub">inscrits actifs, toutes sessions</div>
+{% set AV = ['#2f5fe0', '#0f8a63', '#7c5bf7', '#e0611a', '#0e7490', '#c0266d'] %}
+<header class="ap-hero">
+  <div class="ap-haut">
+    <div class="ap-ident">
+      <div class="ap-tags"><span class="ap-tag">Toutes sessions confondues</span></div>
+      <h1 class="ap-titre">Conventions de formation</h1>
+      <p class="ap-intro">Signature, génération et relances.</p>
+    </div>
+    <div class="ap-actions">
+      <select class="cv-per" id="cv_periode" onchange="cvPeriode()" title="Filtrer sur une periode de session">
+        <option value="tout"{{ " selected" if periode_defaut == "tout" }}>Toutes les sessions</option>
+        <option value="m3"{{ " selected" if periode_defaut == "m3" }}>3 derniers mois</option>
+        <option value="m6"{{ " selected" if periode_defaut == "m6" }}>6 derniers mois</option>
+        <option value="m12"{{ " selected" if periode_defaut == "m12" }}>12 derniers mois</option>
+        <option value="avenir"{{ " selected" if periode_defaut == "avenir" }}>Sessions à venir</option>
+        <option value="annee"{{ " selected" if periode_defaut == "annee" }}>Année en cours</option>
+        <option value="perso">Période personnalisée…</option>
+      </select>
+      <span id="cv_dates" style="display:none;gap:6px;align-items:center">
+        <input type="date" class="cv-per" id="cv_du" onchange="cvFiltrer()" title="Date de debut">
+        <input type="date" class="cv-per" id="cv_au" onchange="cvFiltrer()" title="Date de fin">
+      </span>
+      <a class="btn ap-btn-verre" title="Telecharger la liste au format CSV" href="/conventions/export.csv"><i class="ti ti-download"></i>Exporter</a>
+    </div>
   </div>
-  <div class="cv-kpi"><div class="cv-acc" style="background:var(--success)"></div>
-    <div class="cv-lab">Signées</div>
-    <div class="cv-val" style="color:var(--success)" id="k_signees">{{ nb_signees }}</div>
-    <div class="cv-sub">{% if taux is not none %}{{ taux }} % du total{% else %}—{% endif %}</div>
+  <div class="ap-score">
+    <div class="ap-s" style="--pt:#4f7ef8"><div class="ap-s-l">Conventions</div><div class="ap-gros" id="k_total">{{ nb_total }}</div><div class="ap-sous">inscrits actifs, toutes sessions</div></div>
+    <div class="ap-s" style="--pt:#2fc28b"><div class="ap-s-l">Signées</div><div class="ap-gros" id="k_signees">{{ nb_signees }}</div><div class="ap-sous">{% if taux is not none %}{{ taux }} % du total{% else %}—{% endif %}</div></div>
+    <div class="ap-s" style="--pt:#ffb547"><div class="ap-s-l">En attente</div><div class="ap-gros" id="k_attente">{{ nb_attente }}</div><div class="ap-sous">{{ nb_non_envoyees }} pas encore envoyée{{ 's' if nb_non_envoyees > 1 }}</div></div>
+    <div class="ap-s" style="--pt:#ff6b6b"><div class="ap-s-l">Session imminente</div><div class="ap-gros" id="k_urgentes">{{ nb_urgentes }}</div><div class="ap-sous">non signées à moins de 20 jours</div></div>
+    <div class="ap-s" style="--pt:#b9c4ee"><div class="ap-s-l">Anomalies</div><div class="ap-gros">{{ nb_anomalies }}</div><div class="ap-sous">document introuvable</div></div>
   </div>
-  <div class="cv-kpi"><div class="cv-acc" style="background:var(--warn)"></div>
-    <div class="cv-lab">En attente</div>
-    <div class="cv-val" style="color:var(--warn)" id="k_attente">{{ nb_attente }}</div>
-    <div class="cv-sub">{{ nb_non_envoyees }} pas encore envoyée{{ 's' if nb_non_envoyees > 1 }}</div>
+  <div>
+    <div class="ap-jauge"><div id="cv_j_ok" style="background:#2fc28b;width:0"></div><div id="cv_j_att" style="background:#ffb547;width:0"></div></div>
+    <div class="ap-legende">
+      <span><i style="background:#2fc28b"></i><b id="cv_l_ok">Signées</b></span>
+      <span><i style="background:#ffb547"></i><b id="cv_l_att">En attente</b></span>
+      <span><i style="background:rgba(255,255,255,.25)"></i><b id="cv_l_ne">Pas encore envoyées</b></span>
+    </div>
   </div>
-  <div class="cv-kpi"><div class="cv-acc" style="background:var(--danger)"></div>
-    <div class="cv-lab">Session imminente</div>
-    <div class="cv-val" style="color:var(--danger)" id="k_urgentes">{{ nb_urgentes }}</div>
-    <div class="cv-sub">non signées à moins de 20 jours</div>
-  </div>
-  <div class="cv-kpi"><div class="cv-acc" style="background:var(--muted)"></div>
-    <div class="cv-lab">Anomalies</div>
-    <div class="cv-val">{{ nb_anomalies }}</div>
-    <div class="cv-sub">document introuvable</div>
-  </div>
+</header>
+
+<div class="ap-afaire">
+  {% if nb_urgentes %}
+  <div class="ap-af ap-af-rouge"><b>{{ nb_urgentes }}</b><div>
+    <span class="ap-af-t">convention{{ 's' if nb_urgentes > 1 }} non signée{{ 's' if nb_urgentes > 1 }}, session qui approche</span>
+    <span class="ap-af-s">Sans convention signée, l'inscription n'est pas juridiquement formée et la présence du praticien vous expose.</span>
+    <button type="button" class="btn ap-btn-noir" onclick="apFiltre('urgent')">Les traiter</button></div></div>
+  {% else %}
+  <div class="ap-af ap-af-vert"><b><i class="ti ti-circle-check"></i></b><div>
+    <span class="ap-af-t">Aucune session imminente sans convention</span>
+    <span class="ap-af-s">Toutes les sessions des 20 prochains jours ont leurs conventions signées.</span></div></div>
+  {% endif %}
+  {% if nb_anomalies %}
+  <div class="ap-af ap-af-orange"><b>{{ nb_anomalies }}</b><div>
+    <span class="ap-af-t">signée{{ 's' if nb_anomalies > 1 }} sans document dans le Drive</span>
+    <span class="ap-af-s">La génération a échoué : le praticien croit avoir signé, et vous n'avez pas de pièce à produire en audit.</span>
+    <button type="button" class="btn ap-btn-noir" onclick="apFiltre('anomalie')">Voir les anomalies</button></div></div>
+  {% else %}
+  <div class="ap-af ap-af-vert"><b><i class="ti ti-file-check"></i></b><div>
+    <span class="ap-af-t">Chaque convention signée a son document</span>
+    <span class="ap-af-s">Aucune anomalie : toutes les pièces sont prêtes pour l'audit.</span></div></div>
+  {% endif %}
+  {% if nb_attente or nb_non_envoyees %}
+  <div class="ap-af ap-af-bleu"><b>{{ nb_attente }}</b><div>
+    <span class="ap-af-t">en attente de signature</span>
+    <span class="ap-af-s">{{ nb_non_envoyees }} autre{{ 's' if nb_non_envoyees > 1 }} pas encore envoyée{{ 's' if nb_non_envoyees > 1 }}.</span>
+    <button type="button" class="btn ap-btn-noir" onclick="apFiltre('attente')">Voir la liste</button></div></div>
+  {% else %}
+  <div class="ap-af ap-af-vert"><b><i class="ti ti-signature"></i></b><div>
+    <span class="ap-af-t">Tout est signé</span>
+    <span class="ap-af-s">Aucune convention n'attend de signature.</span></div></div>
+  {% endif %}
 </div>
-{% if nb_urgentes %}
-<div class="cv-bande cv-rouge"><i class="ti ti-alert-triangle"></i>
-  <span><b>{{ nb_urgentes }} convention{{ 's' if nb_urgentes > 1 }} non signée{{ 's' if nb_urgentes > 1 }} pour une session qui approche.</b>
-  Sans convention signée, l'inscription n'est pas juridiquement formée et la présence du praticien vous expose. Filtrez sur <b>Session imminente</b> pour les traiter.</span></div>
-{% endif %}
-{% if nb_anomalies %}
-<div class="cv-bande cv-orange"><i class="ti ti-file-alert"></i>
-  <span><b>{{ nb_anomalies }} convention{{ 's' if nb_anomalies > 1 }} marquée{{ 's' if nb_anomalies > 1 }} signée{{ 's' if nb_anomalies > 1 }} sans document dans le Drive.</b>
-  La génération a échoué : le praticien croit avoir signé, et vous n'avez pas de pièce à produire en audit.</span></div>
-{% endif %}
-<div class="cv-outils">
-  <div class="cv-filtres">
+
+<div class="ap-outils">
+  <div class="cv-filtres ap-pilules">
     <button class="cv-fb on" data-f="tous" onclick="cvChoisir(this)">Toutes ({{ nb_total }})</button>
     <button class="cv-fb" data-f="signee" onclick="cvChoisir(this)">Signées ({{ nb_signees }})</button>
     <button class="cv-fb" data-f="attente" onclick="cvChoisir(this)">En attente ({{ nb_attente }})</button>
@@ -107,51 +119,57 @@
     {% if nb_anomalies %}<button class="cv-fb alerte" data-f="anomalie" onclick="cvChoisir(this)">Anomalies ({{ nb_anomalies }})</button>{% endif %}
     {% for nom, n in formations %}<button class="cv-fb" data-f="formation:{{ nom }}" onclick="cvChoisir(this)">{{ nom }} ({{ n }})</button>{% endfor %}
   </div>
-  <div class="cv-rech"><i class="ti ti-search" style="font-size:13px;color:var(--muted)"></i><input type="text" id="cv_q" placeholder="Rechercher un praticien, une formation..." oninput="cvFiltrer()"></div>
+  <div class="cv-rech ap-recherche"><i class="ti ti-search" style="font-size:14px;color:var(--muted)"></i><input type="text" id="cv_q" placeholder="Rechercher un praticien, une formation..." oninput="cvFiltrer()"></div>
 </div>
 <div class="table-wrap"><div class="table-scroll">
-<table style="min-width:1020px">
+<table class="ap-table" style="min-width:1060px">
   <thead><tr>
     <th class="cv-tri" data-tri="nom" onclick="cvTrier(this)">Praticien <i class="ti ti-arrows-sort"></i></th>
-    <th class="cv-tri" style="width:200px" data-tri="formation" onclick="cvTrier(this)">Formation et session <i class="ti ti-arrows-sort"></i></th>
-    <th style="width:150px">Statut</th>
-    <th class="cv-tri" style="width:95px" data-tri="jours" onclick="cvTrier(this)">Attente <i class="ti ti-arrows-sort"></i></th>
+    <th class="cv-tri" style="width:220px" data-tri="formation" onclick="cvTrier(this)">Formation et session <i class="ti ti-arrows-sort"></i></th>
+    <th style="width:160px">Statut</th>
+    <th class="cv-tri" style="width:90px" data-tri="jours" onclick="cvTrier(this)">Attente <i class="ti ti-arrows-sort"></i></th>
     <th class="cv-tri" style="width:105px" data-tri="genere" onclick="cvTrier(this)">Générée le <i class="ti ti-arrows-sort"></i></th>
     <th style="width:80px">Relances</th>
-    <th style="width:210px"></th>
+    <th style="width:230px"></th>
   </tr></thead>
   <tbody id="cv_corps">
   {% for l in lignes %}
+    {% set p = l.nom.split() %}
     <tr data-statut="{{ l.statut }}" data-formation="{{ l.formation }}" data-annee="{{ l.debut[:4] }}" data-debut="{{ l.debut }}"
         data-urgent="{{ 'oui' if l.urgence else 'non' }}" data-anomalie="{{ 'oui' if l.anomalie else 'non' }}"
         data-nom="{{ l.nom }}" data-jours="{{ l.jours if l.jours is not none else -1 }}"
         data-genere="{{ l.genere_iso }}"
         data-rech="{{ (l.nom ~ ' ' ~ l.mail ~ ' ' ~ l.formation ~ ' ' ~ l.session)|lower }}">
       <td>
-        <strong style="font-size:12px">{{ l.nom }}</strong>
-        <a class="icon-btn" style="width:22px;height:20px" title="Ouvrir la fiche de cet apprenant" href="/apprenant/{{ l.mail }}"><i class="ti ti-user-circle" style="font-size:14px"></i></a>
-        <div style="color:var(--muted);font-size:10px">{{ l.mail }}</div>
-        {% if l.anomalie %}<div class="cv-anom"><i class="ti ti-alert-circle" style="font-size:12px"></i>{{ l.anomalie }}</div>{% endif %}
+        <div class="ap-p">
+          <span class="ap-av" style="background:{{ AV[loop.index0 % 6] }}">{{ ((p[1][:1] if p|length > 1 else '') ~ (p[0][:1] if p else ''))|upper }}</span>
+          <div class="ap-p-t">
+            <span class="ap-p-n">{{ l.nom }}
+              <a class="icon-btn" style="width:22px;height:20px" title="Ouvrir la fiche de cet apprenant" href="/apprenant/{{ l.mail }}"><i class="ti ti-user-circle" style="font-size:14px"></i></a></span>
+            <span class="ap-p-m">{{ l.mail }}</span>
+            {% if l.anomalie %}<span class="cv-anom"><i class="ti ti-alert-circle" style="font-size:12px"></i>{{ l.anomalie }}</span>{% endif %}
+          </div>
+        </div>
       </td>
       <td>
-        <span class="cv-tag"><span class="cv-dot" style="background:{{ l.couleur }}"></span>{{ l.formation }}</span>
-        <div style="color:var(--muted);font-size:10px;margin-top:2px">{{ l.session_texte }}</div>
-        <div style="font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--border2);margin-top:1px">{{ l.formation_code }} · {{ l.session }}</div>
+        <span class="ap-f"><i style="background:{{ l.couleur }}"></i>{{ l.formation }}</span>
+        <span class="ap-f-s">{{ l.session_texte }}</span>
+        <div class="ap-code">{{ l.formation_code }} · {{ l.session }}</div>
       </td>
       <td>
-        {% if l.statut == 'signee' %}<span class="chip chip-g"><span class="dot dot-g"></span>Signée{% if l.signe_le %} le {{ l.signe_le }}{% endif %}</span>
-        {% elif l.statut == 'attente' %}<span class="chip chip-w"><span class="dot dot-w"></span>En attente</span>
-        {% else %}<span class="chip chip-gray">Pas encore envoyée</span>{% endif %}
-        {% if l.urgence == 'haute' %}<span class="cv-urg">session dans {{ l.avant }} j</span>
-        {% elif l.urgence == 'moyenne' %}<span class="cv-urg moyenne">session dans {{ l.avant }} j</span>{% endif %}
+        {% if l.statut == 'signee' %}<span class="c c-ok">Signée{% if l.signe_le %} le {{ l.signe_le }}{% endif %}</span>
+        {% elif l.statut == 'attente' %}<span class="c c-att">En attente</span>
+        {% else %}<span class="c c-todo">Pas encore envoyée</span>{% endif %}
+        {% if l.urgence == 'haute' %}<br><span class="cv-urg">session dans {{ l.avant }} j</span>
+        {% elif l.urgence == 'moyenne' %}<br><span class="cv-urg moyenne">session dans {{ l.avant }} j</span>{% endif %}
       </td>
-      <td>{% if l.jours is not none %}<span class="cv-age {{ 'cv-a2' if l.jours >= 20 else ('cv-a1' if l.jours >= 10 else 'cv-a0') }}">{{ l.jours }} j</span>{% else %}<span style="color:var(--border2)">—</span>{% endif %}</td>
-      <td style="font-size:11px">{{ l.genere_le or '—' }}</td>
-      <td>{% if l.relances %}<span class="chip chip-w" title="Derniere relance le {{ l.derniere_relance }}">{{ l.relances }}</span>{% else %}<span style="color:var(--border2)">—</span>{% endif %}</td>
+      <td>{% if l.jours is not none %}<span class="cv-age {{ 'cv-a2' if l.jours >= 20 else ('cv-a1' if l.jours >= 10 else 'cv-a0') }}">{{ l.jours }} j</span>{% else %}<span class="ap-rien">—</span>{% endif %}</td>
+      <td style="font-size:12px">{{ l.genere_le or '—' }}</td>
+      <td>{% if l.relances %}<span class="c c-att c-pt" title="Derniere relance le {{ l.derniere_relance }}">{{ l.relances }}</span>{% else %}<span class="ap-rien">—</span>{% endif %}</td>
       <td style="white-space:nowrap">
-        {% if l.lien %}<a class="cv-lien" href="{{ l.lien }}" target="_blank" title="Ouvrir la convention dans le Drive"><i class="ti ti-file-check" style="font-size:13px"></i>Convention</a>{% endif %}
-        {% if l.statut == 'attente' %}<button type="button" class="cv-relb" title="Relancer pour la signature" data-mail="{{ l.mail }}" data-session="{{ l.session }}" onclick="cvRelancer(this)"><i class="ti ti-bell" style="font-size:11px"></i>Relancer</button>{% endif %}
-        <a class="cv-lien" href="/session/{{ l.session }}" title="Ouvrir la session"><i class="ti ti-calendar-event" style="font-size:13px"></i></a>
+        {% if l.lien %}<a class="cv-lien" href="{{ l.lien }}" target="_blank" title="Ouvrir la convention dans le Drive"><i class="ti ti-file-check" style="font-size:14px"></i>Convention</a>{% endif %}
+        {% if l.statut == 'attente' %}<button type="button" class="cv-relb" title="Relancer pour la signature" data-mail="{{ l.mail }}" data-session="{{ l.session }}" onclick="cvRelancer(this)"><i class="ti ti-bell" style="font-size:13px"></i>Relancer</button>{% endif %}
+        <a class="cv-lien gris" href="/session/{{ l.session }}" title="Ouvrir la session"><i class="ti ti-calendar-event" style="font-size:14px"></i></a>
       </td>
     </tr>
   {% else %}
@@ -263,6 +281,7 @@ function cvFiltrer(){
   document.getElementById("k_signees").textContent = signees;
   document.getElementById("k_attente").textContent = attente;
   document.getElementById("k_urgentes").textContent = urgentes;
+  cvJauge(n, signees, attente);
   var pied = document.getElementById("cv_pied");
   if(n === 0 && horsPeriode > 0){
     pied.innerHTML = 'Aucune convention sur cette période — <b>' + horsPeriode
@@ -314,6 +333,23 @@ function cvEnvoyer(bouton){
 }
 document.addEventListener("click", function(e){ if(e.target && e.target.id === "rl_voile") rlFermer(); });
 document.addEventListener("keydown", function(e){ if(e.key === "Escape") rlFermer(); });
+// LA JAUGE DU BANDEAU suit ce que montre le tableau, comme les chiffres.
+function cvJauge(n, signees, attente){
+  var p = function(x){ return n ? Math.round(100 * x / n) : 0; };
+  var a = document.getElementById("cv_j_ok"), b = document.getElementById("cv_j_att");
+  if(!a || !b) return;
+  a.style.width = p(signees) + "%"; b.style.width = p(attente) + "%";
+  document.getElementById("cv_l_ok").textContent = "Signées — " + signees + " (" + p(signees) + " %)";
+  document.getElementById("cv_l_att").textContent = "En attente — " + attente;
+  document.getElementById("cv_l_ne").textContent = "Pas encore envoyées — " + (n - signees - attente);
+}
+// Les cartes « a faire » menent au bon filtre.
+function apFiltre(f){
+  var b = document.querySelector('.cv-fb[data-f="' + f + '"]');
+  if(!b) return;
+  cvChoisir(b);
+  document.querySelector(".ap-outils").scrollIntoView({behavior: "smooth", block: "start"});
+}
 cvFiltrer();
 </script>
 {% endblock %}

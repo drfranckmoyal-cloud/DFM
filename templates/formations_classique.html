@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block titre %}Formations{% endblock %}
+{% block entete %}Bibliothèque de formations{% endblock %}
+{% block sous_entete %}Vos programmes réutilisables — chaque formation peut accueillir plusieurs sessions{% endblock %}
+{% block actions %}
+{% endblock %}
+{% block corps %}
+{% include "_relief.html" %}
+<style>
+.cta-f{display:flex;align-items:center;gap:16px;background:var(--carte);border:1px solid var(--border);border-left:4px solid var(--accent2);border-radius:12px;padding:18px 22px;margin-bottom:16px;text-decoration:none;color:inherit;transition:box-shadow .15s,border-color .15s}
+.cta-f:hover{box-shadow:0 3px 14px rgba(124,91,247,.16);border-color:var(--accent2)}
+.cta-fi{width:44px;height:44px;border-radius:10px;background:#f0eefe;color:var(--accent2);display:flex;align-items:center;justify-content:center;font-size:24px;flex:none}
+.cta-fx{flex:1;min-width:0}
+.cta-ft{font-size:15px;font-weight:500}
+.cta-fd{font-size:12px;color:var(--muted);margin-top:2px}
+/* LE TITRE D'UNE FORMATION EST LE NOM DU PRODUIT — 04/10/2026. Il etait un texte
+   de 16px glisse dans la meme ligne que les etiquettes « 2 sessions » et « 1 en
+   cours », au point qu'on lisait les etiquettes avant le nom. Il prend sa propre
+   ligne et la taille qui lui revient : c'est par lui qu'on reconnait une formation
+   dans une bibliotheque. Les etiquettes descendent d'un rang — elles ne
+   disparaissent pas, elles cessent de disputer la vedette. */
+.bf-titre{font-size:23px;font-weight:600;line-height:1.16;letter-spacing:-.02em;
+  color:var(--text);margin:0 0 7px}
+.bf-etiq{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+@media(max-width:700px){.bf-titre{font-size:19px}}
+.cta-fb{background:var(--accent2);color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:6px;flex:none}
+</style>
+<a class="cta-f" href="/formations/nouvelle" title="Creer une nouvelle formation">
+  <div class="cta-fi"><i class="ti ti-book-upload"></i></div>
+  <div class="cta-fx">
+    <div class="cta-ft">Créer une nouvelle formation</div>
+    <div class="cta-fd">Un programme réutilisable — ses sessions viendront s'y rattacher ensuite</div>
+  </div>
+  <span class="cta-fb"><i class="ti ti-plus"></i>Créer une nouvelle formation</span>
+</a>
+
+
+{% for x in fiches %}
+<div class="panel" style="padding:0;overflow:hidden;margin-bottom:14px">
+
+  <div style="display:flex;align-items:flex-start;gap:16px;padding:21px 22px;border-bottom:1px solid var(--border)">
+    <div style="width:4px;align-self:stretch;border-radius:3px;background:{{ x.f.couleur or 'var(--accent)' }};flex:none"></div>
+    <div style="flex:1;min-width:0">
+      <div class="bf-titre">{{ x.f.titre_complet }}</div>
+      <div class="bf-etiq">
+        <span class="badge badge-blue"><i class="ti ti-calendar" style="font-size:11px"></i>{{ x.nb_sessions }} session{{ 's' if x.nb_sessions > 1 }}</span>
+        {% if x.en_cours %}<span class="badge badge-green"><span class="dot dot-green"></span>{{ x.en_cours }} en cours</span>{% endif %}
+      </div>
+      {% if x.f.description %}<div style="font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.5">{{ x.f.description }}</div>{% endif %}
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted)">
+        <span><i class="ti ti-clock-hour-4" style="font-size:14px;vertical-align:-2px"></i> {{ x.f.duree_heures }}</span>
+        <span><i class="ti ti-coin" style="font-size:14px;vertical-align:-2px"></i> {{ x.f.tarif }} € TTC</span>
+        <span><i class="ti ti-users" style="font-size:14px;vertical-align:-2px"></i> {{ x.f.places_max }} places</span>
+        <span><i class="ti ti-map-pin" style="font-size:14px;vertical-align:-2px"></i> {{ x.f.adresse }}</span>
+        {% if x.formateurs %}
+        <span title="Formateur designe pour cette formation dans cet organisme"><i class="ti ti-certificate-2" style="font-size:14px;vertical-align:-2px"></i> {{ x.formateurs|join(', ') }}</span>
+        {% else %}
+        <a href="/profil" style="color:#d4890a;text-decoration:none" title="Chaque formation doit avoir un formateur designe : sans cela, rien ne prouve la competence de quiconque pour la delivrer"><i class="ti ti-alert-triangle" style="font-size:14px;vertical-align:-2px"></i> Aucun formateur désigné</a>
+        {% endif %}
+      </div>
+    </div>
+    <div style="display:flex;gap:7px;flex:none">
+      <a class="btn btn-ghost" title="Modifier cette formation" href="/formations/{{ x.code }}/modifier"><i class="ti ti-pencil"></i>Modifier</a>
+      <button type="button" class="btn btn-ghost" style="color:var(--danger);border-color:#f0b8b8" title="Supprimer cette formation" onclick="supprimerFormation('{{ x.code }}')"><i class="ti ti-trash"></i>Supprimer</button>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border);flex-wrap:wrap">
+    <div style="padding:13px 20px;flex:1;min-width:120px">
+      <div class="kpi-label">Inscrits cumulés</div>
+      <div style="font-size:20px;font-weight:500;line-height:1;margin-top:5px">{{ x.total_inscrits }}</div>
+    </div>
+    <div style="width:1px;background:var(--border)"></div>
+    <div style="padding:13px 20px;flex:1;min-width:120px">
+      <div class="kpi-label">CA généré</div>
+      <div style="font-size:20px;font-weight:500;line-height:1;margin-top:5px">{{ x.ca|euros }}</div>
+    </div>
+    <div style="width:1px;background:var(--border)"></div>
+    <div style="padding:13px 20px;flex:1;min-width:120px">
+      <div class="kpi-label">Conventions signées</div>
+      <div style="font-size:20px;font-weight:500;line-height:1;margin-top:5px">{{ x.signees }}<span style="font-size:13px;color:var(--muted)">/{{ x.total_inscrits }}</span></div>
+    </div>
+    <div style="width:1px;background:var(--border)"></div>
+    <div style="padding:13px 20px;flex:1.6;min-width:210px">
+      <div class="kpi-label" style="margin-bottom:7px">Documents liés · {{ x.docs_ok }}/{{ x.docs_total }}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        {# « convention » et « attestation » ont quitte cette liste le 19/08/2026
+           avec les champs template_* : plus aucun generateur ne les lisait, et
+           elles s'affichaient ici comme eternellement manquantes.
+
+           LE LIEN SUIT LE MONDE OU VIT LA PIECE. Depuis que l'ecran Documents
+           range sur le disque, un champ peut porter une reference locale
+           — reconnaissable a sa barre oblique — ou un identifiant Drive.
+           Tout pointer vers Google aurait casse le lien du premier programme
+           depose par le nouvel ecran, sans le moindre message. #}
+        {% for cle, libelle, icone in [('programme','Programme','ti-list-details'),('acces','Accès','ti-map-2')] %}
+        {% if x.docs[cle] %}
+        <a class="chip chip-g" target="_blank" rel="noopener"
+           href="{% if '/' in x.docs[cle] %}/document?ref={{ x.docs[cle]|urlencode }}{% else %}https://drive.google.com/file/d/{{ x.docs[cle] }}/view{% endif %}"><i class="ti {{ icone }}" style="font-size:11px"></i>{{ libelle }}</a>
+        {% else %}
+        <span class="chip chip-gray"><i class="ti {{ icone }}" style="font-size:11px"></i>{{ libelle }}</span>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {% if x.f.objectifs or x.f.public %}
+  <div style="display:flex;align-items:flex-start;gap:24px;padding:15px 20px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+    {% if x.f.public %}
+    <div style="flex:1;min-width:200px">
+      <div class="kpi-label" style="margin-bottom:6px">Public visé</div>
+      <div style="font-size:12.5px">{{ x.f.public }}</div>
+    </div>
+    {% endif %}
+    {% if x.f.objectifs %}
+    <div style="flex:2;min-width:260px">
+      <div class="kpi-label" style="margin-bottom:6px">Objectifs pédagogiques</div>
+      {% for o in x.f.objectifs %}
+      <div style="display:flex;gap:8px;font-size:12.5px;padding:2px 0">
+        <i class="ti ti-check" style="font-size:14px;color:var(--success);flex:none;margin-top:2px"></i>
+        <span>{{ o }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <table>
+    <thead><tr>
+      <th>Sessions</th><th style="width:100px">Dates</th><th style="width:86px">Places</th>
+      <th style="width:92px">Conventions</th><th style="width:92px">Encaissé</th>
+      <th style="width:100px">Statut</th><th style="width:54px"></th>
+    </tr></thead>
+    <tbody>
+    {% for s in x.sessions %}
+      <tr onclick="location.href='/session/{{ s.code }}'" style="cursor:pointer">
+        <td><div style="font-weight:500;font-size:12.5px">{{ s.code }}</div><div style="color:var(--muted);font-size:11px">{{ s.session.adresse }}</div></td>
+        <td style="font-size:11.5px">{{ s.debut|jour }}</td>
+        <td class="mono" style="font-size:12px">{{ s.places_occupees }}/{{ s.places_max }}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="progress-bar" style="margin:0;width:32px"><div class="progress-fill" style="width:{{ (100*s.signees/s.places_occupees)|round|int if s.places_occupees else 0 }}%;background:var(--success)"></div></div>
+            <span style="font-size:11px;color:var(--muted)">{{ s.signees }}/{{ s.places_occupees }}</span>
+          </div>
+        </td>
+        <td style="font-size:12px;font-weight:500">{{ s.encaisse|euros }}</td>
+        <td>
+          {% if s.passee %}<span class="chip chip-gray">Passée</span>
+          {% elif s.sheet.statut == 'cloturee' %}<span class="chip chip-w"><span class="dot dot-w"></span>Close</span>
+          {% elif s.complet %}<span class="chip chip-r"><span class="dot dot-r"></span>Complète</span>
+          {% else %}<span class="chip chip-g"><span class="dot dot-g"></span>Ouverte</span>{% endif %}
+        </td>
+        <td><a class="log-arrow" title="Ouvrir la session" href="/session/{{ s.code }}" aria-label="voir"><i class="ti ti-chevron-right"></i></a></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="vide"><i class="ti ti-calendar-plus"></i>Aucune session pour cette formation</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+</div>
+{% else %}
+<div class="panel"><div class="vide" style="padding:50px 16px"><i class="ti ti-book"></i>Aucune formation</div></div>
+{% endfor %}
+
+
+<style>
+.spf-voile{position:fixed;inset:0;background:rgba(16,18,30,.6);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
+.spf-modale{background:var(--carte);border-radius:14px;padding:26px 28px;max-width:520px;width:100%;max-height:90vh;overflow:auto}
+.spf-t{font-size:17px;font-weight:500;margin-bottom:6px}
+.spf-st{font-size:13px;color:var(--muted);margin-bottom:18px}
+.spf-bloc{border-radius:8px;padding:12px 14px;font-size:12px;margin-bottom:14px}
+.spf-rouge{background:#fdeaea;border:1px solid #f0b8b8;color:#8a2020}
+.spf-vert{background:#eafaf3;border:1px solid #9fe1cb;color:#0f6e56}
+.spf-l{display:flex;align-items:flex-start;gap:7px;padding:3px 0}
+.spf-l i{flex-shrink:0;margin-top:1px}
+.spf-champ{width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;margin-top:6px}
+.spf-champ:focus{outline:none;border-color:var(--danger);box-shadow:0 0 0 3px rgba(208,59,59,.1)}
+.spf-lab{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.spf-pied{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+.spf-rge{background:var(--danger);color:#fff}
+.spf-rge[disabled]{opacity:.4;cursor:not-allowed}
+</style>
+<div class="spf-voile" id="spf_voile"><div class="spf-modale" id="spf_modale"></div></div>
+<script>
+var SPF_CODE = "";
+function spfFermer(){ document.getElementById("spf_voile").style.display = "none"; }
+function spfOuvrir(h){ document.getElementById("spf_modale").innerHTML = h; document.getElementById("spf_voile").style.display = "flex"; }
+function spfVerifier(){
+  var c = document.getElementById("spf_saisie"), b = document.getElementById("spf_bouton");
+  if(c && b) b.disabled = (c.value.trim() !== SPF_CODE);
+}
+function spfBoutonFermer(){ return "<div class=\"spf-pied\"><button class=\"btn btn-ghost\" onclick=\"spfFermer()\">Fermer</button></div>"; }
+function supprimerFormation(code){
+  SPF_CODE = code;
+  spfOuvrir("<div class=\"spf-t\">Verification...</div>");
+  fetch("/formations/" + SPF_CODE + "/impact").then(function(r){return r.json()}).then(function(j){
+    if(!j.ok){ spfOuvrir("<div class=\"spf-t\">" + (j.message || "Erreur") + "</div>" + spfBoutonFermer()); return; }
+    if((j.sessions || []).length){
+      spfOuvrir("<div class=\"spf-t\">Suppression impossible</div><div class=\"spf-st\">" + j.nom + "</div><div class=\"spf-bloc spf-rouge\">Cette formation porte encore " + j.sessions.length + " session(s) :<br><b>" + j.sessions.join("<br>") + "</b><br><br>Les sessions tirent de leur formation le tarif, l'adresse et les modeles de documents. Supprime-les d'abord.</div>" + spfBoutonFermer());
+      return;
+    }
+    var h = "<div class=\"spf-t\">Supprimer cette formation</div><div class=\"spf-st\">" + j.nom + " \u2014 " + j.code + "</div>";
+    h += "<div class=\"spf-bloc spf-rouge\"><div class=\"spf-l\"><i class=\"ti ti-trash\"></i><span>Aucune session rattachee. La formation disparaitra de la bibliotheque.</span></div><div class=\"spf-l\"><i class=\"ti ti-alert-triangle\"></i><span>Action irreversible.</span></div></div>";
+    h += "<div class=\"spf-bloc spf-vert\"><div class=\"spf-l\"><i class=\"ti ti-shield-check\"></i><span>Le Drive n'est pas touche : conventions, attestations et programmes restent en place.</span></div><div class=\"spf-l\"><i class=\"ti ti-shield-check\"></i><span>Le journal d'activites est conserve.</span></div></div>";
+    h += "<div><span class=\"spf-lab\">Recopie le code pour confirmer</span><input class=\"spf-champ\" id=\"spf_saisie\" placeholder=\"" + j.code + "\" oninput=\"spfVerifier()\" autocomplete=\"off\"></div>";
+    h += "<div class=\"spf-pied\"><button class=\"btn btn-ghost\" onclick=\"spfFermer()\">Annuler</button><button class=\"btn spf-rge\" id=\"spf_bouton\" disabled onclick=\"spfExecuter(this)\"><i class=\"ti ti-trash\"></i>Je confirme, supprimer</button></div>";
+    spfOuvrir(h);
+  }).catch(function(e){ spfOuvrir("<div class=\"spf-t\">Erreur : " + e + "</div>" + spfBoutonFermer()); });
+}
+function spfExecuter(bouton){
+  bouton.disabled = true;
+  bouton.innerHTML = "Suppression...";
+  var fd = new FormData();
+  fd.append("confirmation", document.getElementById("spf_saisie").value.trim());
+  fetch("/formations/" + SPF_CODE + "/supprimer", {method:"POST", body:fd})
+  .then(function(r){return r.json()}).then(function(j){
+    if(!j.ok){ spfOuvrir("<div class=\"spf-t\">Suppression refusee</div><div class=\"spf-bloc spf-rouge\">" + (j.message || "Erreur") + "</div>" + spfBoutonFermer()); return; }
+    var h = "<div class=\"spf-t\">Formation supprimee</div><div class=\"spf-st\">" + SPF_CODE + "</div>";
+    (j.etapes || []).forEach(function(e){
+      h += "<div class=\"spf-l\" style=\"font-size:13px\"><i class=\"ti " + (e.ok ? "ti-circle-check" : "ti-alert-circle") + "\" style=\"color:" + (e.ok ? "var(--success)" : "var(--danger)") + "\"></i><span>" + e.texte + "</span></div>";
+    });
+    if(j.revient){
+      h += "<div class=\"spf-bloc spf-rouge\" style=\"margin-top:14px\">Attention : cette formation est ecrite en dur dans sessions.py. Elle reapparaitra au prochain redemarrage de DFM tant qu'elle n'aura pas ete retiree du fichier a la main.</div>";
+    }
+    h += "<div class=\"spf-pied\"><button class=\"btn btn-primary\" onclick=\"window.location.href=window.location.pathname\">Fermer</button></div>";
+    spfOuvrir(h);
+  }).catch(function(e){ spfOuvrir("<div class=\"spf-t\">Erreur : " + e + "</div>" + spfBoutonFermer()); });
+}
+</script>
+<script>
+document.addEventListener("click", function(e){
+  if(e.target && e.target.className && String(e.target.className).indexOf("-voile") > -1){ e.target.style.display = "none"; }
+});
+document.addEventListener("keydown", function(e){
+  if(e.key !== "Escape") return;
+  var v = document.querySelectorAll("[id$=_voile]");
+  for(var i = 0; i < v.length; i++){ v[i].style.display = "none"; }
+});
+</script>
+{% endblock %}

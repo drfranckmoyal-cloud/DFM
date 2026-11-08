@@ -1,104 +1,135 @@
 {% extends "base.html" %}
 {% block titre %}Formations{% endblock %}
-{% block entete %}Bibliothèque de formations{% endblock %}
-{% block sous_entete %}Vos programmes réutilisables — chaque formation peut accueillir plusieurs sessions{% endblock %}
+{% block entete %}Formations{% endblock %}
+{% block sous_entete %}{% endblock %}
 {% block actions %}
 {% endblock %}
 {% block corps %}
 {% include "_relief.html" %}
-<style>
-.cta-f{display:flex;align-items:center;gap:16px;background:var(--carte);border:1px solid var(--border);border-left:4px solid var(--accent2);border-radius:12px;padding:18px 22px;margin-bottom:16px;text-decoration:none;color:inherit;transition:box-shadow .15s,border-color .15s}
-.cta-f:hover{box-shadow:0 3px 14px rgba(124,91,247,.16);border-color:var(--accent2)}
-.cta-fi{width:44px;height:44px;border-radius:10px;background:#f0eefe;color:var(--accent2);display:flex;align-items:center;justify-content:center;font-size:24px;flex:none}
-.cta-fx{flex:1;min-width:0}
-.cta-ft{font-size:15px;font-weight:500}
-.cta-fd{font-size:12px;color:var(--muted);margin-top:2px}
-/* LE TITRE D'UNE FORMATION EST LE NOM DU PRODUIT — 04/10/2026. Il etait un texte
-   de 16px glisse dans la meme ligne que les etiquettes « 2 sessions » et « 1 en
-   cours », au point qu'on lisait les etiquettes avant le nom. Il prend sa propre
-   ligne et la taille qui lui revient : c'est par lui qu'on reconnait une formation
-   dans une bibliotheque. Les etiquettes descendent d'un rang — elles ne
-   disparaissent pas, elles cessent de disputer la vedette. */
-.bf-titre{font-size:23px;font-weight:600;line-height:1.16;letter-spacing:-.02em;
-  color:var(--text);margin:0 0 7px}
-.bf-etiq{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
-@media(max-width:700px){.bf-titre{font-size:19px}}
-.cta-fb{background:var(--accent2);color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:6px;flex:none}
-</style>
-<a class="cta-f" href="/formations/nouvelle" title="Creer une nouvelle formation">
-  <div class="cta-fi"><i class="ti ti-book-upload"></i></div>
-  <div class="cta-fx">
-    <div class="cta-ft">Créer une nouvelle formation</div>
-    <div class="cta-fd">Un programme réutilisable — ses sessions viendront s'y rattacher ensuite</div>
-  </div>
-  <span class="cta-fb"><i class="ti ti-plus"></i>Créer une nouvelle formation</span>
-</a>
+<link rel="stylesheet" href="{{ statique('a-plus.css') }}">
+{% set MOIS = ['JANV.', 'FÉVR.', 'MARS', 'AVR.', 'MAI', 'JUIN', 'JUIL.', 'AOÛT', 'SEPT.', 'OCT.', 'NOV.', 'DÉC.'] %}
+{% set nb_sessions = fiches|sum(attribute='nb_sessions') %}
+{% set nb_en_cours = fiches|sum(attribute='en_cours') %}
+{% set nb_inscrits = fiches|sum(attribute='total_inscrits') %}
+{% set nb_signees = fiches|sum(attribute='signees') %}
 
+<header class="ap-hero">
+  <div class="ap-haut">
+    <div class="ap-ident">
+      <div class="ap-tags"><span class="ap-tag">Vos programmes réutilisables</span></div>
+      <h1 class="ap-titre">Bibliothèque de formations</h1>
+      <p class="ap-intro">Chaque formation peut accueillir plusieurs sessions : un programme réutilisable, auquel ses sessions viennent se rattacher ensuite.</p>
+    </div>
+    <div class="ap-actions">
+      <a class="btn ap-btn-jaune" href="/formations/nouvelle" title="Creer une nouvelle formation"><i class="ti ti-plus"></i>Créer une nouvelle formation</a>
+    </div>
+  </div>
+  <div class="ap-score">
+    <div class="ap-s"><div class="ap-s-l">Formations</div><div class="ap-gros">{{ fiches|length }}</div><div class="ap-sous">au catalogue</div></div>
+    <div class="ap-s" style="--pt:#7c5bf7"><div class="ap-s-l">Sessions</div><div class="ap-gros">{{ nb_sessions }}</div><div class="ap-sous">dont {{ nb_en_cours }} en cours</div></div>
+    <div class="ap-s" style="--pt:#4f7ef8"><div class="ap-s-l">Inscrits cumulés</div><div class="ap-gros">{{ nb_inscrits }}</div><div class="ap-sous">{{ nb_signees }} convention{{ 's' if nb_signees > 1 }} signée{{ 's' if nb_signees > 1 }}</div></div>
+    <div class="ap-s" style="--pt:#2fc28b"><div class="ap-s-l">CA généré</div><div class="ap-gros">{{ fiches|sum(attribute='ca')|euros }}</div><div class="ap-sous">toutes formations</div></div>
+  </div>
+</header>
+
+<style>
+.bf{background:var(--carte);border:1px solid var(--border);border-radius:20px;overflow:hidden;margin-bottom:18px}
+.bf-tete{display:flex;gap:18px;align-items:flex-start;padding:22px 24px 18px}
+.bf-pastille{width:58px;height:58px;border-radius:16px;background:var(--teinte);color:#fff;display:flex;align-items:center;
+  justify-content:center;font:700 22px "Space Grotesk",Inter,sans-serif;flex:none;letter-spacing:-.5px}
+.bf-id{flex:1;min-width:0;display:flex;flex-direction:column;gap:9px}
+.bf-tags{display:flex;gap:7px;flex-wrap:wrap}
+.bf-titre{margin:0;font:700 25px/1.15 "Space Grotesk",Inter,sans-serif;letter-spacing:-.4px;color:var(--text)}
+.bf-desc{margin:0;font-size:13px;line-height:1.55;color:var(--muted);max-width:820px}
+.bf-infos{display:flex;flex-wrap:wrap;gap:7px}
+.bf-info{display:inline-flex;align-items:center;gap:6px;height:29px;padding:0 11px;border-radius:999px;background:var(--bg);
+  color:var(--text);font:500 12.5px Inter,sans-serif;white-space:nowrap;text-decoration:none}
+.bf-info i{font-size:14px;color:var(--muted)}
+.bf-info.alerte{background:#ffefd6;color:#8a4d00}.bf-info.alerte i{color:#b45f00}
+.bf-boutons{display:flex;gap:7px;flex:none}
+.bf-boutons .btn{height:36px;border-radius:10px;font-weight:600}
+.bf-chiffres{display:grid;grid-template-columns:1fr 1fr 1.2fr 1.6fr;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.bf-c{padding:14px 22px;border-left:1px solid var(--border);display:flex;flex-direction:column;gap:6px;min-width:0}
+.bf-c:first-child{border-left:0}
+.bf-c-l{font:700 10.5px Inter,sans-serif;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted)}
+.bf-c-v{font:700 24px/1 "Space Grotesk",Inter,sans-serif;color:var(--text);white-space:nowrap}
+.bf-c-v small{font-size:14px;color:var(--muted);font-weight:500}
+.bf-docs{display:flex;gap:6px;flex-wrap:wrap}
+details.bf-plus{border-bottom:1px solid var(--border)}
+details.bf-plus>summary{list-style:none;cursor:pointer;padding:12px 24px;font:600 13px Inter,sans-serif;color:var(--accent);
+  display:flex;align-items:center;gap:7px}
+details.bf-plus>summary::-webkit-details-marker{display:none}
+details.bf-plus>summary i{transition:transform .15s}
+details.bf-plus[open]>summary i{transform:rotate(90deg)}
+.bf-plus-b{display:flex;gap:28px;flex-wrap:wrap;padding:0 24px 18px}
+.bf-obj{display:flex;gap:8px;font-size:13px;padding:3px 0;line-height:1.45}
+.bf-obj i{color:var(--success);font-size:15px;flex:none;margin-top:1px}
+.bf-sessions td{cursor:pointer}
+.bf-date{width:46px;height:50px;border-radius:12px;background:#121c48;color:#fff;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;flex:none}
+.bf-date span{font:800 8.5px Inter,sans-serif;letter-spacing:1px}
+.bf-date b{font:700 18px/1.05 "Space Grotesk",Inter,sans-serif}
+.bf-date.passee{background:var(--bg);color:var(--muted)}
+.bf-s{display:flex;gap:12px;align-items:center;min-width:0}
+.bf-jauge{display:flex;align-items:center;gap:8px}
+.bf-jauge .ap-barre{width:64px;height:8px}
+.bf-jauge span{font:600 12px Inter,sans-serif;color:var(--muted);white-space:nowrap}
+@media (max-width:1000px){.bf-chiffres{grid-template-columns:1fr 1fr}.bf-c:nth-child(3){border-left:0}
+  .bf-tete{flex-wrap:wrap}}
+html[data-sombre] .bf-info.alerte{background:#3a2a12;color:#f3d29a}
+html[data-sombre] .bf-date{background:#23305e}
+</style>
 
 {% for x in fiches %}
-<div class="panel" style="padding:0;overflow:hidden;margin-bottom:14px">
-
-  <div style="display:flex;align-items:flex-start;gap:16px;padding:21px 22px;border-bottom:1px solid var(--border)">
-    <div style="width:4px;align-self:stretch;border-radius:3px;background:{{ x.f.couleur or 'var(--accent)' }};flex:none"></div>
-    <div style="flex:1;min-width:0">
-      <div class="bf-titre">{{ x.f.titre_complet }}</div>
-      <div class="bf-etiq">
-        <span class="badge badge-blue"><i class="ti ti-calendar" style="font-size:11px"></i>{{ x.nb_sessions }} session{{ 's' if x.nb_sessions > 1 }}</span>
-        {% if x.en_cours %}<span class="badge badge-green"><span class="dot dot-green"></span>{{ x.en_cours }} en cours</span>{% endif %}
+{% set teinte = x.f.couleur or '#2f5fe0' %}
+{% set mots = (x.f.titre_complet or x.code).replace(':', ' ').split() %}
+<article class="bf" style="--teinte:{{ teinte }}">
+  <div class="bf-tete">
+    <div class="bf-pastille" aria-hidden="true">{{ (mots[0][:1] if mots else '') | upper }}{{ (mots[1][:1] if mots|length > 1 else '') | upper }}</div>
+    <div class="bf-id">
+      <div class="bf-tags">
+        <span class="c c-bleu c-pt"><i class="ti ti-calendar" style="font-size:12px"></i>{{ x.nb_sessions }} session{{ 's' if x.nb_sessions > 1 }}</span>
+        {% if x.en_cours %}<span class="c c-ok c-pt">{{ x.en_cours }} en cours</span>{% endif %}
       </div>
-      {% if x.f.description %}<div style="font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.5">{{ x.f.description }}</div>{% endif %}
-      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted)">
-        <span><i class="ti ti-clock-hour-4" style="font-size:14px;vertical-align:-2px"></i> {{ x.f.duree_heures }}</span>
-        <span><i class="ti ti-coin" style="font-size:14px;vertical-align:-2px"></i> {{ x.f.tarif }} € TTC</span>
-        <span><i class="ti ti-users" style="font-size:14px;vertical-align:-2px"></i> {{ x.f.places_max }} places</span>
-        <span><i class="ti ti-map-pin" style="font-size:14px;vertical-align:-2px"></i> {{ x.f.adresse }}</span>
+      <h2 class="bf-titre">{{ x.f.titre_complet }}</h2>
+      {% if x.f.description %}<p class="bf-desc">{{ x.f.description }}</p>{% endif %}
+      <div class="bf-infos">
+        <span class="bf-info"><i class="ti ti-clock-hour-4"></i>{{ x.f.duree_heures }}</span>
+        <span class="bf-info"><i class="ti ti-coin"></i>{{ x.f.tarif }} € TTC</span>
+        <span class="bf-info"><i class="ti ti-users"></i>{{ x.f.places_max }} places</span>
+        <span class="bf-info"><i class="ti ti-map-pin"></i>{{ x.f.adresse }}</span>
         {% if x.formateurs %}
-        <span title="Formateur designe pour cette formation dans cet organisme"><i class="ti ti-certificate-2" style="font-size:14px;vertical-align:-2px"></i> {{ x.formateurs|join(', ') }}</span>
+        <span class="bf-info" title="Formateur designe pour cette formation dans cet organisme"><i class="ti ti-certificate-2"></i>{{ x.formateurs|join(', ') }}</span>
         {% else %}
-        <a href="/profil" style="color:#d4890a;text-decoration:none" title="Chaque formation doit avoir un formateur designe : sans cela, rien ne prouve la competence de quiconque pour la delivrer"><i class="ti ti-alert-triangle" style="font-size:14px;vertical-align:-2px"></i> Aucun formateur désigné</a>
+        <a class="bf-info alerte" href="/profil" title="Chaque formation doit avoir un formateur designe : sans cela, rien ne prouve la competence de quiconque pour la delivrer"><i class="ti ti-alert-triangle"></i>Aucun formateur désigné</a>
         {% endif %}
       </div>
     </div>
-    <div style="display:flex;gap:7px;flex:none">
+    <div class="bf-boutons">
       <a class="btn btn-ghost" title="Modifier cette formation" href="/formations/{{ x.code }}/modifier"><i class="ti ti-pencil"></i>Modifier</a>
       <button type="button" class="btn btn-ghost" style="color:var(--danger);border-color:#f0b8b8" title="Supprimer cette formation" onclick="supprimerFormation('{{ x.code }}')"><i class="ti ti-trash"></i>Supprimer</button>
     </div>
   </div>
 
-  <div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border);flex-wrap:wrap">
-    <div style="padding:13px 20px;flex:1;min-width:120px">
-      <div class="kpi-label">Inscrits cumulés</div>
-      <div style="font-size:20px;font-weight:500;line-height:1;margin-top:5px">{{ x.total_inscrits }}</div>
+  <div class="bf-chiffres">
+    <div class="bf-c"><span class="bf-c-l">Inscrits cumulés</span><span class="bf-c-v">{{ x.total_inscrits }}</span></div>
+    <div class="bf-c"><span class="bf-c-l">CA généré</span><span class="bf-c-v">{{ x.ca|euros }}</span></div>
+    <div class="bf-c"><span class="bf-c-l">Conventions signées</span>
+      <span class="bf-c-v">{{ x.signees }}<small>/{{ x.total_inscrits }}</small></span>
+      <div class="ap-barre" style="height:7px"><i style="width:{{ (100*x.signees/x.total_inscrits)|round|int if x.total_inscrits else 0 }}%;background:#0b9e6a"></i></div>
     </div>
-    <div style="width:1px;background:var(--border)"></div>
-    <div style="padding:13px 20px;flex:1;min-width:120px">
-      <div class="kpi-label">CA généré</div>
-      <div style="font-size:20px;font-weight:500;line-height:1;margin-top:5px">{{ x.ca|euros }}</div>
-    </div>
-    <div style="width:1px;background:var(--border)"></div>
-    <div style="padding:13px 20px;flex:1;min-width:120px">
-      <div class="kpi-label">Conventions signées</div>
-      <div style="font-size:20px;font-weight:500;line-height:1;margin-top:5px">{{ x.signees }}<span style="font-size:13px;color:var(--muted)">/{{ x.total_inscrits }}</span></div>
-    </div>
-    <div style="width:1px;background:var(--border)"></div>
-    <div style="padding:13px 20px;flex:1.6;min-width:210px">
-      <div class="kpi-label" style="margin-bottom:7px">Documents liés · {{ x.docs_ok }}/{{ x.docs_total }}</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <div class="bf-c"><span class="bf-c-l">Documents liés · {{ x.docs_ok }}/{{ x.docs_total }}</span>
+      <div class="bf-docs">
         {# « convention » et « attestation » ont quitte cette liste le 19/08/2026
-           avec les champs template_* : plus aucun generateur ne les lisait, et
-           elles s'affichaient ici comme eternellement manquantes.
-
-           LE LIEN SUIT LE MONDE OU VIT LA PIECE. Depuis que l'ecran Documents
-           range sur le disque, un champ peut porter une reference locale
-           — reconnaissable a sa barre oblique — ou un identifiant Drive.
-           Tout pointer vers Google aurait casse le lien du premier programme
-           depose par le nouvel ecran, sans le moindre message. #}
+           avec les champs template_* : plus aucun generateur ne les lisait.
+           LE LIEN SUIT LE MONDE OU VIT LA PIECE : une reference locale porte une
+           barre oblique, sinon c'est un identifiant Drive. #}
         {% for cle, libelle, icone in [('programme','Programme','ti-list-details'),('acces','Accès','ti-map-2')] %}
         {% if x.docs[cle] %}
-        <a class="chip chip-g" target="_blank" rel="noopener"
-           href="{% if '/' in x.docs[cle] %}/document?ref={{ x.docs[cle]|urlencode }}{% else %}https://drive.google.com/file/d/{{ x.docs[cle] }}/view{% endif %}"><i class="ti {{ icone }}" style="font-size:11px"></i>{{ libelle }}</a>
+        <a class="c c-ok" style="text-decoration:none" target="_blank" rel="noopener"
+           href="{% if '/' in x.docs[cle] %}/document?ref={{ x.docs[cle]|urlencode }}{% else %}https://drive.google.com/file/d/{{ x.docs[cle] }}/view{% endif %}">{{ libelle }}</a>
         {% else %}
-        <span class="chip chip-gray"><i class="ti {{ icone }}" style="font-size:11px"></i>{{ libelle }}</span>
+        <span class="c c-todo" title="Document manquant">{{ libelle }}</span>
         {% endif %}
         {% endfor %}
       </div>
@@ -106,61 +137,66 @@
   </div>
 
   {% if x.f.objectifs or x.f.public %}
-  <div style="display:flex;align-items:flex-start;gap:24px;padding:15px 20px;border-bottom:1px solid var(--border);flex-wrap:wrap">
-    {% if x.f.public %}
-    <div style="flex:1;min-width:200px">
-      <div class="kpi-label" style="margin-bottom:6px">Public visé</div>
-      <div style="font-size:12.5px">{{ x.f.public }}</div>
-    </div>
-    {% endif %}
-    {% if x.f.objectifs %}
-    <div style="flex:2;min-width:260px">
-      <div class="kpi-label" style="margin-bottom:6px">Objectifs pédagogiques</div>
-      {% for o in x.f.objectifs %}
-      <div style="display:flex;gap:8px;font-size:12.5px;padding:2px 0">
-        <i class="ti ti-check" style="font-size:14px;color:var(--success);flex:none;margin-top:2px"></i>
-        <span>{{ o }}</span>
+  <details class="bf-plus">
+    <summary><i class="ti ti-chevron-right"></i>{% if x.f.public %}Public visé{% endif %}{% if x.f.public and x.f.objectifs %} et {% endif %}{% if x.f.objectifs %}{{ x.f.objectifs|length }} objectif{{ 's' if x.f.objectifs|length > 1 }} pédagogique{{ 's' if x.f.objectifs|length > 1 }}{% endif %}</summary>
+    <div class="bf-plus-b">
+      {% if x.f.public %}
+      <div style="flex:1;min-width:200px">
+        <div class="bf-c-l" style="margin-bottom:7px">Public visé</div>
+        <div style="font-size:13px;line-height:1.5">{{ x.f.public }}</div>
       </div>
-      {% endfor %}
+      {% endif %}
+      {% if x.f.objectifs %}
+      <div style="flex:2;min-width:260px">
+        <div class="bf-c-l" style="margin-bottom:7px">Objectifs pédagogiques</div>
+        {% for o in x.f.objectifs %}<div class="bf-obj"><i class="ti ti-check"></i><span>{{ o }}</span></div>{% endfor %}
+      </div>
+      {% endif %}
     </div>
-    {% endif %}
-  </div>
+  </details>
   {% endif %}
 
-  <table>
+  <table class="ap-table bf-sessions">
     <thead><tr>
-      <th>Sessions</th><th style="width:100px">Dates</th><th style="width:86px">Places</th>
-      <th style="width:92px">Conventions</th><th style="width:92px">Encaissé</th>
-      <th style="width:100px">Statut</th><th style="width:54px"></th>
+      <th>Sessions</th><th style="width:150px">Places</th><th style="width:150px">Conventions</th>
+      <th style="width:110px">Encaissé</th><th style="width:120px">Statut</th><th style="width:44px"></th>
     </tr></thead>
     <tbody>
     {% for s in x.sessions %}
-      <tr onclick="location.href='/session/{{ s.code }}'" style="cursor:pointer">
-        <td><div style="font-weight:500;font-size:12.5px">{{ s.code }}</div><div style="color:var(--muted);font-size:11px">{{ s.session.adresse }}</div></td>
-        <td style="font-size:11.5px">{{ s.debut|jour }}</td>
-        <td class="mono" style="font-size:12px">{{ s.places_occupees }}/{{ s.places_max }}</td>
+      <tr onclick="location.href='/session/{{ s.code }}'">
         <td>
-          <div style="display:flex;align-items:center;gap:6px">
-            <div class="progress-bar" style="margin:0;width:32px"><div class="progress-fill" style="width:{{ (100*s.signees/s.places_occupees)|round|int if s.places_occupees else 0 }}%;background:var(--success)"></div></div>
-            <span style="font-size:11px;color:var(--muted)">{{ s.signees }}/{{ s.places_occupees }}</span>
+          <div class="bf-s">
+            <div class="bf-date{{ ' passee' if s.passee }}"><span>{{ MOIS[s.debut.month - 1] }}</span><b>{{ s.debut.day }}</b></div>
+            <div style="min-width:0">
+              <div style="font-weight:600;font-size:13px">{{ s.session.date_texte or (s.debut|jour) }}</div>
+              <div style="color:var(--muted);font-size:11.5px;margin-top:2px">{{ s.session.adresse }}</div>
+              <div class="ap-code">{{ s.code }}</div>
+            </div>
           </div>
         </td>
-        <td style="font-size:12px;font-weight:500">{{ s.encaisse|euros }}</td>
         <td>
-          {% if s.passee %}<span class="chip chip-gray">Passée</span>
-          {% elif s.sheet.statut == 'cloturee' %}<span class="chip chip-w"><span class="dot dot-w"></span>Close</span>
-          {% elif s.complet %}<span class="chip chip-r"><span class="dot dot-r"></span>Complète</span>
-          {% else %}<span class="chip chip-g"><span class="dot dot-g"></span>Ouverte</span>{% endif %}
+          <div class="bf-jauge"><div class="ap-barre"><i style="width:{{ ([100, (100*s.places_occupees/s.places_max)|round|int]|min) if s.places_max else 0 }}%;background:{{ '#e0611a' if s.complet else '#2f5fe0' }}"></i></div>
+          <span>{{ s.places_occupees }}/{{ s.places_max }}</span></div>
+        </td>
+        <td>
+          <div class="bf-jauge"><div class="ap-barre"><i style="width:{{ (100*s.signees/s.places_occupees)|round|int if s.places_occupees else 0 }}%;background:#0b9e6a"></i></div>
+          <span>{{ s.signees }}/{{ s.places_occupees }}</span></div>
+        </td>
+        <td class="ap-montant">{{ s.encaisse|euros }}</td>
+        <td>
+          {% if s.passee %}<span class="c c-todo">Passée</span>
+          {% elif s.sheet.statut == 'cloturee' %}<span class="c c-att">Close</span>
+          {% elif s.complet %}<span class="c c-ko">Complète</span>
+          {% else %}<span class="c c-ok">Ouverte</span>{% endif %}
         </td>
         <td><a class="log-arrow" title="Ouvrir la session" href="/session/{{ s.code }}" aria-label="voir"><i class="ti ti-chevron-right"></i></a></td>
       </tr>
     {% else %}
-      <tr><td colspan="7" class="vide"><i class="ti ti-calendar-plus"></i>Aucune session pour cette formation</td></tr>
+      <tr><td colspan="6" class="vide"><i class="ti ti-calendar-plus"></i>Aucune session pour cette formation</td></tr>
     {% endfor %}
     </tbody>
   </table>
-
-</div>
+</article>
 {% else %}
 <div class="panel"><div class="vide" style="padding:50px 16px"><i class="ti ti-book"></i>Aucune formation</div></div>
 {% endfor %}

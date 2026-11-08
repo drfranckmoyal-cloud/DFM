@@ -1,44 +1,47 @@
 {% extends "base.html" %}
 {% block titre %}Questionnaires{% endblock %}
-{% block entete %}Questionnaires et résultats{% endblock %}
-{% block sous_entete %}Évaluation des acquis et satisfaction · toutes formations confondues{% endblock %}
+{% block entete %}Documents de suivi{% endblock %}
+{% block sous_entete %}{% endblock %}
 {% block actions %}
-<a class="btn btn-ghost" title="Export detaille ligne par participant" href="/questionnaires/export.csv"><i class="ti ti-download"></i>Export CSV</a>
 {% endblock %}
 {% block corps %}
+<link rel="stylesheet" href="{{ statique('a-plus.css') }}">
 <style>
-.qq-sectitre{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 12px;flex-wrap:wrap}
-.qq-sectitre h3{font-size:15px;font-weight:600;margin:0}
-.qq-sectitre .d{font-size:12px;color:var(--muted);margin-top:2px}
-.qq-pdf{background:var(--danger);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:7px;text-decoration:none;white-space:nowrap}
-.qq-pdf:hover{filter:brightness(.94)}
-.qq-pdf-s{background:var(--carte);color:var(--danger);border:1px solid #f0b8b8;border-radius:7px;padding:5px 11px;font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:5px;text-decoration:none;white-space:nowrap}
-.qq-pdf-s:hover{background:#fdeaea}
-.qq-periode{border:1px solid var(--border2);border-radius:8px;padding:8px 11px;font-size:12.5px;background:var(--carte);color:var(--text);font-family:inherit}
-.qq-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
-.qq-kpi{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden}
-.qq-acc{position:absolute;left:0;top:0;bottom:0;width:3px}
-.qq-lab{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
-.qq-val{font-size:26px;font-weight:500;line-height:1;font-variant-numeric:tabular-nums}
-.qq-sub{font-size:11px;color:var(--muted);margin-top:6px}
-.qq-duo{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
-.qq-carte{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
-.qq-titre{font-size:13px;font-weight:500;margin-bottom:16px;display:flex;align-items:center;gap:8px;padding-bottom:11px;border-bottom:1px solid var(--border)}
-.qq-titre i{color:var(--accent);font-size:16px}
+.qq-prog{font-weight:700;font-variant-numeric:tabular-nums}
+.qq-plus{color:var(--success)}
+.qq-moins{color:var(--danger)}
 .qq-bar{margin-bottom:13px}
 .qq-bar-h{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px}
-.qq-bar-n{font-weight:500;font-variant-numeric:tabular-nums}
-.qq-piste{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
-.qq-piste div{height:100%;border-radius:4px}
+.qq-bar-n{font-weight:600;font-variant-numeric:tabular-nums}
+.qq-piste{height:9px;background:var(--bg);border-radius:99px;overflow:hidden}
+.qq-piste div{height:100%;border-radius:99px}
 .qq-flux{display:flex;align-items:center;gap:14px;margin-bottom:8px}
 .qq-flux-b{flex:1}
 .qq-fleche{font-size:20px;color:var(--success);flex:none}
 .qq-vide{padding:34px;text-align:center;color:var(--muted);font-size:13px}
-.qq-prog{font-weight:500;font-variant-numeric:tabular-nums}
-.qq-plus{color:var(--success)}
-.qq-moins{color:var(--danger)}
-.qq-btn-d{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;color:var(--accent);cursor:pointer;font-family:inherit;white-space:nowrap;text-decoration:none;display:inline-block}
-.qq-btn-d:hover{border-color:var(--accent);background:#eef3fe}
+/* Avant / apres : deux grandes barres, l'une sous l'autre. */
+.qq-aa{display:grid;grid-template-columns:auto 1fr auto;gap:12px 14px;align-items:center}
+.qq-aa-l{font:600 12.5px Inter,sans-serif;color:var(--muted)}
+.qq-aa-v{font:700 22px "Space Grotesk",Inter,sans-serif;white-space:nowrap}
+.qq-aa .ap-barre{height:14px}
+.qq-gain{display:flex;align-items:center;gap:12px;margin-top:16px;padding:12px 14px;border-radius:12px;background:#dcf5e8;color:#0a5a3c;font-size:12.5px;line-height:1.5}
+.qq-gain b{font:700 26px "Space Grotesk",Inter,sans-serif;color:#0b7a52;white-space:nowrap}
+.qq-note{display:inline-flex;align-items:center;gap:8px}
+.qq-note .ap-barre{width:54px;height:7px}
+.qq-rep{display:flex;gap:4px;flex-wrap:nowrap}
+.qq-rep .c::before{display:none}
+.c-vert{background:#dcf5e8;color:#0a6a46}
+html[data-sombre] .c-vert{background:#123d2c;color:#7fe0b4}
+.qq-pdf-s{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:9px;background:#ffe1e1;color:#b11d1d;
+  font:600 12px Inter,sans-serif;text-decoration:none;white-space:nowrap;border:0;cursor:pointer}
+.qq-pdf-s:hover{background:#ffd0d0}
+.qq-btn-d{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:9px;background:#e3eaff;color:#2448b8;
+  font:600 12px Inter,sans-serif;text-decoration:none;white-space:nowrap;border:0;cursor:pointer}
+.qq-btn-d:hover{background:#d3defd}
+.qq-legende{font-size:11.5px;color:var(--muted);padding:12px 20px;border-top:1px solid var(--border)}
+html[data-sombre] .qq-gain{background:#123d2c;color:#bdeed7}html[data-sombre] .qq-gain b{color:#5fd6a2}
+html[data-sombre] .qq-pdf-s{background:#3e1717;color:#ff9b9b}
+html[data-sombre] .qq-btn-d{background:#1d2b55;color:#a9c0ff}
 .qq-voile{position:fixed;inset:0;background:rgba(16,18,30,.6);display:none;align-items:flex-start;justify-content:center;z-index:70;padding:30px 20px;overflow:auto}
 .qq-modale{background:var(--carte);border-radius:14px;padding:26px 28px;max-width:720px;width:100%}
 .qq-mt{font-size:18px;font-weight:500;margin-bottom:3px}
@@ -50,124 +53,139 @@
 .qq-verb{background:var(--bg);border-radius:9px;padding:12px 14px;margin-bottom:9px;font-size:12.5px}
 .qq-verb-q{font-size:11px;color:var(--muted);margin-bottom:4px}
 .qq-faible{background:#fdf3e3;border:1px solid #f0cf94;border-radius:9px;padding:12px 14px;font-size:12px;color:#8a5a06;margin-bottom:12px}
+
+.qq-modale{border-radius:20px}
 </style>
-<div class="qq-sectitre">
-  <div><h3>Global</h3><div class="d">Tous programmes et toutes sessions confondus</div></div>
-  <div style="display:flex;align-items:center;gap:9px">
-    <select class="qq-periode" id="qq_per">
-      <option value="tout"{{ " selected" if periode_defaut == "tout" }}>Depuis le début</option>
-      <option value="m12"{{ " selected" if periode_defaut == "m12" }}>12 derniers mois</option>
-      <option value="m6"{{ " selected" if periode_defaut == "m6" }}>6 derniers mois</option>
-      <option value="m3"{{ " selected" if periode_defaut == "m3" }}>3 derniers mois</option>
-    </select>
-    <a class="qq-pdf" href="#" onclick="return qqPdfGlobal()"><i class="ti ti-file-type-pdf" style="font-size:16px"></i>PDF Bilan global</a>
-  </div>
-</div>
-<div class="qq-kpis">
-  <div class="qq-kpi"><div class="qq-acc" style="background:var(--accent)"></div>
-    <div class="qq-lab">Progression moyenne</div>
-    <div class="qq-val" style="color:var(--accent)">{% if g.progression is not none %}+{{ g.progression }} pts{% else %}—{% endif %}</div>
-    <div class="qq-sub">entrée {{ g.moy_init or '—' }} % → sortie {{ g.moy_fin or '—' }} %</div>
-  </div>
-  <div class="qq-kpi"><div class="qq-acc" style="background:var(--success)"></div>
-    <div class="qq-lab">Objectifs atteints</div>
-    <div class="qq-val" style="color:var(--success)">{% if g.taux_atteinte is not none %}{{ g.taux_atteinte }} %{% else %}—{% endif %}</div>
-    <div class="qq-sub">des participants évalués</div>
-  </div>
-  <div class="qq-kpi"><div class="qq-acc" style="background:var(--accent2)"></div>
-    <div class="qq-lab">Satisfaction</div>
-    <div class="qq-val" style="color:var(--accent2)">{% if g.moy_satis is not none %}{{ g.moy_satis }}/5{% else %}—{% endif %}</div>
-    <div class="qq-sub">{{ g.nb_satis }} réponse{{ 's' if g.nb_satis > 1 }}</div>
-  </div>
-  <div class="qq-kpi"><div class="qq-acc" style="background:var(--warn)"></div>
-    <div class="qq-lab">Recommandation</div>
-    <div class="qq-val" style="color:var(--warn)">{% if g.reco is not none %}{{ g.reco }}/10{% else %}—{% endif %}</div>
-    <div class="qq-sub">{% if g.nps is not none %}indice net {{ g.nps }}{% else %}pas encore mesuré{% endif %}</div>
-  </div>
-  <div class="qq-kpi"><div class="qq-acc" style="background:var(--muted)"></div>
-    <div class="qq-lab">Taux de réponse</div>
-    <div class="qq-val">{% if g.participants %}{{ (100 * g.nb_fin / g.participants)|round|int }} %{% else %}—{% endif %}</div>
-    <div class="qq-sub">{{ g.nb_fin }} évaluations sur {{ g.participants }} inscrits</div>
-  </div>
-</div>
-<div class="qq-duo">
-  <div class="qq-carte">
-    <div class="qq-titre"><i class="ti ti-school"></i>Acquis : avant et après</div>
-    {% if g.moy_init is not none %}
-    <div class="qq-bar"><div class="qq-bar-h"><span>Score moyen à l'entrée</span><span class="qq-bar-n">{{ g.moy_init }} %</span></div>
-      <div class="qq-piste"><div style="width:{{ g.moy_init }}%;background:var(--border2)"></div></div></div>
-    <div class="qq-bar"><div class="qq-bar-h"><span>Score moyen en sortie</span><span class="qq-bar-n">{{ g.moy_fin }} %</span></div>
-      <div class="qq-piste"><div style="width:{{ g.moy_fin or 0 }}%;background:var(--success)"></div></div></div>
-    <div style="font-size:12px;color:var(--muted);margin-top:14px;line-height:1.6">
-      Cette comparaison entre le niveau initial et le niveau atteint constitue la preuve de progression attendue par les indicateurs 8 et 11 du référentiel.
+
+<header class="ap-hero">
+  <div class="ap-haut">
+    <div class="ap-ident">
+      <div class="ap-tags"><span class="ap-tag">Toutes formations confondues</span></div>
+      <h1 class="ap-titre">Questionnaires et résultats</h1>
+      <p class="ap-intro">Évaluation des acquis et satisfaction, tous programmes et toutes sessions confondus.</p>
     </div>
-    {% else %}
-    <div class="qq-vide">Aucune évaluation relevée pour l'instant</div>
-    {% endif %}
+    <div class="ap-actions">
+      <select class="qq-periode" id="qq_per" title="Periode du bilan global">
+        <option value="tout"{{ " selected" if periode_defaut == "tout" }}>Depuis le début</option>
+        <option value="m12"{{ " selected" if periode_defaut == "m12" }}>12 derniers mois</option>
+        <option value="m6"{{ " selected" if periode_defaut == "m6" }}>6 derniers mois</option>
+        <option value="m3"{{ " selected" if periode_defaut == "m3" }}>3 derniers mois</option>
+      </select>
+      <a class="btn ap-btn-jaune" href="#" onclick="return qqPdfGlobal()"><i class="ti ti-file-type-pdf"></i>PDF Bilan global</a>
+      <a class="btn ap-btn-verre" title="Export detaille ligne par participant" href="/questionnaires/export.csv"><i class="ti ti-download"></i>Export CSV</a>
+    </div>
   </div>
-  <div class="qq-carte">
-    <div class="qq-titre"><i class="ti ti-star"></i>Satisfaction par axe</div>
+  <div class="ap-score">
+    <div class="ap-s" style="--pt:#4f7ef8"><div class="ap-s-l">Progression moyenne</div>
+      <div class="ap-gros">{% if g.progression is not none %}+{{ g.progression }}<small> pts</small>{% else %}—{% endif %}</div>
+      <div class="ap-sous">entrée {{ g.moy_init or '—' }} % → sortie {{ g.moy_fin or '—' }} %</div></div>
+    <div class="ap-s" style="--pt:#2fc28b"><div class="ap-s-l">Objectifs atteints</div>
+      <div class="ap-gros">{% if g.taux_atteinte is not none %}{{ g.taux_atteinte }}<small> %</small>{% else %}—{% endif %}</div>
+      <div class="ap-sous">des participants évalués</div></div>
+    <div class="ap-s" style="--pt:#a48bff"><div class="ap-s-l">Satisfaction</div>
+      <div class="ap-gros">{% if g.moy_satis is not none %}{{ g.moy_satis }}<small>/5</small>{% else %}—{% endif %}</div>
+      <div class="ap-sous">{{ g.nb_satis }} réponse{{ 's' if g.nb_satis > 1 }}</div></div>
+    <div class="ap-s" style="--pt:#ffb547"><div class="ap-s-l">Recommandation</div>
+      <div class="ap-gros">{% if g.reco is not none %}{{ g.reco }}<small>/10</small>{% else %}—{% endif %}</div>
+      <div class="ap-sous">{% if g.nps is not none %}indice net {{ g.nps }}{% else %}pas encore mesuré{% endif %}</div></div>
+    <div class="ap-s" style="--pt:#b9c4ee"><div class="ap-s-l">Taux de réponse</div>
+      <div class="ap-gros">{% if g.participants %}{{ (100 * g.nb_fin / g.participants)|round|int }}<small> %</small>{% else %}—{% endif %}</div>
+      <div class="ap-sous">{{ g.nb_fin }} évaluations sur {{ g.participants }} inscrits</div></div>
+  </div>
+</header>
+
+<div class="ap-duo">
+  <section class="ap-carte">
+    <div class="ap-carte-t"><span>Acquis : avant et après</span><span>indicateurs 8 et 11</span></div>
+    <div class="ap-carte-b">
+    {% if g.moy_init is not none %}
+      <div class="qq-aa">
+        <span class="qq-aa-l">Entrée</span>
+        <div class="ap-barre"><i style="width:{{ g.moy_init }}%;background:#9aa6c8"></i></div>
+        <span class="qq-aa-v">{{ g.moy_init }} %</span>
+        <span class="qq-aa-l">Sortie</span>
+        <div class="ap-barre"><i style="width:{{ g.moy_fin or 0 }}%;background:#0b9e6a"></i></div>
+        <span class="qq-aa-v">{{ g.moy_fin }} %</span>
+      </div>
+      <div class="qq-gain">
+        {% if g.progression is not none %}<b>+{{ g.progression }}</b>{% endif %}
+        <span>Score moyen à l'entrée, puis en sortie. Cette comparaison entre le niveau initial et le niveau atteint constitue la preuve de progression attendue par les indicateurs 8 et 11 du référentiel.</span>
+      </div>
+    {% else %}
+      <div class="qq-vide">Aucune évaluation relevée pour l'instant</div>
+    {% endif %}
+    </div>
+  </section>
+  <section class="ap-carte">
+    <div class="ap-carte-t violet"><span>Satisfaction par axe</span>{% if g.moy_satis is not none %}<span>{{ g.moy_satis }}/5 en moyenne</span>{% endif %}</div>
+    <div class="ap-carte-b">
     {% if g.moy_satis is not none %}
     {% for a in g.axes %}
       {% if a.note is not none %}
-      <div class="qq-bar"><div class="qq-bar-h"><span>{{ a.libelle }}</span><span class="qq-bar-n">{{ a.note }}/5</span></div>
-        <div class="qq-piste"><div style="width:{{ (100 * a.note / 5)|round|int }}%;background:{{ 'var(--success)' if a.note >= 4 else ('var(--warn)' if a.note >= 3 else 'var(--danger)') }}"></div></div></div>
+      <div class="ap-mes"><div class="ap-mes-l"><span>{{ a.libelle }}</span><b>{{ a.note }}/5</b></div>
+        <div class="ap-barre"><i style="width:{{ (100 * a.note / 5)|round|int }}%;background:{{ '#0b9e6a' if a.note >= 4 else ('#f08c00' if a.note >= 3 else '#e03131') }}"></i></div></div>
       {% endif %}
     {% endfor %}
     {% else %}
-    <div class="qq-vide">Aucun questionnaire de satisfaction reçu</div>
+      <div class="qq-vide">Aucun questionnaire de satisfaction reçu</div>
     {% endif %}
-  </div>
+    </div>
+  </section>
 </div>
-<div class="qq-carte" style="margin-bottom:16px">
-  <div class="qq-titre"><i class="ti ti-books"></i>Par formation</div>
-  <div class="table-wrap" style="border:none"><div class="table-scroll">
-  <table style="min-width:700px">
-    <thead><tr><th>Formation</th><th style="width:80px">Sessions</th><th style="width:90px">Inscrits</th>
+
+<section class="ap-carte">
+  <div class="ap-carte-t noir"><span>Par formation</span><span>{{ formations|length }} formation{{ 's' if formations|length > 1 }}</span></div>
+  <div class="table-scroll">
+  <table class="ap-table" style="min-width:760px">
+    <thead><tr><th>Formation</th><th style="width:80px">Sessions</th><th style="width:80px">Inscrits</th>
       <th style="width:80px">Entrée</th><th style="width:80px">Sortie</th><th style="width:110px">Progression</th>
-      <th style="width:100px">Objectifs</th><th style="width:100px">Satisfaction</th><th style="width:120px"></th></tr></thead>
+      <th style="width:100px">Objectifs</th><th style="width:130px">Satisfaction</th><th style="width:120px"></th></tr></thead>
     <tbody>
     {% for f in formations %}
       <tr>
-        <td><strong style="font-size:12.5px">{{ f.formation }}</strong></td>
+        <td><strong style="font-size:13px">{{ f.formation }}</strong></td>
         <td>{{ f.sessions }}</td>
         <td>{{ f.participants }}</td>
         <td>{{ f.moy_init if f.moy_init is not none else '—' }}{% if f.moy_init is not none %} %{% endif %}</td>
         <td>{{ f.moy_fin if f.moy_fin is not none else '—' }}{% if f.moy_fin is not none %} %{% endif %}</td>
-        <td>{% if f.progression is not none %}<span class="qq-prog {{ 'qq-plus' if f.progression >= 0 else 'qq-moins' }}">{{ '+' if f.progression >= 0 }}{{ f.progression }} pts</span>{% else %}—{% endif %}</td>
-        <td>{% if f.taux_atteinte is not none %}<span class="chip {{ 'chip-g' if f.taux_atteinte >= 80 else 'chip-w' }}">{{ f.taux_atteinte }} %</span>{% else %}—{% endif %}</td>
-        <td>{% if f.moy_satis is not none %}{{ f.moy_satis }}/5{% else %}—{% endif %}</td>
-        <td><a class="qq-pdf-s" href="/questionnaires/bilan/formation/{{ f.formation }}" target="_blank"><i class="ti ti-file-type-pdf" style="font-size:13px"></i>PDF Bilan</a></td>
+        <td>{% if f.progression is not none %}<span class="c {{ 'c-ok' if f.progression >= 0 else 'c-ko' }}">{{ '+' if f.progression >= 0 }}{{ f.progression }} pts</span>{% else %}<span class="ap-rien">—</span>{% endif %}</td>
+        <td>{% if f.taux_atteinte is not none %}<span class="c {{ 'c-ok' if f.taux_atteinte >= 80 else 'c-att' }}">{{ f.taux_atteinte }} %</span>{% else %}<span class="ap-rien">—</span>{% endif %}</td>
+        <td>{% if f.moy_satis is not none %}<span class="qq-note"><div class="ap-barre"><i style="width:{{ (100 * f.moy_satis / 5)|round|int }}%;background:#7c5bf7"></i></div><b>{{ f.moy_satis }}/5</b></span>{% else %}<span class="ap-rien">—</span>{% endif %}</td>
+        <td><a class="qq-pdf-s" href="/questionnaires/bilan/formation/{{ f.formation }}" target="_blank"><i class="ti ti-file-type-pdf" style="font-size:14px"></i>PDF Bilan</a></td>
       </tr>
     {% else %}
       <tr><td colspan="9" class="qq-vide">Aucune formation</td></tr>
     {% endfor %}
     </tbody>
   </table>
-  </div></div>
-</div>
-<div class="qq-carte">
-  <div class="qq-titre"><i class="ti ti-calendar-stats"></i>Par session</div>
-  <div class="table-wrap" style="border:none"><div class="table-scroll">
-  <table style="min-width:860px">
-    <thead><tr><th>Session</th><th style="width:80px">Inscrits</th><th style="width:100px">Répondants</th>
-      <th style="width:75px">Entrée</th><th style="width:75px">Sortie</th><th style="width:105px">Progression</th>
-      <th style="width:95px">Objectifs</th><th style="width:95px">Satisfaction</th><th style="width:150px"></th></tr></thead>
+  </div>
+</section>
+
+<section class="ap-carte">
+  <div class="ap-carte-t"><span>Par session</span><span>{{ sessions|length }} session{{ 's' if sessions|length > 1 }}</span></div>
+  <div class="table-scroll">
+  <table class="ap-table" style="min-width:900px">
+    <thead><tr><th>Session</th><th style="width:70px">Inscrits</th><th style="width:215px">Répondants</th>
+      <th style="width:70px">Entrée</th><th style="width:70px">Sortie</th><th style="width:105px">Progression</th>
+      <th style="width:95px">Objectifs</th><th style="width:120px">Satisfaction</th><th style="width:200px"></th></tr></thead>
     <tbody>
     {% for s in sessions %}
       <tr>
-        <td><strong style="font-size:12.5px">{{ s.formation }}</strong>
-          <div style="color:var(--muted);font-size:10.5px;margin-top:2px">{{ s.date_texte }}</div></td>
+        <td><strong style="font-size:13px">{{ s.formation }}</strong>
+          <div style="color:var(--muted);font-size:11.5px;margin-top:2px">{{ s.date_texte }}</div></td>
         <td>{{ s.participants }}</td>
-        <td style="font-size:11.5px">{{ s.nb_init }} / {{ s.nb_fin }} / {{ s.nb_satis }}</td>
+        <td><span class="qq-rep">
+          <span class="c c-pt {{ 'c-bleu' if s.nb_init else 'c-todo' }}" title="Questionnaires d'entrée reçus">entrée {{ s.nb_init }}</span>
+          <span class="c c-pt {{ 'c-vert' if s.nb_fin else 'c-todo' }}" title="Questionnaires de sortie reçus">sortie {{ s.nb_fin }}</span>
+          <span class="c c-pt {{ 'c-vio' if s.nb_satis else 'c-todo' }}" title="Questionnaires de satisfaction reçus">satisf. {{ s.nb_satis }}</span></span></td>
         <td>{{ s.moy_init if s.moy_init is not none else '—' }}{% if s.moy_init is not none %} %{% endif %}</td>
         <td>{{ s.moy_fin if s.moy_fin is not none else '—' }}{% if s.moy_fin is not none %} %{% endif %}</td>
-        <td>{% if s.progression is not none %}<span class="qq-prog {{ 'qq-plus' if s.progression >= 0 else 'qq-moins' }}">{{ '+' if s.progression >= 0 }}{{ s.progression }} pts</span>{% else %}—{% endif %}</td>
-        <td>{% if s.taux_atteinte is not none %}<span class="chip {{ 'chip-g' if s.taux_atteinte >= 80 else 'chip-w' }}">{{ s.taux_atteinte }} %</span>{% else %}—{% endif %}</td>
-        <td>{% if s.moy_satis is not none %}{{ s.moy_satis }}/5{% else %}—{% endif %}</td>
+        <td>{% if s.progression is not none %}<span class="c {{ 'c-ok' if s.progression >= 0 else 'c-ko' }}">{{ '+' if s.progression >= 0 }}{{ s.progression }} pts</span>{% else %}<span class="ap-rien">—</span>{% endif %}</td>
+        <td>{% if s.taux_atteinte is not none %}<span class="c {{ 'c-ok' if s.taux_atteinte >= 80 else 'c-att' }}">{{ s.taux_atteinte }} %</span>{% else %}<span class="ap-rien">—</span>{% endif %}</td>
+        <td>{% if s.moy_satis is not none %}<span class="qq-note"><div class="ap-barre"><i style="width:{{ (100 * s.moy_satis / 5)|round|int }}%;background:#7c5bf7"></i></div><b>{{ s.moy_satis }}/5</b></span>{% else %}<span class="ap-rien">—</span>{% endif %}</td>
         <td style="white-space:nowrap">
-          <button class="qq-btn-d" title="Voir le detail des resultats de cette session" onclick="qqDetail('{{ s.code }}')"><i class="ti ti-eye" style="font-size:11px"></i> Détail</button>
-          <a class="qq-pdf-s" href="/questionnaires/{{ s.code }}/bilan" target="_blank" title="Bilan imprimable pour l audit"><i class="ti ti-file-type-pdf" style="font-size:13px"></i>PDF Bilan</a>
+          <button class="qq-btn-d" title="Voir le detail des resultats de cette session" onclick="qqDetail('{{ s.code }}')"><i class="ti ti-eye" style="font-size:14px"></i>Détail</button>
+          <a class="qq-pdf-s" href="/questionnaires/{{ s.code }}/bilan" target="_blank" title="Bilan imprimable pour l audit"><i class="ti ti-file-type-pdf" style="font-size:14px"></i>PDF Bilan</a>
         </td>
       </tr>
     {% else %}
@@ -175,9 +193,9 @@
     {% endfor %}
     </tbody>
   </table>
-  </div></div>
-  <div style="font-size:11px;color:var(--muted);margin-top:12px">La colonne Répondants indique le nombre de réponses aux trois questionnaires : entrée / sortie / satisfaction.</div>
-</div>
+  </div>
+  <div class="qq-legende">La colonne Répondants indique le nombre de réponses aux trois questionnaires : entrée, sortie et satisfaction.</div>
+</section>
 <div class="qq-voile" id="qq_voile"><div class="qq-modale" id="qq_modale"></div></div>
 <script>
 function qqPdfGlobal(){

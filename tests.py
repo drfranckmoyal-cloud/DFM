@@ -1763,35 +1763,49 @@ def tests_certificats_a_imprimer():
 
 
 def tests_fiche_session_deux_presentations():
-    """LA FICHE DE SESSION REDESSINEE — 08/11/2026 (maquette A+). L'ancienne
-    reste disponible : un reglage la ramene, sans rien redeployer."""
-    print("\n  LA FICHE DE SESSION, NOUVELLE ET CLASSIQUE")
+    """LES PAGES REDESSINEES — 08/11/2026 (maquette A+) : la fiche de session,
+    puis la bibliotheque, les questionnaires, les conventions et les
+    reglements. Chaque ancienne page reste disponible : un reglage la ramene,
+    sans rien redeployer."""
+    print("\n  LES PAGES A+, NOUVELLES ET CLASSIQUES")
     import re
     import app as A
     import parametres as P
     racine = os.path.dirname(os.path.abspath(__file__))
     lire = lambda n: open(os.path.join(racine, "templates", n), encoding="utf-8").read()
-    neuve, ancienne = lire("session.html"), lire("session_classique.html")
-    for nom in ("session.html", "session_classique.html"):
-        try:
-            A.app.jinja_env.get_template(nom)
-            verifier("%s se compile" % nom, True)
-        except Exception as e:
-            verifier("%s se compile" % nom, False, e)
     ids = lambda t: set(re.findall(r'id="([^"{]+)"', t))
-    verifier("aucun element de l'ancienne page ne manque a la nouvelle",
-             not (ids(ancienne) - ids(neuve)), sorted(ids(ancienne) - ids(neuve)))
     fn = lambda t: set(re.findall(r"function\s+(\w+)\s*\(", t))
-    verifier("aucune de ses fonctions non plus", not (fn(ancienne) - fn(neuve)),
-             sorted(fn(ancienne) - fn(neuve)))
     clic = lambda t: set(re.findall(r'onclick="(\w+)\(', t))
-    verifier("ni aucun de ses boutons", not (clic(ancienne) - clic(neuve)),
-             sorted(clic(ancienne) - clic(neuve)))
-    reglage = [x for x in P.SCHEMA if x.get("cle") == "fiche_session"]
-    verifier("le retour arriere est un reglage", len(reglage) == 1
-             and [o[0] for o in reglage[0].get("options", [])] == ["nouvelle", "classique"])
+    liens = lambda t: set(x for x in re.findall(r'href="([^"{]*)', t) if x not in ("", "#"))
     route = open(os.path.join(racine, "app.py"), encoding="utf-8").read()
-    verifier("et la route l'ecoute", '"session_classique.html" if _par("fiche_session", "nouvelle") == "classique"' in route)
+    for page, cle in (("session", "fiche_session"), ("formations", "page_formations"),
+                      ("questionnaires", "page_questionnaires"), ("conventions", "page_conventions"),
+                      ("reglements", "page_reglements")):
+        neuve, ancienne = lire(page + ".html"), lire(page + "_classique.html")
+        try:
+            A.app.jinja_env.get_template(page + ".html")
+            A.app.jinja_env.get_template(page + "_classique.html")
+            verifier("%s : les deux pages se compilent" % page, True)
+        except Exception as e:
+            verifier("%s : les deux pages se compilent" % page, False, e)
+        manque = (ids(ancienne) - ids(neuve)) | (fn(ancienne) - fn(neuve)) | (clic(ancienne) - clic(neuve)) | (liens(ancienne) - liens(neuve))
+        verifier("%s : aucun element, fonction, bouton ni lien ne manque" % page, not manque, sorted(manque))
+        reglage = [x for x in P.SCHEMA if x.get("cle") == cle]
+        verifier("%s : le retour arriere est un reglage" % page, len(reglage) == 1
+                 and [o[0] for o in reglage[0].get("options", [])] == ["nouvelle", "classique"])
+        if page == "session":
+            ecoute = '"session_classique.html" if _par("fiche_session", "nouvelle") == "classique"' in route
+        else:
+            ecoute = '_gabarit("%s", "%s")' % (page, cle) in route
+        verifier("%s : et la route l'ecoute" % page, ecoute)
+    garde = A._par
+    try:
+        A._par = lambda c, d=None: "classique"
+        verifier("le reglage classique ramene l'ancienne page", A._gabarit("conventions", "page_conventions") == "conventions_classique.html")
+        A._par = lambda c, d=None: d
+        verifier("par defaut, la nouvelle", A._gabarit("conventions", "page_conventions") == "conventions.html")
+    finally:
+        A._par = garde
 
 
 def tests_accuse_selon_situation():
