@@ -2069,6 +2069,83 @@ def reclamation_enregistrer(ident):
     except Exception:
         pass
     return jsonify({"ok": True, "reclamation": fiche})
+# LES CERTIFICATS SE FABRIQUENT EN ARRIERE-PLAN — 08/11/2026. Un certificat
+# demande pres de dix secondes a Chrome ; dix-sept depassent largement le delai
+# au-dela duquel le serveur web coupe une page. Le bouton lance donc le travail
+# et rend la main ; la fenetre de telechargement suit l'avancement.
+_CERT_GEN = {}
+def _certificats_en_cours(code):
+    p = _CERT_GEN.get(code)
+    return bool(p and p.poll() is None)
+
+
+@app.route("/session/<code>/certificats/generer", methods=["POST"])
+def certificats_generer(code):
+    """Le bouton « Generer les certificats » : ceux qui manquent, meme avant
+    la formation — pour les faire imprimer, et pour une inscription tardive."""
+    if code not in SESSIONS:
+        return jsonify({"ok": False, "message": "Session inconnue"})
+    import certificat as _cert
+    if not _cert.fond(code):
+        return jsonify({"ok": False, "message": "Cette formation n'a pas de modèle de certificat."})
+    if _certificats_en_cours(code):
+        return jsonify({"ok": True, "en_cours": True, "message": "La fabrication est déjà en cours."})
+    gens = _cert.beneficiaires(code)
+    manquants = [l for l in gens if not _cert.present(code, l)]
+    if not manquants:
+        return jsonify({"ok": True, "en_cours": False, "manquants": 0,
+                        "message": "Tous les certificats sont déjà fabriqués."})
+    _CERT_GEN[code] = subprocess.Popen(
+        [sys.executable, "generer_certificats.py", code, "--avance"], cwd=DOSSIER,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return jsonify({"ok": True, "en_cours": True, "manquants": len(manquants),
+                    "message": "%d certificat(s) en fabrication, une dizaine de secondes chacun."
+                               % len(manquants)})
+
+
+@app.route("/session/<code>/certificats/liste")
+def certificats_liste(code):
+    """Les inscrits et leur certificat, pour la fenetre de telechargement."""
+    if code not in SESSIONS:
+        return jsonify({"ok": False, "message": "Session inconnue"})
+    import certificat as _cert
+    S = fiche_session(code)
+    gens = [{"mail": (l.get("mail") or "").strip(),
+             "nom": ((l.get("nom") or "").upper() + " " + (l.get("prenom") or "")).strip(),
+             "pret": _cert.present(code, l)} for l in _cert.beneficiaires(code)]
+    gens.sort(key=lambda g: g["nom"])
+    return jsonify({"ok": True, "gens": gens, "en_cours": _certificats_en_cours(code),
+                    "formation": S.get("nom_formation") or "", "date_texte": S.get("date_texte") or ""})
+
+
+@app.route("/session/<code>/certificats/telecharger", methods=["POST"])
+def certificats_telecharger(code):
+    """Les certificats coches, dans UN dossier compresse, pour l'imprimeur."""
+    from flask import Response, abort
+    import io
+    import zipfile
+    import certificat as _cert
+    if code not in SESSIONS:
+        abort(404)
+    voulus = {m.strip().lower() for m in (request.form.get("mails") or "").split(",") if m.strip()}
+    S = fiche_session(code)
+    dossier = "Certificats - %s - %s" % (S.get("nom_formation") or code, S.get("date_texte") or code)
+    dossier = "".join(c for c in dossier if c not in '/\\:*?"<>|').strip()
+    tampon, nombre = io.BytesIO(), 0
+    with zipfile.ZipFile(tampon, "w", zipfile.ZIP_DEFLATED) as z:
+        for l in _cert.beneficiaires(code):
+            if (l.get("mail") or "").strip().lower() not in voulus:
+                continue
+            octets = _cert.existant(code, l)
+            if octets:
+                z.writestr(dossier + "/" + _cert.nom_fichier(l), octets)
+                nombre += 1
+    if not nombre:
+        abort(404)
+    return Response(tampon.getvalue(), mimetype="application/zip", headers={
+        "Content-Disposition": "attachment; filename*=UTF-8''%s" % _quote_nom(dossier + ".zip")})
+
+
 def _certificat_lien(code, ligne):
     """Le lien du certificat de cette personne, "" s'il n'est pas fabrique."""
     try:

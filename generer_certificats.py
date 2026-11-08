@@ -2,6 +2,11 @@
 
     python3 generer_certificats.py <code_session>            les certificats qui manquent
     python3 generer_certificats.py <code_session> --refaire  tous, refaits en place
+    python3 generer_certificats.py <code_session> --avance   meme avant la fin de la formation
+
+« --AVANCE » EST LE BOUTON « Generer les certificats » de la fiche de session —
+08/11/2026, demande de Franck : les faire imprimer avant la formation, et y
+revenir pour une inscription tardive. Il ne fabrique que ceux qui manquent.
 
 UNE ETAPE DU TRAITEMENT QUOTIDIEN, juste apres les attestations : un certificat
 nait le meme jour que l'attestation de la personne, une fois la formation
@@ -26,6 +31,7 @@ from sessions import session
 
 CODE = next((a for a in sys.argv[1:] if not a.startswith("--")), None)
 REFAIRE = "--refaire" in sys.argv[1:]
+AVANCE = "--avance" in sys.argv[1:]
 S = session(CODE)
 print(f"-> Session : {S['nom_formation']} ({S['code']})")
 
@@ -35,7 +41,7 @@ if not certificat.fond(S["code"]):
 
 _j = _jours.resume(S)
 fin = datetime.strptime(_j["date_fin"], "%Y-%m-%d").date() if _j["date_fin"] else date.today()
-if fin > date.today():
+if fin > date.today() and not AVANCE:
     print(f"-> La formation se termine le {fin.strftime('%d/%m/%Y')}. Trop tot.")
     exit()
 
@@ -47,11 +53,8 @@ except _pdf.Indisponible as e:
 
 # LES MEMES PERSONNES QUE POUR L'ATTESTATION, et par la meme regle : tous les
 # inscrits actifs. Les absents se retirent a l'envoi, pas ici.
-lignes = [l for l in suivi.lire_lignes_de(S["code"])
-          if not l["annule_le"]
-          and "recontact" not in (l["demande"] or "").lower()
-          and suivi.calculer_statut(l) not in suivi.PAS_ENCORE_INSCRIT]
-a_faire = lignes if REFAIRE else [l for l in lignes if not certificat.existant(S["code"], l)]
+lignes = certificat.beneficiaires(S["code"])
+a_faire = lignes if REFAIRE else [l for l in lignes if not certificat.present(S["code"], l)]
 if not a_faire:
     print("-> Aucun certificat a generer.")
     exit()

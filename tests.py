@@ -1710,6 +1710,45 @@ def tests_mail_du_certificat():
     verifier("la voie de reclamation reste visible", "Adresser une r" in h)
 
 
+def tests_certificats_a_imprimer():
+    """GENERER ET TELECHARGER LES CERTIFICATS — 08/11/2026 : pour l'imprimeur,
+    avant la formation, et de nouveau pour une inscription tardive."""
+    print("\n  LES CERTIFICATS A IMPRIMER")
+    _isoler()
+    import io
+    import zipfile
+    import acces
+    import app as A
+    import certificat as C
+    racine = os.path.dirname(os.path.abspath(__file__))
+    src = open(os.path.join(racine, "generer_certificats.py"), encoding="utf-8").read()
+    verifier("la fabrication a l'avance existe", "AVANCE" in src and "not AVANCE" in src)
+    verifier("elle ne refait que ce qui manque", "certificat.present(S[\"code\"], l)" in src)
+    garde = (acces.protege, C.beneficiaires, C.existant, C.fond, dict(A.SESSIONS), A.fiche_session)
+    try:
+        acces.protege = lambda *a, **k: False
+        A.SESSIONS["essai-cert"] = {"organisme": "mon-organisme", "formation": "usures"}
+        A.fiche_session = lambda c=None: {"nom_formation": "Usures", "date_texte": "4 et 5 février 2027"}
+        gens = [{"nom": "LEVY", "prenom": "Kelly", "mail": "kelly@essai.test"},
+                {"nom": "COHEN", "prenom": "Sandy", "mail": "sandy@essai.test"}]
+        C.beneficiaires = lambda code: gens
+        C.existant = lambda code, l: b"%PDF-essai " + l["nom"].encode()
+        C.fond = lambda code: "fond.jpg"
+        r = A.app.test_client().post("/session/essai-cert/certificats/telecharger",
+                                     data={"mails": "kelly@essai.test"})
+        verifier("le telechargement rend un dossier compresse", r.status_code == 200
+                 and r.mimetype == "application/zip", (r.status_code, r.mimetype))
+        if r.status_code == 200:
+            noms = zipfile.ZipFile(io.BytesIO(r.data)).namelist()
+            verifier("un seul dossier, et seulement le certificat coche",
+                     noms == ["Certificats - Usures - 4 et 5 février 2027/Certificat - Kelly LEVY.pdf"], noms)
+        r = A.app.test_client().post("/session/essai-cert/certificats/telecharger", data={"mails": ""})
+        verifier("rien de coche, rien a telecharger", r.status_code == 404, r.status_code)
+    finally:
+        acces.protege, C.beneficiaires, C.existant, C.fond = garde[0], garde[1], garde[2], garde[3]
+        A.SESSIONS.clear(); A.SESSIONS.update(garde[4]); A.fiche_session = garde[5]
+
+
 def tests_objectifs_attestation():
     """L'ATTESTATION ECRIT LES OBJECTIFS DE LA FICHE — 08/11/2026 (Usures, objectif C)."""
     print("\n  LES OBJECTIFS DE L'ATTESTATION")
@@ -2562,7 +2601,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:

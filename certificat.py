@@ -222,6 +222,16 @@ def fabriquer(code_session, ligne):
     return _pdf.depuis_html(html(d))
 
 
+def beneficiaires(code_session):
+    """Les inscrits qui ont droit a un certificat : actifs, ni simples demandes
+    de rappel, ni en attente. La meme regle que pour l'attestation."""
+    import suivi
+    return [l for l in suivi.lire_lignes_de(code_session)
+            if not l["annule_le"]
+            and "recontact" not in (l["demande"] or "").lower()
+            and suivi.calculer_statut(l) not in suivi.PAS_ENCORE_INSCRIT]
+
+
 def present(code_session, ligne):
     """Le certificat de cette personne est-il fabrique ? Sans le lire."""
     import documents

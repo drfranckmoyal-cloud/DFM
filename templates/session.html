@@ -264,6 +264,11 @@ html[data-sombre] .jal-rond{background:#20242f}
   </div>
   <div class="hero-actions" id="hero-actions">
     {% if s.passee or (s.lignes | selectattr('lien_attestation') | list | length) %}<button type="button" class="btn btn-attest" title="Choisir les destinataires, puis envoyer" onclick="ouvrirAttestations()"><i class="ti ti-certificate"></i>Envoyer les attestations</button>{% endif %}
+    {# LES CERTIFICATS, A IMPRIMER A L'AVANCE — 08/11/2026. Deux gestes : les
+       fabriquer (ceux qui manquent, meme avant la formation), puis choisir
+       lesquels telecharger, en un seul dossier. #}
+    {% if certificat %}<button type="button" class="btn btn-second" title="Fabrique les certificats qui manquent, même avant la formation" onclick="ceGenerer(this)"><i class="ti ti-award"></i>Générer les certificats</button>
+    <button type="button" class="btn btn-second" title="Choisir les certificats à télécharger, en un seul dossier" onclick="ceOuvrir()"><i class="ti ti-download"></i>Télécharger les certificats</button>{% endif %}
     {% if s.sheet.lien_emargement %}<a class="btn btn-emargement" href="{{ s.sheet.lien_emargement }}" target="_blank"><i class="ti ti-clipboard-check"></i>Émargement</a>{% endif %}
     <button type="button" class="btn btn-second" title="Produit la feuille vierge à partir des inscrits actuels" onclick="regenererEmargement(this)"><i class="ti ti-refresh"></i>{{ 'Régénérer émargement' if s.sheet.lien_emargement else "Générer l'émargement" }}</button>
     <a class="btn btn-second" href="https://drive.google.com/drive/folders/{{ s.session.dossier_signees }}" target="_blank"><i class="ti ti-folder"></i>Drive</a>
@@ -2826,6 +2831,96 @@ function atBasculer(tout){
     if(!c.disabled) c.checked = tout;
   });
   atCompter();
+}
+// ---------------------------------------------------------------------------
+// LES CERTIFICATS A TELECHARGER — 08/11/2026. Meme fenetre que les attestations,
+// ses propres identifiants. Rien n'est coche d'office : on choisit, ou l'on
+// coche tout. Pendant une fabrication, la liste se met a jour toute seule.
+// ---------------------------------------------------------------------------
+var CE_SUIVI = null;
+function ceCode(){ return window.location.pathname.split("/session/")[1].split("/")[0]; }
+function ceGenerer(b){
+  if(b) b.disabled = true;
+  fetch("/session/" + ceCode() + "/certificats/generer", {method: "POST", headers: {"X-Requested-With": "fetch"}})
+  .then(function(r){ return r.json(); }).then(function(j){
+    if(b) b.disabled = false;
+    if(!j.ok){ dfmInfo("Certificats", atEchappe(j.message || "Impossible"), "attention"); return; }
+    if(j.en_cours){ ceOuvrir(j.message); }
+    else { dfmFenetre({ton: "succes", titre: j.message, corps: "",
+      boutons: [{libelle: "Fermer", style: "neutre"},
+                {libelle: "Télécharger", style: "primaire", icone: "ti-download", action: function(){ ceOuvrir(); }}]}); }
+  }).catch(function(e){ if(b) b.disabled = false; dfmInfo("Erreur", String(e), "danger"); });
+}
+function ceOuvrir(message){
+  var voile = document.getElementById("at_voile");
+  var modale = document.getElementById("at_modale");
+  var gardes = {};
+  document.querySelectorAll("#at_modale .ce-ligne input:checked").forEach(function(c){ gardes[c.dataset.mail] = 1; });
+  if(!modale.querySelector(".ce-ligne")){
+    modale.innerHTML = '<div class="at-tete"><i class="ti ti-award" style="font-size:20px;color:#7c5bf7"></i>'
+      + '<div><div style="font-size:15px;font-weight:600">Télécharger les certificats</div>'
+      + '<div style="font-size:12px;color:var(--muted);margin-top:2px">Chargement…</div></div></div>';
+  }
+  voile.style.display = "flex";
+  fetch("/session/" + ceCode() + "/certificats/liste").then(function(r){ return r.json(); }).then(function(j){
+    if(!j.ok){ modale.innerHTML = '<div class="at-tete"><div>' + atEchappe(j.message || "Impossible") + '</div></div>'
+      + '<div class="at-pied"><button class="btn btn-second" onclick="ceFermer()">Fermer</button></div>'; return; }
+    var gens = j.gens || [], prets = gens.filter(function(g){ return g.pret; }).length;
+    var lignes = gens.map(function(g){
+      var etat = g.pret ? '<span class="at-etat at-prete">prêt</span>'
+                        : '<span class="at-etat at-absente">' + (j.en_cours ? 'en fabrication…' : 'pas encore fabriqué') + '</span>';
+      return '<label class="at-ligne ce-ligne"><input type="checkbox" data-mail="' + atEchappe(g.mail) + '"'
+        + (g.pret && gardes[g.mail] ? ' checked' : '') + (g.pret ? '' : ' disabled') + ' onchange="ceCompter()">'
+        + '<span style="flex:1;font-size:13px">' + atEchappe(g.nom)
+        + '<span style="display:block;font-size:11px;color:var(--muted)">' + atEchappe(g.mail) + '</span></span>'
+        + etat + '</label>';
+    }).join("");
+    var manquent = gens.length - prets;
+    var note = message ? atEchappe(message)
+      : (manquent && !j.en_cours ? manquent + ' certificat(s) pas encore fabriqué(s) — une inscription tardive ? '
+         + '<a href="#" onclick="ceGenerer(null);return false">Les fabriquer</a>.'
+         : 'Cochez les certificats à récupérer : ils arrivent ensemble, dans un seul dossier compressé, prêts pour l\'imprimeur.');
+    modale.innerHTML =
+      '<div class="at-tete"><i class="ti ti-award" style="font-size:20px;color:#7c5bf7"></i>'
+      + '<div><div style="font-size:15px;font-weight:600">Télécharger les certificats</div>'
+      + '<div style="font-size:12px;color:var(--muted);margin-top:2px">' + atEchappe(j.formation)
+      + ' · ' + atEchappe(j.date_texte) + '</div></div></div>'
+      + '<div class="at-note">' + note + '</div>'
+      + '<div class="at-barre"><span>'
+      + '<button style="background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer;padding:8px 8px 8px 0;font-family:inherit" onclick="ceBasculer(true)">Tout cocher</button>'
+      + '<button style="background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer;padding:8px 0;font-family:inherit" onclick="ceBasculer(false)">Tout décocher</button>'
+      + '</span><span style="font-size:12px;color:var(--muted)"><b id="ce_nb" style="color:var(--text)">0</b>'
+      + ' coché(s) · ' + prets + ' prêt(s) sur ' + gens.length + '</span></div>'
+      + '<div class="at-liste">' + (lignes || '<div style="padding:18px 0;color:var(--muted);font-size:13px">Aucun inscrit actif.</div>') + '</div>'
+      + '<div class="at-pied"><button class="btn btn-second" onclick="ceFermer()">Fermer</button>'
+      + '<button class="btn btn-primary" id="ce_go" style="background:#7c5bf7" onclick="ceTelecharger()"><i class="ti ti-download"></i>Télécharger</button></div>';
+    ceCompter();
+    clearTimeout(CE_SUIVI);
+    if(j.en_cours){ CE_SUIVI = setTimeout(function(){ if(voile.style.display === "flex") ceOuvrir(message); }, 4000); }
+  });
+}
+function ceCompter(){
+  var n = document.querySelectorAll("#at_modale .ce-ligne input:checked").length;
+  var nb = document.getElementById("ce_nb"); if(nb) nb.textContent = n;
+  var b = document.getElementById("ce_go");
+  if(b){ b.disabled = (n === 0); b.innerHTML = '<i class="ti ti-download"></i>' + (n ? 'Télécharger ' + n + ' certificat(s)' : 'Télécharger'); }
+}
+function ceBasculer(v){
+  document.querySelectorAll("#at_modale .ce-ligne input").forEach(function(c){ if(!c.disabled) c.checked = v; });
+  ceCompter();
+}
+function ceFermer(){ clearTimeout(CE_SUIVI); document.getElementById("at_voile").style.display = "none";
+  document.getElementById("at_modale").innerHTML = ""; }
+function ceTelecharger(){
+  var mails = [];
+  document.querySelectorAll("#at_modale .ce-ligne input:checked").forEach(function(c){ mails.push(c.dataset.mail); });
+  if(!mails.length) return;
+  // UN FORMULAIRE, PAS UN fetch : c'est le navigateur qui doit recevoir le
+  // fichier et proposer de l'enregistrer.
+  var f = document.createElement("form");
+  f.method = "POST"; f.action = "/session/" + ceCode() + "/certificats/telecharger";
+  var i = document.createElement("input"); i.type = "hidden"; i.name = "mails"; i.value = mails.join(",");
+  f.appendChild(i); document.body.appendChild(f); f.submit(); f.remove();
 }
 function ouvrirAttestations(){
   var code = window.location.pathname.split("/session/")[1].split("/")[0];
