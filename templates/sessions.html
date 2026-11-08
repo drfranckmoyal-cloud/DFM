@@ -236,7 +236,7 @@ function demanderSuppression(code){
     }
     h += "<div class=\"sup-l\"><i class=\"ti ti-minus\"></i><span>La ligne de la session sera retiree de l'onglet Sessions.</span></div>";
     h += "<div class=\"sup-l\"><i class=\"ti ti-minus\"></i><span>La session disparaitra de DFM. Action irreversible.</span></div></div>";
-    h += "<div class=\"sup-bloc sup-vert\"><div class=\"sup-l\"><i class=\"ti ti-shield-check\"></i><span>Le Drive n'est pas touche : conventions, factures et attestations restent en place.</span></div><div class=\"sup-l\"><i class=\"ti ti-shield-check\"></i><span>Le journal d'activites est conserve.</span></div></div>";
+    h += "<div class=\"sup-bloc sup-vert\"><div class=\"sup-l\"><i class=\"ti ti-shield-check\"></i><span>Le Drive n'est pas touche : conventions, factures, attestations et certificats restent en place.</span></div><div class=\"sup-l\"><i class=\"ti ti-shield-check\"></i><span>Le journal d'activites est conserve.</span></div></div>";
     h += "<div><span class=\"sup-lab\">Recopie le code pour confirmer</span><input class=\"sup-champ\" id=\"sup_saisie\" placeholder=\"" + j.code + "\" oninput=\"supVerifier()\" autocomplete=\"off\"></div>";
     h += "<div class=\"sup-pied\"><button class=\"btn btn-ghost\" onclick=\"supFermer()\">Annuler</button><button class=\"btn sup-rge\" id=\"sup_bouton\" disabled onclick=\"supExecuter(this)\"><i class=\"ti ti-trash\"></i>Je confirme, supprimer</button></div>";
     supOuvrir(h);

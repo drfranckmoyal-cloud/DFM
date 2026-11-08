@@ -377,7 +377,7 @@ td{padding:6px 8px;border-bottom:1px solid #eef0f5}
       <div class="bloc-s">{{ o.ca_encaisse|round|int }} € sur {{ o.ca_attendu|round|int }} €</div></div>
     <div class="bloc"><div class="bloc-l">Attestations émises</div>
       <div class="bloc-v {{ 'vert' if o.nb_attestations == o.nb else 'orange' }}">{{ o.nb_attestations }}<span style="font-size:13px;color:#8a90a2"> / {{ o.nb }}</span></div>
-      <div class="bloc-s">remises aux participants</div></div>
+      <div class="bloc-s">remises aux participants{% if o.a_certificat %} · {{ o.nb_certificats }} certificat{{ 's' if o.nb_certificats > 1 }}{% endif %}</div></div>
     <div class="bloc"><div class="bloc-l">Émargement signé</div>
       <div class="bloc-v {{ 'vert' if o.emargement.signe_le else 'rouge' }}" style="font-size:15px">{{ o.emargement.signe_le or 'Non reçu' }}</div>
       <div class="bloc-s">preuve de présence</div></div>
@@ -392,7 +392,8 @@ td{padding:6px 8px;border-bottom:1px solid #eef0f5}
   <table>
     <thead><tr><th>Participant</th><th style="width:88px">Convention</th>
       <th class="num" style="width:76px">Montant</th><th style="width:88px">Réglé le</th>
-      <th style="width:74px">Facture</th><th style="width:88px">Attestation</th></tr></thead>
+      <th style="width:74px">Facture</th><th style="width:88px">Attestation</th>
+      {% if o.a_certificat %}<th style="width:74px">Certificat</th>{% endif %}</tr></thead>
     <tbody>
     {% for p in o.participants %}
       <tr>
@@ -403,6 +404,7 @@ td{padding:6px 8px;border-bottom:1px solid #eef0f5}
         <td>{% if p.reglement_le %}<span class="vert">{{ p.reglement_le }}</span>{% if p.mode %}<div style="font-size:9.5px;color:#8a90a2">{{ p.mode }}</div>{% endif %}{% else %}<span class="rouge">en attente</span>{% endif %}</td>
         <td>{% if p.facture_lien %}<span class="vert">émise</span>{% else %}<span style="color:#b9bfcc">—</span>{% endif %}</td>
         <td>{% if p.attestation_lien %}<span class="vert">{{ p.attestation_le or 'émise' }}</span>{% else %}<span style="color:#b9bfcc">—</span>{% endif %}</td>
+        {% if o.a_certificat %}<td>{% if p.certificat_lien %}<a class="vert" href="{{ p.certificat_lien }}" target="_blank" rel="noopener">émis</a>{% else %}<span style="color:#b9bfcc">—</span>{% endif %}</td>{% endif %}
       </tr>
     {% endfor %}
     </tbody>

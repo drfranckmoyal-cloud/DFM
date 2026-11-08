@@ -27,7 +27,7 @@ CATEGORIES = [
      "Évaluations des acquis, satisfaction et à froid, nominatives.",
      "Preuve de l'atteinte des objectifs — indicateur 11. Données personnelles."),
     ("conservation_sessions", 60, "Sessions et pièces de formation",
-     "Conventions, feuilles d'émargement, attestations, factures.",
+     "Conventions, feuilles d'émargement, attestations, certificats, factures.",
      "Cinq ans : durée attendue pour les pièces d'un organisme de formation."),
 ]
 

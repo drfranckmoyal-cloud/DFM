@@ -1324,8 +1324,16 @@ def detail_session(code):
             jalons = _jalons_session(code, s)
         except Exception:
             jalons = []
+    # LES CERTIFICATS DE CHACUN, pour la colonne des attestations — 08/11/2026.
+    certificat_info = _certificat_info(code)
+    certificats_liens = {}
+    if certificat_info:
+        for _l in (s.get("lignes") or []) if isinstance(s, dict) else []:
+            _lien = _certificat_lien(code, _l)
+            if _lien:
+                certificats_liens[_l.get("mail")] = _lien
     return render_template("session.html", s=s, dossiers=dossiers,
-                           certificat=_certificat_info(code),
+                           certificat=certificat_info, certificats_liens=certificats_liens,
                            fonctions=_Cf.FONCTIONS,
                            lien_inscription=lien_inscription,
                            etat_inscription=etat_inscription,
@@ -2061,6 +2069,15 @@ def reclamation_enregistrer(ident):
     except Exception:
         pass
     return jsonify({"ok": True, "reclamation": fiche})
+def _certificat_lien(code, ligne):
+    """Le lien du certificat de cette personne, "" s'il n'est pas fabrique."""
+    try:
+        import certificat as _cert
+        return _cert.lien(code, ligne) if _cert.present(code, ligne) else ""
+    except Exception:
+        return ""
+
+
 def _certificat_present(code, ligne):
     try:
         import certificat as _cert
@@ -3811,6 +3828,8 @@ def impact_annulation_groupe(code):
             docs.append("facture emise")
         if l.get("attestation_le"):
             docs.append("attestation generee")
+        if _certificat_present(code, l):
+            docs.append("certificat genere")
         concernes.append({
             "mail": m,
             "nom": ((l.get("prenom") or "") + " " + (l.get("nom") or "")).strip(),
@@ -5812,6 +5831,8 @@ def _qd_operationnel(code):
             "facture_le": (l.get("facture_envoyee_le") or "")[:10],
             "attestation_lien": l.get("lien_attestation") or "",
             "attestation_le": (l.get("attestation_le") or "")[:10],
+            # Le certificat, pour les formations qui en ont un — 08/11/2026.
+            "certificat_lien": _certificat_lien(code, l),
             "present": bool(l.get("present")),
             "promu": bool(l.get("promu_le")),
         })
@@ -5837,6 +5858,8 @@ def _qd_operationnel(code):
         "nb_reglements": len([p for p in participants if p["recu"]]),
         "nb_factures": len([p for p in participants if p["facture_lien"]]),
         "nb_attestations": len([p for p in participants if p["attestation_lien"]]),
+        "nb_certificats": len([p for p in participants if p["certificat_lien"]]),
+        "a_certificat": _certificat_info(code) is not None,
         "nb_presents": len([p for p in participants if p["present"]]),
         "emargement": emargement,
         "tarif": tarif,
