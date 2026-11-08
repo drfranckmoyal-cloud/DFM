@@ -1659,6 +1659,10 @@ def tests_certificats():
     verifier("le traitement quotidien le fabrique apres l'attestation",
              open(os.path.join(racine, "dfm.py"), encoding="utf-8").read().index("generer_certificats.py")
              > open(os.path.join(racine, "dfm.py"), encoding="utf-8").read().index("generer_attestations.py"))
+    verifier("le dossier de preuves le presente",
+             "Certificat de fin de formation" in open(os.path.join(racine, "preuve.py"), encoding="utf-8").read()
+             and '@app.route("/session/<code>/certificat/<mail>")' in open(os.path.join(racine, "app.py"),
+                                                                           encoding="utf-8").read())
     import documents
     verifier("il se range avec les attestations dans le Drive",
              documents.CATEGORIES["certificat"][0] == documents.CATEGORIES["attestation"][0])

@@ -6197,6 +6197,29 @@ def dossier_apprenant(code, mail):
     S = fiche_session(code)
     return render_template("dossier.html", d=d, edite=dt.now().strftime("%d/%m/%Y"),
                            organisme=S.get("organisme") or "", marque=S.get("marque") or "")
+@app.route("/session/<code>/certificat/<mail>")
+def voir_certificat(code, mail):
+    """Le certificat d'une personne, affiche dans le navigateur — 08/11/2026.
+
+    Pour le dossier de preuves : le certificat n'a pas de lien Drive sur la
+    ligne de suivi. On ne sert que celui d'une personne INSCRITE sur cette
+    session : l'adresse ne doit pas permettre de lire un autre document.
+    """
+    from flask import Response, abort
+    import certificat as _cert
+    import suivi as _sv
+    if code not in SESSIONS:
+        abort(404)
+    ligne = next((l for l in _sv.lire_lignes_de(code)
+                  if (l.get("mail") or "").strip().lower() == (mail or "").strip().lower()), None)
+    octets = _cert.existant(code, ligne) if ligne else None
+    if not octets:
+        abort(404)
+    return Response(octets, mimetype="application/pdf", headers={
+        "Content-Disposition": "inline; filename*=UTF-8''%s" % _quote_nom(_cert.nom_fichier(ligne)),
+        "Cache-Control": "private, max-age=300"})
+
+
 @app.route("/session/<code>/questionnaire/<mail>/<type_>")
 def questionnaire_rempli(code, mail, type_):
     """Un questionnaire tel qu'une personne l'a rempli, question par question.
@@ -6361,6 +6384,9 @@ def _ap_dossier(mail):
                 docs.append({"nom": "Facture", "lien": d["lien_facture"], "icone": "ti-receipt"})
             if d.get("lien_attestation"):
                 docs.append({"nom": "Attestation", "lien": d["lien_attestation"], "icone": "ti-certificate"})
+            if _certificat_present(code, d):
+                docs.append({"nom": "Certificat", "icone": "ti-award",
+                             "lien": "/session/%s/certificat/%s" % (code, d.get("mail") or "")})
             etapes = [
                 {"libelle": "Convention signée", "fait": bool(d.get("signe_le"))},
                 {"libelle": "Règlement reçu", "fait": bool(d.get("paiement_recu_le"))},

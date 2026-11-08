@@ -325,6 +325,20 @@ def dossier(code_session, mail):
         if (ligne.get(cle_lien) or "").strip():
             documents.append({"quoi": quoi, "quand": (ligne.get(cle_date) or "")[:10],
                               "lien": ligne[cle_lien]})
+    # LE CERTIFICAT — 08/11/2026. Il n'a pas de lien Drive sur la ligne : DFM le
+    # sert lui-meme, depuis sa copie locale. Sa date est celle de sa fabrication.
+    try:
+        import certificat as _cert
+        import documents as _docs
+        import os as _os
+        from datetime import datetime as _dt
+        chemin = _docs.chemin(_docs.reference(code_session, "certificat", _cert.nom_fichier(ligne)))
+        if chemin:
+            documents.append({"quoi": "Certificat de fin de formation",
+                              "quand": _dt.fromtimestamp(_os.path.getmtime(chemin)).strftime("%d/%m/%Y"),
+                              "lien": "/session/%s/certificat/%s" % (code_session, ligne.get("mail") or mail)})
+    except Exception:
+        pass
 
     manques = []
     if not (ligne.get("lien_pdf") or "").strip():
