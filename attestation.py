@@ -239,6 +239,16 @@ def pour(code_session, ligne, logo=None, attribuer=True):
         pass
 
     libelles = (modele or {}).get("objectifs") or {}
+    # LES OBJECTIFS S'ECRIVENT COMME LA FICHE FORMATION LES DECLARE — 08/11/2026.
+    # Le questionnaire garde ses propres intitules, et ceux d'Usures etaient
+    # restes a une ancienne version : l'attestation promettait « des
+    # restaurations composites antérieures stratifiées » quand la fiche, la
+    # convention et le programme annoncent « les matériaux et types de
+    # restaurations ». La fiche fait foi ; le questionnaire ne fournit que le
+    # rattachement des resultats, objectif par objectif, dans le meme ordre.
+    declares = [x.strip() for x in (S.get("objectifs") or []) if (x or "").strip()]
+    if libelles and len(declares) == len(libelles):
+        libelles = dict(zip(sorted(libelles), declares))
     objectifs = []
     if libelles:
         for cle in sorted(libelles):

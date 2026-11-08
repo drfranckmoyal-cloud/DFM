@@ -1655,6 +1655,33 @@ def tests_certificats():
              documents.CATEGORIES["certificat"][0] == documents.CATEGORIES["attestation"][0])
 
 
+def tests_objectifs_attestation():
+    """L'ATTESTATION ECRIT LES OBJECTIFS DE LA FICHE — 08/11/2026 (Usures, objectif C)."""
+    print("\n  LES OBJECTIFS DE L'ATTESTATION")
+    _isoler()
+    import attestation as A
+    import questionnaires as Q
+    import sessions as _s
+    garde = (_s.session, Q.modele_session, A._S.session if hasattr(A, "_S") else None)
+    fiche = dict(FICHE, objectifs=["Objectif un", "Objectif deux", "Objectif trois nouveau"],
+                 jours=[], formation="essai")
+    vieux = {"seuil": 70, "objectifs": {"A": "Objectif un", "B": "Objectif deux",
+                                         "C": "Ancien intitule composite"}, "questions": []}
+    try:
+        _s.session = lambda c=None: dict(fiche)
+        Q.modele_session = lambda *a, **k: vieux
+        d = A.pour(fiche["code"], {"nom": "X", "prenom": "Y", "mail": "x@essai.test"}, "")
+        libelles = [o["libelle"] for o in d["objectifs"]]
+        verifier("les intitules sont ceux de la fiche", libelles == fiche["objectifs"], libelles)
+        verifier("dans l'ordre des cles du questionnaire", [o["cle"] for o in d["objectifs"]] == ["A", "B", "C"])
+        vieux["objectifs"]["D"] = "Un quatrieme"
+        d = A.pour(fiche["code"], {"nom": "X", "prenom": "Y", "mail": "x@essai.test"}, "")
+        verifier("nombres differents : le questionnaire garde ses intitules",
+                 [o["libelle"] for o in d["objectifs"]][2] == "Ancien intitule composite")
+    finally:
+        _s.session, Q.modele_session = garde[0], garde[1]
+
+
 def tests_archive_et_verrous():
     """L'ARCHIVE DU SOIR NE DOIT PAS FAIRE SAUTER LE JOURNAL DE LA BASE — 31/10/2026.
 
@@ -2480,7 +2507,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:
