@@ -229,6 +229,14 @@ def present(code_session, ligne):
                                                      nom_fichier(ligne))))
 
 
+def lien(code_session, ligne):
+    """Le lien Drive du certificat, comme pour les autres pieces ; a defaut —
+    copie Drive pas encore partie —, l'adresse ou DFM le sert lui-meme."""
+    import documents
+    l = documents.lien(documents.reference(code_session, "certificat", nom_fichier(ligne)))
+    return l or "/session/%s/certificat/%s" % (code_session, (ligne or {}).get("mail") or "")
+
+
 def existant(code_session, ligne):
     """Les octets du certificat deja range pour cette personne, ou None."""
     import documents

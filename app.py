@@ -6201,9 +6201,9 @@ def dossier_apprenant(code, mail):
 def voir_certificat(code, mail):
     """Le certificat d'une personne, affiche dans le navigateur — 08/11/2026.
 
-    Pour le dossier de preuves : le certificat n'a pas de lien Drive sur la
-    ligne de suivi. On ne sert que celui d'une personne INSCRITE sur cette
-    session : l'adresse ne doit pas permettre de lire un autre document.
+    Le SECOURS du lien Drive, quand la copie n'est pas partie. On ne sert que
+    le certificat d'une personne INSCRITE sur cette session : l'adresse ne doit
+    pas permettre de lire un autre document.
     """
     from flask import Response, abort
     import certificat as _cert
@@ -6385,8 +6385,8 @@ def _ap_dossier(mail):
             if d.get("lien_attestation"):
                 docs.append({"nom": "Attestation", "lien": d["lien_attestation"], "icone": "ti-certificate"})
             if _certificat_present(code, d):
-                docs.append({"nom": "Certificat", "icone": "ti-award",
-                             "lien": "/session/%s/certificat/%s" % (code, d.get("mail") or "")})
+                import certificat as _cert
+                docs.append({"nom": "Certificat", "icone": "ti-award", "lien": _cert.lien(code, d)})
             etapes = [
                 {"libelle": "Convention signée", "fait": bool(d.get("signe_le"))},
                 {"libelle": "Règlement reçu", "fait": bool(d.get("paiement_recu_le"))},
