@@ -64,3 +64,11 @@ pour écrire le nom et les dates dans le style du modèle Canva. Toutes deux
 viennent de Google Fonts et sont sous **SIL Open Font 1.1**, qui autorise cette
 intégration. Les chasses des lettres recopiées dans `certificat.py` servent à
 réduire un nom trop long : si l'on change de police, il faut les remesurer.
+
+## La police des chiffres de la fiche de session (8 novembre 2026)
+
+`static/space-grotesk-*.woff2` sert aux grands chiffres et aux titres de la
+fiche de session redessinée (`templates/session.html`) : la date, les
+inscrits, l'encaissé, les cartes « à faire ». Elle n'est chargée que par cette
+page. Elle vient de Google Fonts, sous **SIL Open Font 1.1**. L'ancienne
+fiche (`templates/session_classique.html`) ne l'emploie pas.
