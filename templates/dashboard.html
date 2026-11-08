@@ -1,122 +1,180 @@
 {% extends "base.html" %}
 {% block titre %}Dashboard{% endblock %}
 {% block entete %}Dashboard{% endblock %}
-{% block sous_entete %}{{ aujourdhui.day }} {{ mois_court[aujourdhui.month] }} {{ aujourdhui.year }}{% endblock %}
+{% block sous_entete %}{% endblock %}
 {% block actions %}
-<button class="btn btn-secondary" title="Lancer le traitement automatique de DFM" onclick="lancer(this)"><i class="ti ti-player-play"></i>Traiter</button>
-<a class="btn btn-primary" href="/sessions"><i class="ti ti-plus"></i>Nouvelle session</a>
 {% endblock %}
 {% block corps %}
+<link rel="stylesheet" href="{{ statique('a-plus.css') }}">
+{% set MOIS = ['JANV.', 'FÉVR.', 'MARS', 'AVR.', 'MAI', 'JUIN', 'JUIL.', 'AOÛT', 'SEPT.', 'OCT.', 'NOV.', 'DÉC.'] %}
+{% set JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'] %}
+{% set AV = ['#2f5fe0', '#0f8a63', '#7c5bf7', '#e0611a', '#0e7490', '#c0266d'] %}
+{#
+  UN NOMBRE SANS NOM NE SE TRAITE PAS. Chaque carte « a traiter » nomme les
+  personnes et mene a l'ecran qui permet d'agir.
+#}
+{% macro gens(liste, total) %}
+  {% for x in liste %}<a class="al-qui" href="/session/{{ x.code }}">{{ x.nom }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+  {% if total > liste|length %} et {{ total - liste|length }} autre{{ 's' if total - liste|length > 1 }}{% endif %}
+{% endmacro %}
 
-{% if total_alertes %}
-<div class="alerte a-warn">
-  <i class="ti ti-bell" style="font-size:17px;flex:none"></i>
-  <div style="line-height:1.75">
-    <strong>{{ total_alertes }} point{{ 's' if total_alertes > 1 }} à traiter.</strong>
-    {#
-      UN NOMBRE SANS NOM NE SE TRAITE PAS. Le bandeau annoncait « 1 reglement en
-      attente » sans dire qui, ni ou aller : il fallait ouvrir les sessions une
-      a une. Chaque ligne nomme desormais les personnes et mene a l'ecran qui
-      permet d'agir.
-    #}
-    {% macro gens(liste, total) %}
-      {% for x in liste %}<a class="al-qui" href="/session/{{ x.code }}"
-        >{{ x.nom }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
-      {% if total > liste|length %} et {{ total - liste|length }} autre{{ 's' if total - liste|length > 1 }}{% endif %}
-    {% endmacro %}
-    {% if g.alertes.impayes %}
-    <div><i class="ti ti-coin" style="font-size:13px"></i>
-      <a class="al-lien" href="/reglements">{{ g.alertes.impayes }} règlement{{ 's' if g.alertes.impayes > 1 }} en attente</a>
-      — {{ gens(g.alertes.qui_impayes, g.alertes.impayes) }}</div>
-    {% endif %}
-    {# UNE DEMANDE NON VALIDEE SE VOIT DES L'ACCUEIL — 24/10/2026. Elle n'entre
-       dans aucun compte d'inscrits, par construction : sans cette ligne, elle
-       pourrait dormir des semaines sans que rien ne la signale. #}
-    {% if g.alertes.a_valider %}
-    <div><i class="ti ti-user-question" style="font-size:13px"></i>
-      {{ g.alertes.a_valider }} demande{{ 's' if g.alertes.a_valider > 1 }} d'inscription à valider
-      — {{ gens(g.alertes.qui_a_valider, g.alertes.a_valider) }}</div>
-    {% endif %}
-    {% if g.alertes.annulations %}
-    <div><i class="ti ti-alert-triangle" style="font-size:13px"></i>
-      {{ g.alertes.annulations }} annulation{{ 's' if g.alertes.annulations > 1 }} à valider
-      — {{ gens(g.alertes.qui_annulations, g.alertes.annulations) }}</div>
-    {% endif %}
-    {% if g.alertes.attente %}
-    <div><i class="ti ti-hourglass" style="font-size:13px"></i>
-      {{ g.alertes.attente }} en file d'attente
-      — {{ gens(g.alertes.qui_attente, g.alertes.attente) }}</div>
-    {% endif %}
-  </div>
-</div>
 <style>
 .al-lien,.al-qui{color:inherit;text-decoration:underline;text-underline-offset:2px}
 .al-lien:hover,.al-qui:hover{opacity:.75}
 .al-qui{font-weight:600}
-html[data-sombre] .al-lien,html[data-sombre] .al-qui{color:inherit}
+/* La prochaine session, posee sur le bandeau. */
+.db-proch{display:flex;gap:14px;align-items:center;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);
+  border-radius:16px;padding:12px 14px;color:#fff;text-decoration:none;min-width:280px;max-width:420px}
+.db-proch:hover{background:rgba(255,255,255,.13)}
+.db-date{flex:none;width:58px;height:64px;border-radius:13px;background:#ffd23f;color:#121c48;display:flex;flex-direction:column;
+  align-items:center;justify-content:center}
+.db-date span{font:800 9.5px Inter,sans-serif;letter-spacing:1px}
+.db-date b{font:700 23px/1.05 "Space Grotesk",Inter,sans-serif}
+.db-proch-l{font:700 10.5px Inter,sans-serif;letter-spacing:1.2px;text-transform:uppercase;color:#9fb0e8}
+.db-proch-t{font:700 16px/1.25 "Space Grotesk",Inter,sans-serif;margin:3px 0}
+.db-proch-s{font-size:12px;color:#b9c4ee}
+/* La grille. */
+.db-grille{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start}
+.db-gauche{display:flex;flex-direction:column;gap:16px;min-width:0}
+.db-gauche .ap-carte,.db-droite .ap-carte{margin-bottom:0}
+.db-droite{display:flex;flex-direction:column;gap:16px;min-width:0}
+.db-duo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.ap-carte-t a{color:inherit;font:600 12px Inter,sans-serif;letter-spacing:0;text-transform:none;text-decoration:none;opacity:.9}
+.ap-carte-t a:hover{opacity:1;text-decoration:underline}
+/* Formations en cours. */
+.db-f{display:block;border:1px solid var(--border);border-radius:14px;padding:14px 15px;text-decoration:none;color:inherit;transition:border-color .15s,box-shadow .15s}
+.db-f+.db-f{margin-top:10px}
+.db-f:hover{border-color:#2f5fe0;box-shadow:0 4px 14px rgba(47,95,224,.12)}
+.db-f-h{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.db-f-n{font:700 14.5px/1.3 "Space Grotesk",Inter,sans-serif;color:var(--text)}
+.db-f-g{font:700 26px/1 "Space Grotesk",Inter,sans-serif;color:#2448b8;text-align:right}
+.db-f-g small{display:block;font:500 10.5px Inter,sans-serif;color:var(--muted);margin-top:3px}
+.db-f-s{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;padding:5px 0}
+.db-f-s b{font-weight:600}
+.db-f-s span{color:var(--muted);white-space:nowrap}
+/* Le journal en colonne. */
+.db-j-jour{padding:8px 16px 6px;font:700 10.5px Inter,sans-serif;letter-spacing:1px;text-transform:uppercase;color:var(--muted);
+  background:var(--bg);border-top:1px solid var(--border)}
+.db-j-jour:first-child{border-top:0}
+.db-j{display:flex;gap:11px;align-items:flex-start;padding:10px 16px;border-top:1px solid var(--border)}
+.db-j-i{width:30px;height:30px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none}
+.db-j-i i{font-size:15px}
+.db-j-t{font-size:12.5px;font-weight:600;line-height:1.35;color:var(--text)}
+.db-j-m{font-size:11.5px;color:var(--muted);margin-top:2px}
+.db-j-tout{display:block;text-align:center;padding:12px;font:600 12.5px Inter,sans-serif;color:var(--accent);border-top:1px solid var(--border);text-decoration:none}
+/* Les villes. */
+.db-v{display:flex;align-items:center;gap:10px;padding:5px 0;font-size:13px}
+.db-v span:first-child{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.db-v .ap-barre{width:90px;height:8px;flex:none}
+.db-v b{font:700 14px "Space Grotesk",Inter,sans-serif;width:22px;text-align:right}
+@media (max-width:1200px){.db-grille{grid-template-columns:minmax(0,1fr)}.db-duo{grid-template-columns:minmax(0,1fr)}}
+html[data-sombre] .db-f-g{color:#8fb0ff}
 </style>
-{% endif %}
 
-<div style="display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:14px;align-items:stretch">
-
-  <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
-
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
-      <div class="kpi" style="padding:14px 15px">
-        <div class="kpi-icon" style="width:30px;height:30px;margin-bottom:9px;background:#eef3fe"><i class="ti ti-users" style="color:var(--accent);font-size:15px"></i></div>
-        <div class="kpi-label" style="font-size:10px">Praticiens formés</div>
-        <div class="kpi-value" style="font-size:25px">{{ g.praticiens_formes }}</div>
-        <div class="kpi-sub up" style="font-size:11px"><i class="ti ti-trending-up" style="font-size:12px"></i>{{ courbes.total[-1] }} ce mois</div>
-      </div>
-      <div class="kpi" style="padding:14px 15px">
-        <div class="kpi-icon" style="width:30px;height:30px;margin-bottom:9px;background:#eafaf3"><i class="ti ti-coin" style="color:var(--success);font-size:15px"></i></div>
-        <div class="kpi-label" style="font-size:10px">CA généré</div>
-        <div class="kpi-value" style="font-size:25px">{{ g.ca_total|euros }}</div>
-        <div class="kpi-sub" style="font-size:11px">{{ g.prix_moyen|euros }} / inscrit</div>
-      </div>
-      <div class="kpi" style="padding:14px 15px">
-        <div class="kpi-icon" style="width:30px;height:30px;margin-bottom:9px;background:#f0eefe"><i class="ti ti-calendar-event" style="color:var(--accent2);font-size:15px"></i></div>
-        <div class="kpi-label" style="font-size:10px">Sessions</div>
-        <div class="kpi-value" style="font-size:25px">{{ g.sessions_organisees }}</div>
-        <div class="kpi-sub" style="font-size:11px">dont {{ g.sessions_en_cours }} en cours</div>
-      </div>
-      <div class="kpi" style="padding:14px 15px">
-        <div class="kpi-icon" style="width:30px;height:30px;margin-bottom:9px;background:{{ '#fef7ec' if g.conv_attente else '#eafaf3' }}"><i class="ti ti-file-check" style="color:{{ 'var(--warn)' if g.conv_attente else 'var(--success)' }};font-size:15px"></i></div>
-        <div class="kpi-label" style="font-size:10px">Conv. en attente</div>
-        <div class="kpi-value" style="font-size:25px">{{ g.conv_attente }}</div>
-        <div class="kpi-sub {{ 'warn' if g.conv_attente else 'up' }}" style="font-size:11px">{{ 'Action requise' if g.conv_attente else 'à jour' }}</div>
-      </div>
-      <div class="kpi" style="padding:14px 15px">
-        <div class="kpi-icon" style="width:30px;height:30px;margin-bottom:9px;background:#f2f4f8"><i class="ti ti-star" style="color:#b6bcc9;font-size:15px"></i></div>
-        <div class="kpi-label" style="font-size:10px">Satisfaction</div>
-        <div class="kpi-value" style="font-size:25px;color:#b6bcc9">—</div>
-        <div class="kpi-sub" style="font-size:11px">questionnaires à venir</div>
+<header class="ap-hero">
+  <div class="ap-haut">
+    <div class="ap-ident">
+      <div class="ap-tags"><span class="ap-tag ap-tag-jaune">{{ JOURS[aujourdhui.weekday()] }} {{ aujourdhui.day }} {{ mois_court[aujourdhui.month] }} {{ aujourdhui.year }}</span></div>
+      <h1 class="ap-titre">{{ of_actif.nom if of_actif else 'Tableau de bord' }}</h1>
+      <p class="ap-intro">Vos formations en un coup d'œil : ce qui est à traiter, les dernières inscriptions et l'activité du jour.</p>
+      <div class="ap-actions" style="margin-top:4px">
+        <a class="btn ap-btn-jaune" href="/sessions"><i class="ti ti-plus"></i>Nouvelle session</a>
+        <button class="btn ap-btn-verre" title="Lancer le traitement automatique de DFM" onclick="lancer(this)"><i class="ti ti-player-play"></i>Traiter</button>
       </div>
     </div>
-
-    <div class="panel">
-      <div class="section-header" style="margin-bottom:12px">
-        <span class="section-title">Inscriptions récentes</span>
-        <a class="btn btn-ghost" style="font-size:12px;padding:6px 12px" href="/inscrits">Tous les praticiens <i class="ti ti-arrow-right"></i></a>
+    {% if prochaine %}
+    <a class="db-proch" href="/session/{{ prochaine.code }}" title="Ouvrir la prochaine session">
+      <div class="db-date"><span>{{ MOIS[prochaine.debut.month - 1] }}</span><b>{{ prochaine.debut.day }}</b></div>
+      <div style="min-width:0">
+        <div class="db-proch-l">Prochaine session · dans {{ prochaine.jours_avant }} jour{{ 's' if prochaine.jours_avant > 1 }}</div>
+        <div class="db-proch-t">{{ prochaine.session.nom_formation }}</div>
+        <div class="db-proch-s">{{ prochaine.places_occupees }}/{{ prochaine.places_max }} inscrits · {{ prochaine.signees }} convention{{ 's' if prochaine.signees > 1 }} signée{{ 's' if prochaine.signees > 1 }}</div>
       </div>
-      <table>
-        <thead><tr><th>Nom</th><th style="width:118px">Formation</th><th style="width:94px">Session</th><th style="width:112px">Convention</th><th style="width:112px">Règlement</th><th style="width:54px"></th></tr></thead>
+    </a>
+    {% endif %}
+  </div>
+  <div class="ap-score">
+    <div class="ap-s" style="--pt:#4f7ef8"><div class="ap-s-l">Praticiens formés</div><div class="ap-gros">{{ g.praticiens_formes }}</div>
+      <div class="ap-sous">{{ courbes.total[-1] }} inscrit{{ 's' if courbes.total[-1] > 1 }} ce mois</div></div>
+    <div class="ap-s" style="--pt:#2fc28b"><div class="ap-s-l">CA généré</div><div class="ap-gros">{{ g.ca_total|euros }}</div>
+      <div class="ap-sous">{{ g.prix_moyen|euros }} par inscrit</div></div>
+    <div class="ap-s" style="--pt:#a48bff"><div class="ap-s-l">Sessions</div><div class="ap-gros">{{ g.sessions_organisees }}</div>
+      <div class="ap-sous">{{ g.sessions_en_cours }} en cours · {{ g.formations_realisees }} réalisée{{ 's' if g.formations_realisees > 1 }}</div></div>
+    <div class="ap-s" style="--pt:#ffb547"><div class="ap-s-l">Conventions en attente</div><div class="ap-gros">{{ g.conv_attente }}</div>
+      <div class="ap-sous">{{ 'action requise' if g.conv_attente else 'tout est signé' }}</div></div>
+    <div class="ap-s" style="--pt:#ff8fb1"><div class="ap-s-l">Satisfaction</div>
+      <div class="ap-gros">{% if satis and satis.note is not none %}{{ satis.note }}<small>/5</small>{% else %}—{% endif %}</div>
+      <div class="ap-sous">{% if satis and satis.nb %}{{ satis.nb }} réponse{{ 's' if satis.nb > 1 }}{% else %}pas encore de réponse lue{% endif %}</div></div>
+  </div>
+</header>
+
+{# A TRAITER : une carte par sujet, avec les noms et le chemin pour agir.
+   Une demande non validee se voit des l'accueil (24/10/2026) : elle n'entre
+   dans aucun compte d'inscrits, et pourrait dormir des semaines. #}
+<div class="ap-afaire" style="grid-template-columns:repeat(auto-fit,minmax(250px,1fr))">
+  {% if g.alertes.a_valider %}
+  <div class="ap-af ap-af-bleu"><b>{{ g.alertes.a_valider }}</b><div>
+    <span class="ap-af-t">demande{{ 's' if g.alertes.a_valider > 1 }} d'inscription à valider</span>
+    <span class="ap-af-s">{{ gens(g.alertes.qui_a_valider, g.alertes.a_valider) }}</span></div></div>
+  {% endif %}
+  {% if g.alertes.annulations %}
+  <div class="ap-af ap-af-rouge"><b>{{ g.alertes.annulations }}</b><div>
+    <span class="ap-af-t">annulation{{ 's' if g.alertes.annulations > 1 }} à valider</span>
+    <span class="ap-af-s">{{ gens(g.alertes.qui_annulations, g.alertes.annulations) }}</span></div></div>
+  {% endif %}
+  {% if g.conv_attente %}
+  <div class="ap-af ap-af-orange"><b>{{ g.conv_attente }}</b><div>
+    <span class="ap-af-t">convention{{ 's' if g.conv_attente > 1 }} non signée{{ 's' if g.conv_attente > 1 }}</span>
+    <span class="ap-af-s">Envoyée{{ 's' if g.conv_attente > 1 }}, en attente de signature.</span>
+    <a class="btn ap-btn-noir" href="/conventions">Voir les conventions</a></div></div>
+  {% endif %}
+  {% if g.alertes.impayes %}
+  <div class="ap-af ap-af-orange"><b>{{ g.alertes.impayes }}</b><div>
+    <span class="ap-af-t"><a class="al-lien" href="/reglements">règlement{{ 's' if g.alertes.impayes > 1 }} en attente</a></span>
+    <span class="ap-af-s">{{ gens(g.alertes.qui_impayes, g.alertes.impayes) }}</span>
+    <a class="btn ap-btn-noir" href="/reglements">Voir les règlements</a></div></div>
+  {% endif %}
+  {% if g.alertes.attente %}
+  <div class="ap-af ap-af-violet"><b>{{ g.alertes.attente }}</b><div>
+    <span class="ap-af-t">en file d'attente</span>
+    <span class="ap-af-s">{{ gens(g.alertes.qui_attente, g.alertes.attente) }}</span></div></div>
+  {% endif %}
+  {% if not total_alertes and not g.conv_attente %}
+  <div class="ap-af ap-af-vert"><b><i class="ti ti-circle-check"></i></b><div>
+    <span class="ap-af-t">Rien à traiter</span>
+    <span class="ap-af-s">Aucune demande, annulation, convention ni règlement n'attend de geste de votre part.</span></div></div>
+  {% endif %}
+</div>
+
+<div class="db-grille">
+  <div class="db-gauche">
+
+    <section class="ap-carte">
+      <div class="ap-carte-t"><span>Inscriptions récentes</span><a href="/inscrits">Tous les praticiens <i class="ti ti-arrow-right"></i></a></div>
+      <div class="table-scroll">
+      <table class="ap-table" style="min-width:640px">
+        <thead><tr><th>Praticien</th><th style="width:150px">Formation</th><th style="width:96px">Session</th><th style="width:118px">Convention</th><th style="width:118px">Règlement</th><th style="width:46px"></th></tr></thead>
         <tbody>
         {% for l in recents %}
           <tr>
-            <td><div style="font-weight:500;font-size:12.5px">{{ l.nom }} {{ l.prenom }}</div><div style="color:var(--muted);font-size:11px">{{ l.mail }}</div></td>
-            <td style="font-size:12px">{{ l._formation }}</td>
-            <td style="font-size:11.5px;color:var(--muted)">{{ l._dates }}</td>
             <td>
-              {% if l.signe_le %}<span class="status-chip sc-sent"><span class="dot dot-green"></span>Signée</span>
-              {% elif l.mail1_envoye_le %}<span class="status-chip sc-wait"><span class="dot dot-warn"></span>Envoyée</span>
-              {% elif 'recontact' in l.demande|lower %}<span class="status-chip sc-off">À recontacter</span>
-              {% else %}<span class="status-chip sc-new"><span class="dot dot-blue"></span>Nouvelle</span>{% endif %}
+              <div class="ap-p">
+                <span class="ap-av" style="background:{{ AV[loop.index0 % 6] }}">{{ ((l.prenom or '')[:1] ~ (l.nom or '')[:1])|upper }}</span>
+                <div class="ap-p-t"><span class="ap-p-n">{{ l.nom }} {{ l.prenom }}</span><span class="ap-p-m">{{ l.mail }}</span></div>
+              </div>
+            </td>
+            <td style="font-size:12.5px;font-weight:600">{{ l._formation }}</td>
+            <td style="font-size:12px;color:var(--muted)">{{ l._dates }}</td>
+            <td>
+              {% if l.signe_le %}<span class="c c-ok">Signée</span>
+              {% elif l.mail1_envoye_le %}<span class="c c-att">Envoyée</span>
+              {% elif 'recontact' in l.demande|lower %}<span class="c c-todo">À recontacter</span>
+              {% else %}<span class="c c-bleu">Nouvelle</span>{% endif %}
             </td>
             <td>
-              {% if l.paiement_recu_le %}<span class="status-chip sc-sent"><span class="dot dot-green"></span>{{ l.montant_recu }} €</span>
-              {% elif l.mail2_envoye_le %}<span class="status-chip sc-wait"><span class="dot dot-warn"></span>En attente</span>
-              {% else %}<span style="color:var(--muted);font-size:12px">—</span>{% endif %}
+              {% if l.paiement_recu_le %}<span class="c c-ok">{{ l.montant_recu }} €</span>
+              {% elif l.mail2_envoye_le %}<span class="c c-att">En attente</span>
+              {% else %}<span class="ap-rien">—</span>{% endif %}
             </td>
             <td><a class="log-arrow" title="Ouvrir la session" href="/session/{{ l._session }}" aria-label="voir"><i class="ti ti-chevron-right"></i></a></td>
           </tr>
@@ -125,180 +183,120 @@ html[data-sombre] .al-lien,html[data-sombre] .al-qui{color:inherit}
         {% endfor %}
         </tbody>
       </table>
-    </div>
+      </div>
+    </section>
 
-    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:stretch">
-
-      <div class="panel" style="display:flex;flex-direction:column">
-        <div class="section-header" style="margin-bottom:12px;flex:none">
-          <span class="section-title">Formations en cours</span>
-          <a href="/formations" style="font-size:12px;color:var(--accent);font-weight:500">Voir tout</a>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:10px;flex:1">
+    <div class="db-duo">
+      <section class="ap-carte">
+        <div class="ap-carte-t violet"><span>Formations en cours</span><a href="/formations">Voir tout <i class="ti ti-arrow-right"></i></a></div>
+        <div class="ap-carte-b">
           {% for f in fiches %}
-          <a href="/formations" style="border:1px solid var(--border);border-radius:10px;padding:13px 15px;display:block;transition:border-color .15s,box-shadow .15s" onmouseover="this.style.borderColor='var(--accent)';this.style.boxShadow='0 2px 10px rgba(79,126,248,.09)'" onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='none'">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+          {% set tot = f.sessions|sum(attribute='places_occupees') %}
+          {% set sig = f.sessions|sum(attribute='signees') %}
+          <a class="db-f" href="/formations">
+            <div class="db-f-h">
               <div style="min-width:0">
-                <div style="font-size:13px;font-weight:500;line-height:1.35">{{ f.formation.nom_formation }}</div>
-                <span class="badge badge-blue" style="margin-top:6px"><i class="ti ti-calendar" style="font-size:11px"></i>{{ f.nb_sessions }} session{{ 's' if f.nb_sessions > 1 }}</span>
+                <div class="db-f-n">{{ f.formation.nom_formation }}</div>
+                <span class="c c-bleu c-pt" style="margin-top:7px"><i class="ti ti-calendar" style="font-size:12px"></i>{{ f.nb_sessions }} session{{ 's' if f.nb_sessions > 1 }}</span>
               </div>
-              <div style="text-align:right;flex:none">
-                <div style="font-size:21px;font-weight:500;color:var(--accent);line-height:1">{{ f.total_inscrits }}</div>
-                <div style="font-size:10px;color:var(--muted);margin-top:2px">inscrits</div>
-              </div>
+              <div class="db-f-g">{{ f.total_inscrits }}<small>inscrits</small></div>
             </div>
-            <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px">
+            <div style="border-top:1px solid var(--border);margin-top:11px;padding-top:7px">
               {% for s in f.sessions %}
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:11.5px">
-                <span style="font-weight:500">{{ s.debut|jour }}</span>
-                <div style="display:flex;gap:9px">
-                  <span class="stat-pill"><span class="dot dot-green"></span>{{ s.places_occupees }}</span>
-                  <span class="stat-pill"><span class="dot" style="background:var(--border2)"></span>{{ s.places_max - s.places_occupees }} libre{{ 's' if s.places_max - s.places_occupees > 1 }}</span>
-                </div>
-              </div>
+              <div class="db-f-s"><b>{{ s.debut|jour }}</b>
+                <span>{{ s.places_occupees }} inscrit{{ 's' if s.places_occupees > 1 }} · {{ [s.places_max - s.places_occupees, 0]|max }} libre{{ 's' if s.places_max - s.places_occupees > 1 }}</span></div>
               {% endfor %}
             </div>
-            {% set tot = f.sessions|sum(attribute='places_occupees') %}
-            {% set sig = f.sessions|sum(attribute='signees') %}
-            <div class="progress-bar" style="margin-top:10px"><div class="progress-fill" style="width:{{ (100 * sig / tot)|round|int if tot else 0 }}%;background:var(--accent)"></div></div>
-            <div style="font-size:10.5px;color:var(--muted);margin-top:5px">{{ sig }}/{{ tot }} convention{{ 's' if tot > 1 }} signée{{ 's' if tot > 1 }}</div>
+            <div class="ap-barre" style="height:8px;margin-top:9px"><i style="width:{{ (100 * sig / tot)|round|int if tot else 0 }}%;background:#0b9e6a"></i></div>
+            <div style="font-size:11.5px;color:var(--muted);margin-top:6px">{{ sig }}/{{ tot }} convention{{ 's' if tot > 1 }} signée{{ 's' if tot > 1 }}</div>
           </a>
           {% else %}
           <div class="vide" style="padding:30px 10px"><i class="ti ti-book"></i>Aucune formation</div>
           {% endfor %}
         </div>
-      </div>
+      </section>
 
-      <div class="panel" style="display:flex;flex-direction:column">
-        <div class="section-header" style="margin-bottom:14px;flex:none">
-          <span class="section-title">Inscriptions par mois</span>
-          <span style="font-size:12px;color:var(--muted)">{{ courbes.total_somme }} sur 12 mois</span>
-        </div>
-        <div style="flex:1;display:flex;flex-direction:column;justify-content:center">
+      <section class="ap-carte">
+        <div class="ap-carte-t noir"><span>Inscriptions par mois</span><span>{{ courbes.total_somme }} sur 12 mois</span></div>
+        <div class="ap-carte-b">
           <svg viewBox="0 0 {{ courbes.largeur }} {{ courbes.hauteur }}" style="width:100%;height:auto;display:block" aria-hidden="true">
             <defs><linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#4f7ef8" stop-opacity=".14"/>
-              <stop offset="100%" stop-color="#4f7ef8" stop-opacity="0"/>
+              <stop offset="0%" stop-color="#2f5fe0" stop-opacity=".22"/>
+              <stop offset="100%" stop-color="#2f5fe0" stop-opacity="0"/>
             </linearGradient></defs>
-            <line x1="10" y1="{{ courbes.hauteur - 12 }}" x2="{{ courbes.largeur - 10 }}" y2="{{ courbes.hauteur - 12 }}" stroke="#e5e8f0" stroke-width="1"/>
+            <line x1="10" y1="{{ courbes.hauteur - 12 }}" x2="{{ courbes.largeur - 10 }}" y2="{{ courbes.hauteur - 12 }}" style="stroke:var(--border)" stroke-width="1"/>
             <path d="{{ courbes.aire_total }}" fill="url(#grad)"/>
             {% for c in courbes.courbes %}
-            <path d="{{ c.chemin }}" fill="none" stroke="{{ c.couleur }}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="3 2" opacity=".75"/>
+            <path d="{{ c.chemin }}" fill="none" stroke="{{ c.couleur }}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="3 2" opacity=".8"/>
             {% endfor %}
-            <path d="{{ courbes.chemin_total }}" fill="none" stroke="#1e2235" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-            <circle cx="{{ courbes.dernier_x }}" cy="{{ courbes.dernier_y }}" r="3" fill="#1e2235"/>
+            <path d="{{ courbes.chemin_total }}" fill="none" style="stroke:var(--text)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+            <circle cx="{{ courbes.dernier_x }}" cy="{{ courbes.dernier_y }}" r="4" fill="#ffd23f" style="stroke:var(--text)" stroke-width="2"/>
           </svg>
-          <div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--muted);margin-top:4px;padding:0 8px">
-            {% for m in courbes.mois %}<span {% if loop.last %}style="color:var(--text);font-weight:600"{% endif %}>{{ mois_court[m.mois][0]|upper }}</span>{% endfor %}
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:5px;padding:0 8px">
+            {% for m in courbes.mois %}<span {% if loop.last %}style="color:var(--text);font-weight:700"{% endif %}>{{ mois_court[m.mois][0]|upper }}</span>{% endfor %}
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600">
+              <span style="width:16px;height:3px;background:var(--text);border-radius:2px"></span>Total · {{ courbes.total_somme }}
+            </span>
+            {% for c in courbes.courbes %}
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
+              <span style="width:16px;height:3px;background:{{ c.couleur }};border-radius:2px"></span>{{ c.nom }} · {{ c.total }}
+            </span>
+            {% endfor %}
           </div>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:10px 14px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);flex:none">
-          <span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:500">
-            <span style="width:14px;height:2px;background:#1e2235;border-radius:2px"></span>Total · {{ courbes.total_somme }}
-          </span>
-          {% for c in courbes.courbes %}
-          <span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)">
-            <span style="width:14px;height:2px;background:{{ c.couleur }};border-radius:2px;opacity:.8"></span>{{ c.nom }} · {{ c.total }}
-          </span>
-          {% endfor %}
-        </div>
-      </div>
-
+      </section>
     </div>
 
   </div>
 
-  <div class="panel" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
-    <div style="display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid var(--border);flex:none">
-      <i class="ti ti-history" style="font-size:15px;color:var(--accent)"></i>
-      <span style="font-size:13px;font-weight:500">Journal d'activités</span>
-    </div>
-    <div style="flex:1;overflow-y:auto;min-height:0">
-      {% set jour_vu = [] %}
-      {% for e in activite %}
-        {% if e.date not in jour_vu %}
-          {% set _ = jour_vu.append(e.date) %}
-          <div style="padding:8px 16px 5px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0">{{ e.date }}</div>
-        {% endif %}
-        <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 16px;border-bottom:1px solid #f0f2f6">
-          <div style="width:26px;height:26px;border-radius:7px;background:{{ e.style.fond }};display:flex;align-items:center;justify-content:center;flex:none">
-            <i class="ti {{ e.style.icone }}" style="color:{{ e.style.couleur }};font-size:13px"></i>
-          </div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:11.5px;font-weight:500;line-height:1.35">{{ e.type_action }}</div>
-            <div style="font-size:10.5px;color:var(--muted);margin-top:2px">
-              {% if e.praticien %}<span style="color:var(--accent)">{{ e.praticien }}</span> · {% endif %}{{ e.heure }}{% if e.montant %} · <span style="color:var(--success);font-weight:600">{{ e.montant }} €</span>{% endif %}
+  <aside class="db-droite">
+    <section class="ap-carte">
+      <div class="ap-carte-t noir"><span><i class="ti ti-history" style="font-size:14px;vertical-align:-2px"></i> Journal d'activités</span></div>
+      <div>
+        {% set jour_vu = [] %}
+        {% for e in activite %}
+          {% if e.date not in jour_vu %}
+            {% set _ = jour_vu.append(e.date) %}
+            <div class="db-j-jour">{{ e.date }}</div>
+          {% endif %}
+          <div class="db-j">
+            <div class="db-j-i" style="background:{{ e.style.fond }}"><i class="ti {{ e.style.icone }}" style="color:{{ e.style.couleur }}"></i></div>
+            <div style="flex:1;min-width:0">
+              <div class="db-j-t">{{ e.type_action }}</div>
+              <div class="db-j-m">{% if e.praticien %}<span style="color:var(--accent);font-weight:600">{{ e.praticien }}</span> · {% endif %}{{ e.heure }}{% if e.montant %} · <span style="color:var(--success);font-weight:700">{{ e.montant }} €</span>{% endif %}</div>
             </div>
           </div>
-        </div>
-      {% else %}
-        {% if journal_souci %}
-        {# « Aucune activité » serait faux quand la lecture a échoué : on dit ce
-           qui s'est passé, sinon on cherche au mauvais endroit. #}
-        <div style="margin:10px;padding:14px 15px;font-size:12px;color:#8a5a06;line-height:1.55;
-                    background:rgba(212,137,10,.10);border:1px solid rgba(212,137,10,.24);border-radius:9px">
-          <b>Journal indisponible.</b><br>{{ journal_souci }}
-        </div>
         {% else %}
-        <div class="vide" style="padding:34px 16px"><i class="ti ti-history"></i>Aucune activité</div>
-        {% endif %}
-      {% endfor %}
-    </div>
-    {% if activite %}
-    <a href="/journal" style="display:block;text-align:center;padding:11px;font-size:12px;color:var(--accent);font-weight:500;border-top:1px solid var(--border);flex:none">Voir tout le journal <i class="ti ti-arrow-right" style="vertical-align:-2px"></i></a>
-    {% endif %}
-  </div>
+          {% if journal_souci %}
+          {# « Aucune activité » serait faux quand la lecture a échoué : on dit ce
+             qui s'est passé, sinon on cherche au mauvais endroit. #}
+          <div style="margin:12px;padding:14px 15px;font-size:12.5px;color:#8a5a06;line-height:1.55;
+                      background:rgba(212,137,10,.10);border:1px solid rgba(212,137,10,.24);border-radius:12px">
+            <b>Journal indisponible.</b><br>{{ journal_souci }}
+          </div>
+          {% else %}
+          <div class="vide" style="padding:34px 16px"><i class="ti ti-history"></i>Aucune activité</div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% if activite %}
+      <a class="db-j-tout" href="/journal">Voir tout le journal <i class="ti ti-arrow-right" style="vertical-align:-2px"></i></a>
+      {% endif %}
+    </section>
 
-</div>
-
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px">
-
-  <div class="panel" style="padding:16px 18px;display:flex;align-items:center;gap:14px">
-    <div class="kpi-icon" style="width:38px;height:38px;margin:0;background:#eef3fe;flex:none"><i class="ti ti-users-group" style="color:var(--accent);font-size:19px"></i></div>
-    <div>
-      <div style="font-size:24px;font-weight:500;line-height:1">{{ g.praticiens_formes }}</div>
-      <div class="kpi-label" style="margin:6px 0 0">Praticiens formés</div>
-    </div>
-  </div>
-
-  <div class="panel" style="padding:16px 18px;display:flex;align-items:center;gap:14px">
-    <div class="kpi-icon" style="width:38px;height:38px;margin:0;background:#f0eefe;flex:none"><i class="ti ti-school" style="color:var(--accent2);font-size:19px"></i></div>
-    <div>
-      <div style="font-size:24px;font-weight:500;line-height:1">{{ g.formations_realisees }}</div>
-      <div class="kpi-label" style="margin:6px 0 0">Formations réalisées</div>
-    </div>
-  </div>
-
-  <div class="panel" style="padding:16px 18px">
-    <div class="kpi-label" style="margin-bottom:10px">Top villes d'origine</div>
-    {% for ville, n in g.villes[:3] %}
-    <div style="display:flex;align-items:center;gap:9px;padding:3px 0">
-      <span style="font-size:12px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ ville }}</span>
-      <div class="progress-bar" style="width:48px;margin:0;flex:none"><div class="progress-fill" style="width:{{ (100 * n / g.villes[0][1])|round|int }}%;background:var(--accent)"></div></div>
-      <span style="font-size:11.5px;font-weight:500;width:14px;text-align:right;flex:none">{{ n }}</span>
-    </div>
-    {% else %}
-    <div style="font-size:12px;color:var(--muted);padding:8px 0">Aucune donnée</div>
-    {% endfor %}
-  </div>
-
-  <div class="panel" style="padding:16px 18px">
-    <div class="kpi-label" style="margin-bottom:10px">Points d'attention</div>
-    {% set pts = [] %}
-    {% if g.conv_attente %}{% set _ = pts.append(('ti-file-alert','var(--warn)', g.conv_attente ~ ' convention(s) non signée(s)')) %}{% endif %}
-    {% if g.alertes.impayes %}{% set _ = pts.append(('ti-coin','var(--warn)', g.alertes.impayes ~ ' règlement(s) en attente')) %}{% endif %}
-    {% if g.alertes.annulations %}{% set _ = pts.append(('ti-alert-triangle','var(--danger)', g.alertes.annulations ~ " annulation(s) à valider")) %}{% endif %}
-    {% if g.alertes.attente %}{% set _ = pts.append(('ti-hourglass','var(--accent)', g.alertes.attente ~ " en file d'attente")) %}{% endif %}
-    {% if prochaine %}{% set _ = pts.append(('ti-calendar','var(--accent)', prochaine.session.nom_formation ~ ' dans ' ~ prochaine.jours_avant ~ ' jours')) %}{% endif %}
-    {% for icone, couleur, titre in pts[:3] %}
-    <div style="display:flex;align-items:center;gap:8px;padding:3px 0">
-      <i class="ti {{ icone }}" style="font-size:14px;color:{{ couleur }};flex:none"></i>
-      <span style="font-size:12px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ titre }}</span>
-    </div>
-    {% else %}
-    <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--success);padding:8px 0"><i class="ti ti-check" style="font-size:14px"></i>Rien à signaler</div>
-    {% endfor %}
-  </div>
-
+    <section class="ap-carte">
+      <div class="ap-carte-t vert"><span>Top villes d'origine</span></div>
+      <div class="ap-carte-b">
+        {% for ville, n in g.villes[:5] %}
+        <div class="db-v"><span>{{ ville }}</span>
+          <div class="ap-barre"><i style="width:{{ (100 * n / g.villes[0][1])|round|int }}%;background:#0b9e6a"></i></div><b>{{ n }}</b></div>
+        {% else %}
+        <div style="font-size:12.5px;color:var(--muted)">Aucune donnée</div>
+        {% endfor %}
+      </div>
+    </section>
+  </aside>
 </div>
 {% endblock %}

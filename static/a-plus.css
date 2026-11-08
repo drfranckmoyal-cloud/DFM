@@ -184,3 +184,10 @@ html[data-sombre] .ap-pilules button.on{background:#ffd23f !important;color:#141
    elles dépassaient du tableau et faisaient apparaître un défilement horizontal. */
 .ap-table td:last-child [data-tip]:after{left:auto;right:0;transform:none}
 .ap-table td:last-child [data-tip]:not(.ti):before{left:auto;right:8px;transform:none}
+
+/* Des pilules qui sont des liens (le journal filtre par l'adresse de la page). */
+.ap-pilules a{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 13px;border-radius:10px;color:var(--muted);
+  font:600 12.5px Inter,sans-serif;text-decoration:none;white-space:nowrap}
+.ap-pilules a:hover{color:var(--text)}
+.ap-pilules a.active{background:#141a2e;color:#fff}
+html[data-sombre] .ap-pilules a.active{background:#ffd23f;color:#141a2e}

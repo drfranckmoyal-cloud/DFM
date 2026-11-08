@@ -173,6 +173,41 @@ import courrier
 def _erreur_inconnue(e):
     """Une fiche disparue ne doit pas couper l'ecran entier (B5)."""
     return render_template("erreur.html", message=str(e)), 404
+_SATIS_ACCUEIL = {}
+def _satisfaction_accueil():
+    """LA SATISFACTION DU TABLEAU DE BORD — 08/11/2026. La carte annoncait
+    « questionnaires a venir » alors qu'ils tournent depuis des mois. Elle
+    reprend le chiffre de l'ecran Questionnaires, calcule de la meme facon.
+
+    Les reponses vivent dans Supabase : l'accueil ne doit pas en dependre. La
+    valeur est gardee dix minutes par organisme, et jamais attendue plus de
+    trois secondes — au-dela, la carte affiche un tiret, et la lecture lancee
+    en fond remplira la suivante."""
+    import threading
+    import time
+    try:
+        import profil as PR
+        org = PR.actif()
+    except Exception:
+        org = ""
+    deja = _SATIS_ACCUEIL.get(org)
+    if deja and time.time() - deja[0] < 600:
+        return deja[1]
+
+    def lire():
+        try:
+            notes = [g["satisfaction"] for s in _qd_sessions() for g in s.get("gens", [])
+                     if g.get("satisfaction") is not None]
+            v = {"note": _qd_moyenne(notes), "nb": len(notes)} if notes else None
+        except Exception:
+            v = None
+        _SATIS_ACCUEIL[org] = (time.time(), v)
+
+    t = threading.Thread(target=lire, daemon=True)
+    t.start()
+    t.join(3)
+    deja = _SATIS_ACCUEIL.get(org)
+    return deja[1] if deja else None
 @app.route("/")
 def tableau_de_bord():
     g = donnees.global_kpi()
@@ -197,7 +232,8 @@ def tableau_de_bord():
             recents.append(l)
     recents.sort(key=lambda l: l["horodateur"], reverse=True)
     courbes = donnees.courbes_formations(g["sessions"])
-    return render_template("dashboard.html", g=g, prochaine=prochaine,
+    satis = _satisfaction_accueil() if _par("page_accueil", "nouvelle") != "classique" else None
+    return render_template(_gabarit("dashboard", "page_accueil"), g=g, prochaine=prochaine, satis=satis,
                            total_alertes=total_alertes, fiches=fiches,
                            recents=recents[:8], courbes=courbes,
                            activite=[dict(e, style=journal.style(e["type_action"])) for e in g["journal"][:7]],
@@ -2406,7 +2442,7 @@ def voir_journal():
             courant = {"date": e["date"], "libelle": libelle, "entrees": []}
             jours.append(courant)
         courant["entrees"].append(e)
-    return render_template("journal.html", jours=jours, total=len(entrees),
+    return render_template(_gabarit("journal", "page_journal"), jours=jours, total=len(entrees),
                            categories=journal.CATEGORIES, categorie=categorie,
                            recherche=request.args.get("q") or "",
                            sessions_dispo=couleurs, filtre_session=filtre_session)

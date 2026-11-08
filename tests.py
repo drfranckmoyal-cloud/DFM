@@ -1780,7 +1780,8 @@ def tests_fiche_session_deux_presentations():
     route = open(os.path.join(racine, "app.py"), encoding="utf-8").read()
     for page, cle in (("session", "fiche_session"), ("formations", "page_formations"),
                       ("questionnaires", "page_questionnaires"), ("conventions", "page_conventions"),
-                      ("reglements", "page_reglements")):
+                      ("reglements", "page_reglements"), ("dashboard", "page_accueil"),
+                      ("journal", "page_journal")):
         neuve, ancienne = lire(page + ".html"), lire(page + "_classique.html")
         try:
             A.app.jinja_env.get_template(page + ".html")
