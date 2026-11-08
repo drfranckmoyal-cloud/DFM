@@ -1332,7 +1332,9 @@ def detail_session(code):
             _lien = _certificat_lien(code, _l)
             if _lien:
                 certificats_liens[_l.get("mail")] = _lien
-    return render_template("session.html", s=s, dossiers=dossiers,
+    # LA NOUVELLE FICHE, OU L'ANCIENNE — 08/11/2026. Parametres > Affichage.
+    gabarit = "session_classique.html" if _par("fiche_session", "nouvelle") == "classique" else "session.html"
+    return render_template(gabarit, s=s, dossiers=dossiers,
                            certificat=certificat_info, certificats_liens=certificats_liens,
                            fonctions=_Cf.FONCTIONS,
                            lien_inscription=lien_inscription,

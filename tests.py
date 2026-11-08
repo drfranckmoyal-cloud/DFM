@@ -1762,6 +1762,38 @@ def tests_certificats_a_imprimer():
         A.SESSIONS.clear(); A.SESSIONS.update(garde[4]); A.fiche_session = garde[5]
 
 
+def tests_fiche_session_deux_presentations():
+    """LA FICHE DE SESSION REDESSINEE — 08/11/2026 (maquette A+). L'ancienne
+    reste disponible : un reglage la ramene, sans rien redeployer."""
+    print("\n  LA FICHE DE SESSION, NOUVELLE ET CLASSIQUE")
+    import re
+    import app as A
+    import parametres as P
+    racine = os.path.dirname(os.path.abspath(__file__))
+    lire = lambda n: open(os.path.join(racine, "templates", n), encoding="utf-8").read()
+    neuve, ancienne = lire("session.html"), lire("session_classique.html")
+    for nom in ("session.html", "session_classique.html"):
+        try:
+            A.app.jinja_env.get_template(nom)
+            verifier("%s se compile" % nom, True)
+        except Exception as e:
+            verifier("%s se compile" % nom, False, e)
+    ids = lambda t: set(re.findall(r'id="([^"{]+)"', t))
+    verifier("aucun element de l'ancienne page ne manque a la nouvelle",
+             not (ids(ancienne) - ids(neuve)), sorted(ids(ancienne) - ids(neuve)))
+    fn = lambda t: set(re.findall(r"function\s+(\w+)\s*\(", t))
+    verifier("aucune de ses fonctions non plus", not (fn(ancienne) - fn(neuve)),
+             sorted(fn(ancienne) - fn(neuve)))
+    clic = lambda t: set(re.findall(r'onclick="(\w+)\(', t))
+    verifier("ni aucun de ses boutons", not (clic(ancienne) - clic(neuve)),
+             sorted(clic(ancienne) - clic(neuve)))
+    reglage = [x for x in P.SCHEMA if x.get("cle") == "fiche_session"]
+    verifier("le retour arriere est un reglage", len(reglage) == 1
+             and [o[0] for o in reglage[0].get("options", [])] == ["nouvelle", "classique"])
+    route = open(os.path.join(racine, "app.py"), encoding="utf-8").read()
+    verifier("et la route l'ecoute", '"session_classique.html" if _par("fiche_session", "nouvelle") == "classique"' in route)
+
+
 def tests_accuse_selon_situation():
     """L'ACCUSE ANNONCE LA BONNE SUITE — 08/11/2026 (Guillaume DUCHENE, liste
     d'attente, a qui l'on avait promis une convention)."""
@@ -2654,7 +2686,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:

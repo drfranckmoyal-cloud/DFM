@@ -1,25 +1,9 @@
 {% extends "base.html" %}
 {% block titre %}{{ s.session.nom_formation }}{% endblock %}
-{% block entete %}{{ s.session.titre_complet }}{% endblock %}
-{% block sous_entete %}{{ s.session.date_texte }} · {% if s.mode == 'client' %}<span style="color:#4b3fb8;font-weight:600"><i class="ti ti-building"></i> Formation réalisée pour {{ s.client_nom }}</span>{% else %}<span style="color:var(--muted);font-weight:600"><i class="ti ti-user"></i> Session à inscriptions individuelles</span>{% endif %}{% endblock %}
+{% block entete %}Session de formation{% endblock %}
+{% block sous_entete %}{% endblock %}
 {% block actions %}
 <a class="btn btn-ghost" href="/sessions" title="Revenir a la liste des sessions"><i class="ti ti-arrow-left"></i>Toutes les sessions</a>
-{% if s.mode == 'client' %}
-<button class="btn" onclick="paSaisir()"><i class="ti ti-user-plus"></i>Saisir les participants</button>
-{% else %}
-{# INVITER QUELQU'UN QUI N'EST PAS ENCORE LA. Le bouton « Apprenant invité » de
-   la liste ne sert qu'a un inscrit deja present ; celui-ci part d'une simple
-   adresse. Absent des sessions client : la convention y est collective, et
-   c'est le client qui paie pour tout le monde. #}
-<button class="btn" title="Inviter quelqu'un qui n'est pas encore inscrit : il recevra le formulaire, et sera classé invité·e, sans rien à régler" onclick="inviterParAdresse()"><i class="ti ti-mail-heart"></i>Inviter un participant</button>
-{% endif %}
-{# SYNCHRONISER A QUITTE LE BANDEAU — 04/10/2026. Du JavaScript le retrouvait
-   par son texte, le recolorait en bleu vif et le placait EN PREMIER de la rangee
-   d'actions : l'action la moins utilisee occupait la place la plus voyante, et
-   repoussait les boutons du quotidien. Il revient ici, dans la barre du haut,
-   avec les autres actions globales de l'ecran, et sans fond colore. #}
-<button class="btn btn-ghost" id="btn-synchroniser" title="Aller chercher les nouveautes : inscriptions, signatures, annulations, puis envoyer ce qui doit partir" onclick="lancer(this)"><i class="ti ti-player-play"></i>Synchroniser</button>
-<button class="btn" style="background:var(--carte);color:var(--danger);border:1px solid #f0b8b8" title="Supprimer definitivement cette session" onclick="demanderSuppression()"><i class="ti ti-trash"></i>Supprimer cette session</button>
 {% endblock %}
 {% block corps %}
 {% include "_relief.html" %}
@@ -221,149 +205,85 @@ html[data-sombre] .jal-rond{background:#20242f}
   <span>{{ s.debut|jour }}</span>
 </div>
 
-<div class="hero-duo">
-<div class="session-hero">
-  <div class="hero-haut">
-  <div class="hero-ident">
-    <div class="session-badge {{ 'grey' if s.passee else ('warn' if s.sheet.statut == 'cloturee' else '') }}">
-      <i class="ti ti-{{ 'check' if s.passee else ('lock' if s.sheet.statut == 'cloturee' else 'circle-check') }}" style="font-size:11px"></i>
-      {{ 'Formation passée' if s.passee else ('Inscriptions closes' if s.sheet.statut == 'cloturee' else 'Session en cours') }}
+{# LA FICHE DE SESSION, VERSION A+ — 08/11/2026, maquette validee par Franck.
+   Le titre une seule fois, sur un bandeau nuit ; les etapes, les chiffres et
+   les envois reunis en trois temps ; ce qui demande un geste en trois cartes ;
+   la liste des inscrits aux colonnes detaillees. L'ancienne page est
+   templates/session_classique.html : Parametres > Affichage pour y revenir. #}
+{% set MOIS = ['JANV.', 'FÉVR.', 'MARS', 'AVR.', 'MAI', 'JUIN', 'JUIL.', 'AOÛT', 'SEPT.', 'OCT.', 'NOV.', 'DÉC.'] %}
+{% set d1 = (s.session.date_debut or '')|string %}
+{% set d2 = (s.session.date_fin or s.session.date_debut or '')|string %}
+{% set J = {} %}{% for j in jalons or [] %}{% set _ = J.update({j.libelle: j}) %}{% endfor %}
+{% macro etat(j, avenir='à venir') -%}
+  {%- if not j -%}<span class="c c-todo">{{ avenir }}</span>
+  {%- elif j.etat == 'fait' -%}<span class="c c-ok">{{ ('fait le ' ~ j.date[:5]) if j.date else 'fait' }}</span>
+  {%- elif j.etat == 'partiel' -%}<span class="c c-att">{{ j.sur or 'en cours' }}</span>
+  {%- elif j.etat == 'inconnu' -%}<span class="c c-todo">état inconnu</span>
+  {%- else -%}<span class="c c-todo">{{ avenir }}</span>{%- endif -%}
+{%- endmacro %}
+
+<header class="fs-hero">
+  <div class="fs-gauche">
+    {% if d1|length >= 10 %}
+    <div class="fs-date" aria-label="{{ s.session.date_texte }}">
+      <span>{{ MOIS[(d1[5:7]|int) - 1] }}{% if d2[5:7] != d1[5:7] %} →{% endif %}</span>
+      <b>{{ d1[8:10]|int }}{% if d2 != d1 and d2[5:7] == d1[5:7] %}–{{ d2[8:10]|int }}{% endif %}</b>
+      <span style="font-weight:700;letter-spacing:0">{{ d1[:4] }}</span>
     </div>
-    <div class="session-title">{{ s.session.titre_complet }}</div>
-    {# LA DATE MONTE AU RANG DE TITRE. Elle etait le premier des six elements de
-       .session-meta, en 12px gris : sur cette page, savoir QUAND a lieu la
-       session compte autant que savoir laquelle on regarde. #}
-    <div class="session-date">
-      <i class="ti ti-calendar"></i>{{ s.session.date_texte }}
-      {% if not s.passee %}<span class="hero-j">J-{{ s.jours_avant }}</span>{% endif %}
-    </div>
-    <div class="session-meta">
-      <span><i class="ti ti-clock"></i>8h30 – 17h00</span>
-      <span><i class="ti ti-map-pin"></i>{{ s.session.adresse }}</span>
-      <span><i class="ti ti-coin"></i>{{ s.session.tarif }} € TTC</span>
-      <span><i class="ti ti-users"></i>{{ s.places_occupees }} inscrit{{ 's' if s.places_occupees > 1 }}</span>
-    </div>
-    {# LE MAIL DE FIN DE FORMATION — 08/11/2026 : 48 h apres la fin, a tous les
-       inscrits, l'attestation, le certificat s'il y en a un, le code promo et
-       la demande d'avis. #}
-    {% if certificat %}
-    <div class="session-meta" style="margin-top:6px">
-      <span title="48 h après la fin, à tous les inscrits : attestation{{ ', certificat' if certificat.fond }}, code promo et demande d'avis"><i class="ti ti-certificate"></i>
-      {% set quoi = 'Attestations et certificats' if certificat.fond else 'Attestations' %}
-      {% if certificat.envoye_le %}{{ quoi }} parties le {{ certificat.envoye_le }}
-      {% elif not certificat.auto %}{{ quoi }} : envoi automatique <b>retenu</b> · <a href="#" onclick="certAuto(1);return false">rétablir l'envoi</a>
-      {% elif certificat.raison.startswith('prevu') %}{{ quoi }} envoyées à tous le {{ certificat.moment }} · <a href="#" onclick="certAuto(0);return false">retenir</a>
-      {% elif certificat.raison == 'trop tard pour partir seul' %}{{ quoi }} : pas d'envoi automatique, la formation date de plus d'une semaine
-      {% else %}{{ quoi }} : {{ certificat.raison or 'envoi en cours' }} · <a href="#" onclick="certAuto(0);return false">retenir</a>{% endif %}</span>
-    </div>
-    <script>
-    function certAuto(v){
-      var fd = new FormData(); fd.set("actif", String(v));
-      fetch("/session/{{ s.session.code }}/certificats/auto", {method: "POST", body: fd, headers: {"X-Requested-With": "fetch"}})
-        .then(function(r){ return r.json(); }).then(function(){ location.reload(); });
-    }
-    </script>
     {% endif %}
-  </div>
-  <div class="hero-actions" id="hero-actions">
-    {% if s.passee or (s.lignes | selectattr('lien_attestation') | list | length) %}<button type="button" class="btn btn-attest" title="Choisir les destinataires, puis envoyer" onclick="ouvrirAttestations()"><i class="ti ti-certificate"></i>Envoyer les attestations</button>{% endif %}
-    {# LES CERTIFICATS, A IMPRIMER A L'AVANCE — 08/11/2026. Deux gestes : les
-       fabriquer (ceux qui manquent, meme avant la formation), puis choisir
-       lesquels telecharger, en un seul dossier. #}
-    {% if certificat and certificat.fond %}<button type="button" class="btn btn-second" title="Fabrique les certificats qui manquent, même avant la formation" onclick="ceGenerer(this)"><i class="ti ti-award"></i>Générer les certificats</button>
-    <button type="button" class="btn btn-second" title="Choisir les certificats à télécharger, en un seul dossier" onclick="ceOuvrir()"><i class="ti ti-download"></i>Télécharger les certificats</button>{% endif %}
-    {% if s.sheet.lien_emargement %}<a class="btn btn-emargement" href="{{ s.sheet.lien_emargement }}" target="_blank"><i class="ti ti-clipboard-check"></i>Émargement</a>{% endif %}
-    <button type="button" class="btn btn-second" title="Produit la feuille vierge à partir des inscrits actuels" onclick="regenererEmargement(this)"><i class="ti ti-refresh"></i>{{ 'Régénérer émargement' if s.sheet.lien_emargement else "Générer l'émargement" }}</button>
-    <a class="btn btn-second" href="https://drive.google.com/drive/folders/{{ s.session.dossier_signees }}" target="_blank"><i class="ti ti-folder"></i>Drive</a>
-    {% if s.sheet.statut == 'cloturee' %}
-    {% elif not s.passee %}
-    {% endif %}
-  </div>
-  </div>
-  <div class="hero-pied">
-    <div class="carte-emargement">
-      {% if s.sheet.lien_emargement_signe %}
-      <i class="ti ti-file-check" style="font-size:20px;color:var(--success);flex:none"></i>
-      <div style="flex:1;min-width:180px">
-        <div style="font-size:12.5px;font-weight:500">Feuille d'émargement signée</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">Reçue le {{ s.sheet.emargement_signe_le }}</div>
+    <div class="fs-ident">
+      <div class="fs-tags">
+        {% if s.passee %}<span class="fs-tag" style="background:rgba(255,255,255,.16);color:#fff">Formation passée</span>
+        {% else %}<span class="fs-tag" style="background:#ffd23f;color:#121c48">J-{{ s.jours_avant }}</span>{% endif %}
+        {% if s.sheet.statut == 'cloturee' %}<span class="fs-tag" style="background:#ff8a3d;color:#1c0d00">Inscriptions closes</span>
+        {% elif s.complet %}<span class="fs-tag" style="background:#ff8a3d;color:#1c0d00">Complète · {{ s.places_occupees }}/{{ s.places_max }}</span>{% endif %}
+        {% if s.mode == 'client' %}<span class="fs-tag" style="background:rgba(255,255,255,.16);color:#fff">Pour {{ s.client_nom }}</span>
+        {% else %}<span class="fs-tag" style="background:rgba(255,255,255,.16);color:#fff">Inscriptions individuelles</span>{% endif %}
       </div>
-      <a class="btn btn-ghost" style="font-size:11.5px;padding:5px 11px" href="{{ s.sheet.lien_emargement_signe }}" target="_blank"><i class="ti ti-eye"></i>Ouvrir</a>
-      <button class="btn btn-ghost" style="font-size:11.5px;padding:5px 11px" onclick="document.getElementById('fichier-scan').click()"><i class="ti ti-refresh"></i>Remplacer</button>
-        <button type="button" class="btn btn-ghost" style="color:var(--danger)" title="Delier le scan signe : le fichier reste dans le Drive" onclick="supprimerEmargement(this)"><i class="ti ti-unlink"></i>Supprimer</button>
+      <h1 class="fs-titre">{{ s.session.titre_complet }}</h1>
+      <div class="fs-chips">
+        <span class="fs-chip"><i class="ti ti-calendar"></i>{{ s.session.date_texte }}</span>
+        <span class="fs-chip"><i class="ti ti-clock"></i>8h30 – 17h00</span>
+        <span class="fs-chip"><i class="ti ti-map-pin"></i>{{ s.session.adresse }}</span>
+        <span class="fs-chip"><i class="ti ti-coin"></i>{{ s.session.tarif }} € TTC</span>
+        {% if s.mode != 'client' %}<span class="fs-chip"><i class="ti ti-users"></i>{{ s.places_max }} places</span>{% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="fs-droite">
+    <div class="fs-chiffres">
+      {% if s.mode == 'client' %}
+      <div><div class="fs-gros">{{ s.actifs|length }}</div><div class="fs-sous">participant{{ 's' if s.actifs|length > 1 }}</div></div>
       {% else %}
-      <i class="ti ti-clipboard-check" style="font-size:20px;color:var(--muted);flex:none"></i>
-      <div style="flex:1;min-width:180px">
-        <div style="font-size:12.5px;font-weight:500">Feuille d'émargement signée</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">Pas encore reçue{% if s.sheet.lien_emargement %} — <a href="{{ s.sheet.lien_emargement }}" target="_blank" style="color:var(--accent)">imprimer la feuille vierge</a>{% endif %}</div>
-      </div>
-      <div class="depot-mini" onclick="document.getElementById('fichier-scan').click()"
-           ondragover="event.preventDefault();this.classList.add('survol')"
-           ondragleave="this.classList.remove('survol')"
-           ondrop="deposerScan(event)">
-        <i class="ti ti-cloud-upload" style="font-size:16px"></i>
-        <span>Glisser le scan ici</span>
-      </div>
+      <div><div class="fs-gros">{{ s.places_occupees }}<small>/{{ s.places_max }}</small></div><div class="fs-sous">inscrits</div></div>
+      <div><div class="fs-gros">{{ s.encaisse|euros }}</div><div class="fs-sous">encaissés sur {{ s.attendu|euros }}</div></div>
       {% endif %}
     </div>
-  </div>
-</div>
-
-{% if actions_faites %}
-{# LE RELEVE DES ACTIONS — 04/10/2026. Les cinq compteurs plus bas disent OU ON EN
-   EST ; celui-ci dit CE QUI A ETE FAIT, et quand pour la derniere fois. Les deux
-   ne se repetent pas : un questionnaire parti, un rappel, une relance n'avaient
-   aucun resume sur cet ecran — il fallait lire le tableau colonne par colonne. #}
-<div class="table-wrap carte-actions">
-  <div class="ca-dedans">
-  <div class="ca-tete">Actions réalisées</div>
-  <div class="ca-liste">
-  {% for a in actions_faites %}
-    {% if a.nb %}
-    <div class="ca-l">
-      <i class="ti {{ a.icone }}"></i>
-      <span class="ca-n">{{ a.libelle }}</span>
-      <span class="ca-c">{{ a.nb }}<span class="ca-s">/{{ a.sur }}</span></span>
-      <span class="ca-d">{{ a.dernier[:16] }}{% if a.detail %} · {{ a.detail }}{% endif %}</span>
+    {# « hero-actions » GARDE SON IDENTIFIANT : le script de cloture y pose
+       lui-meme « Cloturer les inscriptions » ou « Session terminee ». #}
+    <div class="hero-actions" id="hero-actions">
+      {% if s.mode == 'client' %}
+      <button type="button" class="btn fs-btn-jaune" onclick="paSaisir()"><i class="ti ti-user-plus"></i>Saisir les participants</button>
+      {% else %}
+      <button type="button" class="btn fs-btn-jaune" title="Inviter quelqu'un qui n'est pas encore inscrit : il recevra le formulaire, et sera classé invité·e, sans rien à régler" onclick="inviterParAdresse()"><i class="ti ti-mail-heart"></i>Inviter un participant</button>
+      {% endif %}
+      <details class="fs-plus">
+        <summary class="btn fs-btn-verre"><i class="ti ti-dots"></i>Plus</summary>
+        <div class="fs-menu">
+          <span class="fs-mt">Feuille d'émargement</span>
+          {% if s.sheet.lien_emargement %}<a href="{{ s.sheet.lien_emargement }}" target="_blank"><i class="ti ti-clipboard-check"></i>Ouvrir la feuille vierge</a>{% endif %}
+          <button type="button" title="Produit la feuille vierge à partir des inscrits actuels" onclick="regenererEmargement(this)"><i class="ti ti-refresh"></i>{{ 'Régénérer la feuille' if s.sheet.lien_emargement else "Générer la feuille" }}</button>
+          <span class="fs-mt">Documents</span>
+          <a href="https://drive.google.com/drive/folders/{{ s.session.dossier_signees }}" target="_blank"><i class="ti ti-folder"></i>Ouvrir le dossier Drive</a>
+          <span class="fs-mt">Session</span>
+          <button type="button" id="btn-synchroniser" title="Aller chercher les nouveautes : inscriptions, signatures, annulations, puis envoyer ce qui doit partir" onclick="lancer(this)"><i class="ti ti-player-play"></i>Synchroniser</button>
+          <button type="button" class="fs-rouge" title="Supprimer definitivement cette session" onclick="demanderSuppression()"><i class="ti ti-trash"></i>Supprimer la session</button>
+        </div>
+      </details>
     </div>
-    {% endif %}
-  {% endfor %}
   </div>
-  </div>
-</div>
-{% endif %}
-</div>
+</header>
 
-{% if jalons %}
-{# LA BARRE DE JALONS — 04/10/2026. Les cinq compteurs disent ou on en est pour
-   l'argent et les conventions ; le releve dit ce qui a ete fait. Manquait l'etat
-   des etapes qui ne se comptent pas par personne : questionnaires publies et
-   ouverts, emargement recu, formation archivee. #}
-<div class="table-wrap jalons">
-  <div class="jal-rail">
-  {% for j in jalons %}
-    <div class="jal jal-{{ j.etat }}" title="{{ j.libelle }}{% if j.sur %} — {{ j.sur }}{% endif %}">
-      <span class="jal-rond">
-        <i class="ti {{ 'ti-check' if j.etat == 'fait' else ('ti-question-mark' if j.etat == 'inconnu' else j.icone) }}"></i>
-      </span>
-      <span class="jal-n">{{ j.court or j.libelle }}</span>
-      {% if j.date %}<span class="jal-d">{{ j.date[:10] }}</span>{% endif %}
-    </div>
-  {% endfor %}
-  </div>
-</div>
-{% endif %}
-
-{# LES COMPTEURS D'UNE SESSION CLIENT NE SONT PAS CEUX D'UNE SESSION
-   INDIVIDUELLE — corrige le 19/08/2026. Ceux d'en dessous comptent
-   « mail1_envoye_le », « signe_le » et « paiement_recu_le » : trois colonnes du
-   parcours INDIVIDUEL qu'une session client ne remplit jamais. Ils affichaient
-   donc « 0 convention envoyée » juste au-dessus d'une carte annoncant la
-   convention envoyee le 03/08 — deux verites contradictoires sur un ecran.
-
-   On lit la MEME SOURCE que les cartes : s.parcours_client, pose par
-   donnees._parcours_client depuis la fiche de session. Une seule source, une
-   seule verite. #}
 {% if s.mode == 'client' %}
 {% set etape = {} %}
 {% for e in s.parcours_client %}{% set _ = etape.update({e.cle: e}) %}{% endfor %}
@@ -407,50 +327,129 @@ html[data-sombre] .jal-rond{background:#20242f}
   </div>
 </div>
 {% else %}
-<div class="kpi-row" style="grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">
-  {% set envoyees = s.actifs|selectattr('mail1_envoye_le')|list|length %}
-  {# LE DENOMINATEUR DU VOLET FINANCIER EXCLUT LES INVITES — 04/10/2026. Un invite
-     ne regle rien et ne recoit pas de facture : le compter au denominateur rendait
-     la jauge impossible a remplir, et affichait en orange, pour toujours, une
-     session ou tout le monde est pourtant a jour. #}
-  {% set nb_payants = s.payants|length %}
-  {% set nb_invites = s.invites|length %}
-  <div class="kpi-mini">
-    <div class="kpi-val" style="color:var(--accent)">{{ s.places_occupees }}<span style="font-size:14px;color:var(--muted)">/{{ s.places_max }}</span></div>
-    <div class="kpi-label" style="margin:6px 0 0">Inscrits</div>
-    <div class="kpi-bar"><div class="kpi-bar-fill" style="width:{{ s.remplissage }}%;background:var(--accent)"></div></div>
+{% set nb_payants = s.payants|length %}
+{% set nb_invites = s.invites|length %}
+{% set envoyees = s.actifs|selectattr('mail1_envoye_le')|list|length %}
+{% set sans_conv = s.actifs|rejectattr('signe_le')|list %}
+{% set sans_regl = s.actifs|rejectattr('invite_le')|rejectattr('paiement_recu_le')|list %}
+<section class="fs-parcours" aria-label="Parcours de la session">
+  <div class="fs-phase fs-avant">
+    <div class="fs-ph-t"><span>1 · Avant</span><span>inscription et règlement</span></div>
+    <div class="fs-ph-b">
+      <div class="fs-k">
+        <div class="fs-k-l"><span>Inscrits</span><span class="fs-k-v">{{ s.places_occupees }}<small> / {{ s.places_max }}</small></span></div>
+        <div class="fs-barre"><i style="width:{{ [s.remplissage, 100]|min }}%;background:{{ '#f08c00' if s.complet else '#2f5fe0' }}"></i></div>
+      </div>
+      <div class="fs-k">
+        <div class="fs-k-l"><span>Conventions signées <em>· {{ envoyees }} envoyée{{ 's' if envoyees > 1 }}</em></span><span class="fs-k-v">{{ s.signees }}<small> / {{ s.places_occupees }}</small></span></div>
+        <div class="fs-barre"><i style="width:{{ (100*s.signees/s.places_occupees)|round|int if s.places_occupees else 0 }}%;background:#12a06e"></i></div>
+      </div>
+      <div class="fs-k">
+        <div class="fs-k-l"><span>Règlements reçus{% if nb_invites %} <em>· {{ nb_invites }} invité{{ 's' if nb_invites > 1 }}</em>{% endif %}</span><span class="fs-k-v">{{ s.regles }}<small> / {{ nb_payants }}</small></span></div>
+        <div class="fs-barre"><i style="width:{{ (100*s.regles/nb_payants)|round|int if nb_payants else 0 }}%;background:#2f5fe0"></i></div>
+      </div>
+      <div class="fs-e"><span>Rappel J-20</span>{{ etat(J.get('Rappel J-20 envoyé'), 'à venir') }}</div>
+    </div>
   </div>
-  <div class="kpi-mini">
-    <div class="kpi-val" style="color:{{ 'var(--success)' if envoyees == s.places_occupees and envoyees else 'var(--warn)' }}">{{ envoyees }}</div>
-    <div class="kpi-label" style="margin:6px 0 0">Conv. envoyées</div>
-    <div class="kpi-bar"><div class="kpi-bar-fill" style="width:{{ (100*envoyees/s.places_occupees)|round|int if s.places_occupees else 0 }}%;background:{{ 'var(--success)' if envoyees == s.places_occupees and envoyees else 'var(--warn)' }}"></div></div>
+  <div class="fs-phase fs-pendant">
+    <div class="fs-ph-t"><span>2 · Pendant</span><span>les journées de formation</span></div>
+    <div class="fs-ph-b">
+      <div class="fs-e"><span>Questionnaires publiés</span>{{ etat(J.get('Questionnaire publié'), 'à préparer') }}</div>
+      <div class="fs-e"><span>Évaluation d'entrée</span>{{ etat(J.get('Évaluation initiale ouverte')) }}</div>
+      <div class="fs-e"><span>Évaluation de sortie</span>{{ etat(J.get('Évaluation finale ouverte')) }}</div>
+      <div class="fs-e"><span>Satisfaction</span>{{ etat(J.get('Satisfaction ouverte')) }}</div>
+      <div class="fs-emarg">
+    <div class="carte-emargement">
+      {% if s.sheet.lien_emargement_signe %}
+      <i class="ti ti-file-check" style="font-size:20px;color:var(--success);flex:none"></i>
+      <div style="flex:1;min-width:180px">
+        <div style="font-size:12.5px;font-weight:500">Feuille d'émargement signée</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Reçue le {{ s.sheet.emargement_signe_le }}</div>
+      </div>
+      <a class="btn btn-ghost" style="font-size:11.5px;padding:5px 11px" href="{{ s.sheet.lien_emargement_signe }}" target="_blank"><i class="ti ti-eye"></i>Ouvrir</a>
+      <button class="btn btn-ghost" style="font-size:11.5px;padding:5px 11px" onclick="document.getElementById('fichier-scan').click()"><i class="ti ti-refresh"></i>Remplacer</button>
+        <button type="button" class="btn btn-ghost" style="color:var(--danger)" title="Delier le scan signe : le fichier reste dans le Drive" onclick="supprimerEmargement(this)"><i class="ti ti-unlink"></i>Supprimer</button>
+      {% else %}
+      <i class="ti ti-clipboard-check" style="font-size:20px;color:var(--muted);flex:none"></i>
+      <div style="flex:1;min-width:180px">
+        <div style="font-size:12.5px;font-weight:500">Feuille d'émargement signée</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Pas encore reçue{% if s.sheet.lien_emargement %} — <a href="{{ s.sheet.lien_emargement }}" target="_blank" style="color:var(--accent)">imprimer la feuille vierge</a>{% endif %}</div>
+      </div>
+      <div class="depot-mini" onclick="document.getElementById('fichier-scan').click()"
+           ondragover="event.preventDefault();this.classList.add('survol')"
+           ondragleave="this.classList.remove('survol')"
+           ondrop="deposerScan(event)">
+        <i class="ti ti-cloud-upload" style="font-size:16px"></i>
+        <span>Glisser le scan ici</span>
+      </div>
+      {% endif %}
+    </div>
+      </div>
+    </div>
   </div>
-  <div class="kpi-mini">
-    <div class="kpi-val" style="color:{{ 'var(--success)' if s.signees == s.places_occupees and s.signees else 'var(--warn)' }}">{{ s.signees }}</div>
-    <div class="kpi-label" style="margin:6px 0 0">Conv. signées</div>
-    <div class="kpi-bar"><div class="kpi-bar-fill" style="width:{{ (100*s.signees/s.places_occupees)|round|int if s.places_occupees else 0 }}%;background:{{ 'var(--success)' if s.signees == s.places_occupees and s.signees else 'var(--warn)' }}"></div></div>
+  <div class="fs-phase fs-apres">
+    <div class="fs-ph-t"><span>3 · Après</span><span>documents et suivi</span></div>
+    <div class="fs-ph-b">
+      {% if certificat %}
+      {% set quoi = 'Attestations + certificats' if certificat.fond else 'Attestations' %}
+      <div class="fs-auto">
+        <b>{{ quoi }} à tous</b>
+        {% if certificat.envoye_le %}<span>parties le {{ certificat.envoye_le }}</span>
+        {% elif not certificat.auto %}<span>envoi automatique <b>retenu</b></span><a href="#" onclick="certAuto(1);return false">Rétablir l'envoi</a>
+        {% elif certificat.raison.startswith('prevu') %}<span>automatique · le {{ certificat.moment }}</span><a href="#" onclick="certAuto(0);return false">Retenir l'envoi</a>
+        {% elif certificat.raison == 'trop tard pour partir seul' %}<span>pas d'envoi automatique : la formation date de plus d'une semaine</span>
+        {% else %}<span>{{ certificat.raison or 'envoi en cours' }}</span><a href="#" onclick="certAuto(0);return false">Retenir l'envoi</a>{% endif %}
+      </div>
+      <script>
+      function certAuto(v){
+        var fd = new FormData(); fd.set("actif", String(v));
+        fetch("/session/{{ s.session.code }}/certificats/auto", {method: "POST", body: fd, headers: {"X-Requested-With": "fetch"}})
+          .then(function(r){ return r.json(); }).then(function(){ location.reload(); });
+      }
+      </script>
+      {% endif %}
+      <div class="fs-e"><span>Attestations envoyées</span>{{ etat(J.get('Attestations envoyées'), 'après la formation') }}</div>
+      {% if s.passee or (s.lignes | selectattr('lien_attestation') | list | length) %}
+      <button type="button" class="btn fs-btn-s" title="Choisir les destinataires, puis envoyer" onclick="ouvrirAttestations()"><i class="ti ti-certificate"></i>Envoyer les attestations</button>
+      {% endif %}
+      {% if certificat and certificat.fond %}
+      <div class="fs-e"><span>Certificats</span>{{ etat(J.get('Certificats envoyés'), 'à fabriquer') }}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button type="button" class="btn fs-btn-s" title="Fabrique les certificats qui manquent, même avant la formation" onclick="ceGenerer(this)"><i class="ti ti-award"></i>Générer</button>
+        <button type="button" class="btn fs-btn-s" title="Choisir les certificats à télécharger, en un seul dossier" onclick="ceOuvrir()"><i class="ti ti-download"></i>Télécharger</button>
+      </div>
+      {% endif %}
+      <div class="fs-e"><span>Clôture de la session</span>{{ etat(J.get('Formation clôturée'), 'après le bilan') }}</div>
+    </div>
   </div>
-  <div class="kpi-mini">
-    <div class="kpi-val" style="color:{{ 'var(--success)' if s.regles == nb_payants and s.regles else 'var(--warn)' }}">{{ s.regles }}<span style="font-size:14px;color:var(--muted)">/{{ nb_payants }}</span></div>
-    <div class="kpi-label" style="margin:6px 0 0">Règlements{% if nb_invites %} <span style="color:var(--muted);font-weight:400" title="{{ nb_invites }} invité·e·s : aucun règlement ne leur est demandé">· {{ nb_invites }} inv.</span>{% endif %}</div>
-    <div class="kpi-bar"><div class="kpi-bar-fill" style="width:{{ (100*s.regles/nb_payants)|round|int if nb_payants else 0 }}%;background:{{ 'var(--success)' if s.regles == nb_payants and s.regles else 'var(--warn)' }}"></div></div>
-  </div>
-  <div class="kpi-mini">
-    <div class="kpi-val" style="color:var(--success)">{{ s.encaisse|euros }}</div>
-    <div class="kpi-label" style="margin:6px 0 0">CA encaissé</div>
-    <div class="kpi-bar"><div class="kpi-bar-fill" style="width:{{ (100*s.encaisse/s.attendu)|round|int if s.attendu else 0 }}%;background:var(--success)"></div></div>
-  </div>
-</div>
-{% endif %}
+</section>
 
-{% if s.complet and s.sheet.statut != 'cloturee' and not s.passee %}
-<div class="alerte a-warn">
-  <i class="ti ti-lock" style="font-size:17px;flex:none"></i>
-  <div style="flex:1">
-    <strong>Session complète — {{ s.places_occupees }}/{{ s.places_max }} places.</strong>
-    Les nouvelles demandes partent déjà en file d'attente. Tu peux clôturer les inscriptions pour figer la liste et générer la feuille d'émargement.
-  </div>
-</div>
+<section class="fs-afaire" aria-label="À faire">
+  {% if sans_conv %}
+  <div class="fs-af fs-af-orange"><b>{{ sans_conv|length }}</b><div><div class="fs-af-t">convention{{ 's' if sans_conv|length > 1 }} à signer</div>
+    <div class="fs-af-s">{% for l in sans_conv[:3] %}{{ l.prenom }} {{ l.nom }}{{ ', ' if not loop.last }}{% endfor %}{% if sans_conv|length > 3 %}…{% endif %}</div>
+    <button type="button" class="btn fs-btn-noir" onclick="fsFiltre('conv')">Voir la liste</button></div></div>
+  {% else %}
+  <div class="fs-af fs-af-vert"><b><i class="ti ti-check"></i></b><div><div class="fs-af-t">Toutes les conventions sont signées</div><div class="fs-af-s">{{ s.signees }} sur {{ s.places_occupees }}</div></div></div>
+  {% endif %}
+  {% if sans_regl %}
+  <div class="fs-af fs-af-bleu"><b>{{ sans_regl|length }}</b><div><div class="fs-af-t">règlement{{ 's' if sans_regl|length > 1 }} attendu{{ 's' if sans_regl|length > 1 }}</div>
+    <div class="fs-af-s">{{ (s.attendu - s.encaisse)|euros }} à encaisser</div>
+    <button type="button" class="btn fs-btn-noir" onclick="fsFiltre('regl')">Voir la liste</button></div></div>
+  {% else %}
+  <div class="fs-af fs-af-vert"><b><i class="ti ti-check"></i></b><div><div class="fs-af-t">Tous les règlements sont reçus</div><div class="fs-af-s">{{ s.encaisse|euros }} encaissés</div></div></div>
+  {% endif %}
+  {% if s.attente %}
+  <div class="fs-af fs-af-violet"><b>{{ s.attente|length }}</b><div><div class="fs-af-t">en liste d'attente</div>
+    <div class="fs-af-s">{% if s.complet %}session complète, {{ s.places_occupees }} pour {{ s.places_max }}{% else %}des places se sont libérées{% endif %}</div>
+    <button type="button" class="btn fs-btn-noir" onclick="fsOnglet('attente')">Voir la liste d'attente</button></div></div>
+  {% elif s.complet and s.sheet.statut != 'cloturee' and not s.passee %}
+  <div class="fs-af fs-af-violet"><b>{{ s.places_occupees }}</b><div><div class="fs-af-t">session complète</div>
+    <div class="fs-af-s">les nouvelles demandes partent en liste d'attente ; vous pouvez clôturer les inscriptions</div></div></div>
+  {% else %}
+  <div class="fs-af fs-af-vert"><b>{{ s.places_max - s.places_occupees if s.places_max > s.places_occupees else 0 }}</b><div><div class="fs-af-t">place{{ 's' if (s.places_max - s.places_occupees) > 1 }} libre{{ 's' if (s.places_max - s.places_occupees) > 1 }}</div><div class="fs-af-s">personne en liste d'attente</div></div></div>
+  {% endif %}
+</section>
 {% endif %}
 
 {% if s.demandes_annulation %}
@@ -485,21 +484,22 @@ html[data-sombre] .tab-valider:hover{background:#3a2f1f}
 @media (prefers-reduced-motion:reduce){.tab-valider .pt{animation:none}}
 </style>
 <div class="tabs">
-  <div class="tab active" onclick="ongletSession(this,'inscrits')">Liste des inscrits</div>
+  <div class="tab active" data-vue="inscrits" onclick="ongletSession(this,'inscrits')">Inscrits <span class="fs-cnt">{{ s.actifs|length }}</span></div>
   {% if s.mode != 'client' and (s.validation_manuelle or s.a_valider) %}
   <div class="tab tab-valider" onclick="ongletSession(this,'valider')">{% if s.a_valider %}<span class="pt"></span>{% endif %}Demandes à valider{% if s.a_valider %}<span class="tab-alerte orange"><i class="ti ti-user-question"></i>{{ s.a_valider|length }}</span>{% endif %}</div>
   {% endif %}
-  <div class="tab" onclick="ongletSession(this,'quest')">Questionnaires</div>
+  <div class="tab" data-vue="quest" onclick="ongletSession(this,'quest')">Questionnaires</div>
   {# « FILE D'ATTENTE » ET « DEMANDES & ANNULATIONS » N'ONT PAS D'OBJET POUR UNE
      SESSION CLIENT — 19/08/2026. Le centre envoie sa liste : il n'y a pas de
      file. Les demandes et les annulations viennent du formulaire public, qu'une
      session client n'utilise pas. Le serveur le sait deja — envoyer_mail_attente
      et relever_annulations refusent ces sessions ; seule la page l'ignorait. #}
   {% if s.mode != 'client' %}
-  <div class="tab" onclick="ongletSession(this,'attente')">File d'attente{% if s.attente %}<span class="tab-info">{{ s.attente|length }}</span>{% endif %}</div>
+  <div class="tab" data-vue="attente" onclick="ongletSession(this,'attente')">Liste d'attente{% if s.attente %}<span class="tab-info">{{ s.attente|length }}</span>{% endif %}</div>
   <div class="tab" onclick="ongletSession(this,'autres')">Demandes &amp; annulations{% if s.demandes_annulation %}<span class="tab-alerte rouge"><i class="ti ti-alert-triangle"></i>{{ s.demandes_annulation|length }}</span>{% elif s.a_recontacter %}<span class="tab-alerte orange"><i class="ti ti-message-2"></i>{{ s.a_recontacter|length }}</span>{% endif %}</div>
   {% endif %}
-  <div class="tab" onclick="ongletSession(this,'infos')">Infos session</div>
+  <div class="tab" data-vue="historique" onclick="ongletSession(this,'historique')">Historique</div>
+  <div class="tab" data-vue="infos" onclick="ongletSession(this,'infos')">Infos session</div>
 </div>
 
 <div id="vue-inscrits">
@@ -520,10 +520,10 @@ html[data-sombre] .tab-valider:hover{background:#3a2f1f}
       {% set sans_regl = s.actifs|rejectattr('invite_le')|rejectattr('paiement_recu_le')|list|length %}
       {% set complets = (s.actifs|selectattr('paiement_recu_le')|selectattr('facture_le')|list|length)
                       + (s.actifs|selectattr('invite_le')|selectattr('signe_le')|rejectattr('facture_le')|list|length) %}
-      <button class="filter-btn active" onclick="filtrer(this,'tous')">Tous ({{ s.actifs|length }})</button>
-      <button class="filter-btn" onclick="filtrer(this,'conv')">Conv. en attente ({{ sans_conv }})</button>
-      <button class="filter-btn" onclick="filtrer(this,'regl')">Règlement en attente ({{ sans_regl }})</button>
-      <button class="filter-btn" onclick="filtrer(this,'complet')">Dossier complet ({{ complets }})</button>
+      <button class="filter-btn active" data-f="tous" onclick="filtrer(this,'tous')">Tous ({{ s.actifs|length }})</button>
+      <button class="filter-btn" data-f="conv" onclick="filtrer(this,'conv')">Conv. en attente ({{ sans_conv }})</button>
+      <button class="filter-btn" data-f="regl" onclick="filtrer(this,'regl')">Règlement en attente ({{ sans_regl }})</button>
+      <button class="filter-btn" data-f="complet" onclick="filtrer(this,'complet')">Dossier complet ({{ complets }})</button>
     </div>
     <div class="search-box"><i class="ti ti-search" style="font-size:13px"></i><input type="text" placeholder="Rechercher..." oninput="chercher(this.value)"></div>
   </div>
@@ -659,23 +659,21 @@ html[data-sombre] .tab-valider:hover{background:#3a2f1f}
   {% endif %}
 
   <div class="table-wrap"><div class="table-scroll">
-  <table style="min-width:940px">
+  <table class="fs-table" style="min-width:1000px">
     <thead>
       <tr>
         <th rowspan="2" style="width:30px"><input type="checkbox" onclick="toutCocher(this)" aria-label="tout sélectionner"></th>
-        <th rowspan="2" style="vertical-align:bottom">Nom</th>
-        <th rowspan="2" style="vertical-align:bottom;width:96px">Lieu</th>
-        <th rowspan="2" style="vertical-align:bottom;width:66px">Déj.</th>
+        <th rowspan="2" style="vertical-align:bottom">Participant</th>
         <th colspan="4" class="col-header-group">Inscription</th>
         <th colspan="2" class="col-header-group orange">Questionnaires</th>
-        <th colspan="2" class="col-header-group green">Post-formation</th>
-        <th rowspan="2" style="width:64px"></th>
+        <th colspan="2" class="col-header-group green">Après la formation</th>
+        <th rowspan="2" style="width:84px"></th>
       </tr>
       <tr>
-        <th style="width:62px">Conv.</th><th style="width:62px">Signé</th>
-        <th style="width:78px">Règlement</th><th style="width:62px">Facture</th>
-        <th class="col-sep" style="width:66px">Éval. init.</th><th style="width:66px">Éval. fin.</th>
-        <th class="col-sep" style="width:70px">Satisfaction</th><th style="width:70px">Attestation</th>
+        <th class="fs-sh fs-sh-b">Convention</th><th class="fs-sh fs-sh-b">Signature</th>
+        <th class="fs-sh fs-sh-b">Règlement</th><th class="fs-sh fs-sh-b">Facture</th>
+        <th class="fs-sh fs-sh-o col-sep">Entrée</th><th class="fs-sh fs-sh-o">Sortie</th>
+        <th class="fs-sh fs-sh-v col-sep">Satisfaction</th><th class="fs-sh fs-sh-v">Attestation · certificat</th>
       </tr>
     </thead>
     <tbody id="corps-inscrits">
@@ -685,15 +683,23 @@ html[data-sombre] .tab-valider:hover{background:#3a2f1f}
           data-regl="{{ 'ok' if l.paiement_recu_le or l.invite_le else 'ko' }}"
           data-complet="{{ 'ok' if (l.invite_le and l.signe_le) or (l.paiement_recu_le and l.facture_le) else 'ko' }}">
         <td><input type="checkbox" onclick="cocher(this)" aria-label="sélectionner"></td>
-        <td><strong style="font-size:12px">{{ l.nom }} {{ l.prenom }}</strong>{% if l.code_promo %} <span class="chip chip-b" style="font-size:10px;padding:1px 6px" title="Code promo saisi à l'inscription : {{ l.remise }} € de remise">{{ l.code_promo }}</span>{% endif %}{% if l.besoin_adaptation %} <i class="ti ti-accessible" style="font-size:14px;color:#7c5bf7;vertical-align:-2px" title="A declare un besoin d adaptation a l inscription"></i>{% endif %} <a class="icon-btn" style="width:22px;height:20px" title="Ouvrir la fiche de cet apprenant" href="/apprenant/{{ l.mail }}" onclick="event.stopPropagation()"><i class="ti ti-user-circle" style="font-size:14px"></i></a><br><span style="color:var(--muted);font-size:10px">{{ l.mail }}</span></td>
-        <td style="font-size:11px;color:var(--muted)">{{ l.ville }}</td>
+        {% set AV = ['#2f5fe0', '#0f8a63', '#7c5bf7', '#e0611a', '#0e7490', '#c0266d'] %}
         <td>
-          {% if 'sans' in l.dejeuner|lower %}<span class="chip chip-g">Oui</span>
-          {% elif 'avec' in l.dejeuner|lower %}<span class="chip chip-w" title="{{ l.restrictions }}">Rest.</span>
-          {% else %}<span class="chip chip-gray">Non</span>{% endif %}
+          <div class="fs-p">
+            <div class="fs-av" style="background:{{ AV[loop.index0 % 6] }}">{{ (l.prenom or ' ')[:1]|upper }}{{ (l.nom or ' ')[:1]|upper }}</div>
+            <div class="fs-p-t">
+              <div class="fs-p-n"><strong>{{ l.nom }} {{ l.prenom }}</strong>
+                {% if l.invite_le %}<span class="fs-mq fs-mq-inv">Invité·e</span>{% endif %}
+                {% if l.code_promo %}<span class="fs-mq fs-mq-code" title="Code promo saisi à l'inscription : {{ l.remise }} € de remise">{{ l.code_promo }}</span>{% endif %}
+                {% if l.besoin_adaptation %}<span class="fs-mq fs-mq-adapt" title="A declare un besoin d adaptation a l inscription">Adaptation</span>{% endif %}
+                <a class="icon-btn" style="width:22px;height:20px" title="Ouvrir la fiche de cet apprenant" href="/apprenant/{{ l.mail }}" onclick="event.stopPropagation()"><i class="ti ti-user-circle" style="font-size:14px"></i></a></div>
+              <div class="fs-p-s">{{ l.ville }}{% if l.ville %} · {% endif %}{% if 'sans' in l.dejeuner|lower %}repas{% elif 'avec' in l.dejeuner|lower %}<span title="{{ l.restrictions }}">repas, restrictions</span>{% else %}sans repas{% endif %}</div>
+              <div class="fs-p-m">{{ l.mail }}</div>
+            </div>
+          </div>
         </td>
-        <td>{% if l.mail1_envoye_le %}<span class="chip chip-g"><span class="dot dot-g"></span>Env.</span>{% else %}<span class="chip chip-gray">—</span>{% endif %}</td>
-        <td>{% if l.signe_le %}<span class="chip chip-g"><span class="dot dot-g"></span>Reçu</span>{% elif l.mail1_envoye_le %}<button type="button" class="rel-btn" title="Relancer pour la signature de la convention" data-mail="{{ l.mail }}" onclick="event.stopPropagation();relancer(this)"><i class="ti ti-bell" style="font-size:11px"></i>Relancer</button>{% else %}<span class="chip chip-gray">—</span>{% endif %}</td>
+        <td>{% if l.mail1_envoye_le %}<span class="chip chip-g">Envoyée {{ l.mail1_envoye_le[:5] }}</span>{% else %}<span class="chip chip-gray">à envoyer</span>{% endif %}</td>
+        <td>{% if l.signe_le %}<span class="chip chip-g">Signée {{ l.signe_le[:5] }}</span>{% elif l.mail1_envoye_le %}<button type="button" class="rel-btn" title="Relancer pour la signature de la convention" data-mail="{{ l.mail }}" onclick="event.stopPropagation();relancer(this)"><i class="ti ti-bell" style="font-size:11px"></i>Relancer</button>{% else %}<span class="chip chip-gray">—</span>{% endif %}</td>
         {# LA COLONNE DE L'ARGENT — refaite le 25/10/2026.
            Elle ne savait dire que deux choses : « réglé » ou « rien ». Un
            inscrit qui a versé deux acomptes sur quatre y paraissait n'avoir
@@ -703,12 +709,12 @@ html[data-sombre] .tab-valider:hover{background:#3a2f1f}
         <td>{% if l.invite_le %}<span class="chip chip-inv" title="Invité·e par l'organisme — aucun règlement demandé"><span class="dot dot-inv"></span>Invité·e</span>
         {% elif l.paiement_recu_le %}<button type="button" class="chip chip-g chip-clic" title="Voir les règlements de ce praticien" data-mail="{{ l.mail }}" data-nom="{{ l.prenom }} {{ l.nom }}" onclick="event.stopPropagation();ouvrirReglement(this)"><span class="dot dot-g"></span>{{ l.montant_recu }} €{% if l.nb_versements > 1 %} <em>·{{ l.nb_versements }}</em>{% endif %}</button>
         {% elif l.verse %}<button type="button" class="chip chip-part chip-clic" title="Règlement partiel — voir le détail et saisir un versement" data-mail="{{ l.mail }}" data-nom="{{ l.prenom }} {{ l.nom }}" onclick="event.stopPropagation();ouvrirReglement(this)"><span class="dot dot-part"></span>{{ l.verse|round|int }} € <em>/ {{ (l.verse + l.solde)|round|int }}</em></button>
-        {% else %}<button type="button" class="reg-btn" title="Enregistrer un reglement recu" data-mail="{{ l.mail }}" data-nom="{{ l.nom }} {{ l.prenom }}" onclick="event.stopPropagation();ouvrirReglement(this)"><i class="ti ti-cash" style="font-size:12px"></i>{% if l.mail2_envoye_le %}Att.{% else %}Saisir{% endif %}</button>{% if l.mail2_envoye_le %} <button type="button" class="rel-btn" title="Relancer pour le reglement" data-mail="{{ l.mail }}" onclick="event.stopPropagation();relancer(this)"><i class="ti ti-bell" style="font-size:11px"></i>Relancer</button>{% endif %}{% endif %}</td>
-        <td>{% if l.lien_facture %}<a href="{{ l.lien_facture }}" target="_blank" class="chip chip-b" title="Ouvrir la facture dans le Drive" onclick="event.stopPropagation()"><i class="ti ti-receipt" style="font-size:12px"></i></a>{% elif l.invite_le %}<span class="chip chip-inv" title="Invité·e par l'organisme — aucune facture n'est due, la case n'est pas un manque">//</span>{% else %}<span class="chip chip-gray">—</span>{% endif %}</td>
-        <td class="col-sep">{% if l.score_init %}<span class="chip chip-g" title="Score a l entree"><span class="dot dot-g"></span>{{ l.score_init }}%</span>{% else %}<span class="chip chip-gray">—</span>{% endif %}</td>
-        <td style="white-space:nowrap">{% if l.score_fin %}<span class="chip chip-g" title="Score en sortie"><span class="dot dot-g"></span>{{ l.score_fin }}%</span> <a class="icon-btn" title="Ouvrir le recapitulatif pedagogique" target="_blank" href="/session/{{ s.session.code }}/recap/{{ l.mail }}" onclick="event.stopPropagation()"><i class="ti ti-file-text"></i></a><button type="button" class="icon-btn" title="Envoyer le recapitulatif par mail" onclick="event.stopPropagation();envoyerRecap(this)" data-mail="{{ l.mail }}" data-nom="{{ l.nom }} {{ l.prenom }}"><i class="ti ti-send"></i></button>{% else %}<span class="chip chip-gray">—</span>{% endif %}</td>
-        <td class="col-sep">{% if l.note_satisfaction %}<span class="chip chip-g" title="Note moyenne sur 5"><span class="dot dot-g"></span>{{ l.note_satisfaction }}/5</span>{% else %}<span class="chip chip-gray">—</span>{% endif %}</td>
-        <td>{% if l.lien_attestation %}<a href="{{ l.lien_attestation }}" target="_blank" class="chip chip-b" title="Ouvrir l attestation dans le Drive" onclick="event.stopPropagation()"><i class="ti ti-certificate" style="font-size:12px"></i></a>{% else %}<span class="chip chip-gray">—</span>{% endif %}{% if certificats_liens and certificats_liens.get(l.mail) %} <a href="{{ certificats_liens.get(l.mail) }}" target="_blank" class="chip chip-b" title="Ouvrir le certificat" onclick="event.stopPropagation()"><i class="ti ti-award" style="font-size:12px"></i></a>{% endif %}</td>
+        {% else %}<button type="button" class="reg-btn" title="Enregistrer un reglement recu" data-mail="{{ l.mail }}" data-nom="{{ l.nom }} {{ l.prenom }}" onclick="event.stopPropagation();ouvrirReglement(this)"><i class="ti ti-cash" style="font-size:12px"></i>Saisir</button>{% if l.mail2_envoye_le %} <button type="button" class="rel-btn" title="Relancer pour le reglement" data-mail="{{ l.mail }}" onclick="event.stopPropagation();relancer(this)"><i class="ti ti-bell" style="font-size:11px"></i>Relancer</button>{% endif %}{% endif %}</td>
+        <td>{% if l.lien_facture %}<a href="{{ l.lien_facture }}" target="_blank" class="chip chip-b" title="Ouvrir la facture dans le Drive" onclick="event.stopPropagation()"><i class="ti ti-receipt" style="font-size:12px"></i>Émise</a>{% elif l.invite_le %}<span class="chip chip-inv" title="Invité·e par l'organisme — aucune facture n'est due, la case n'est pas un manque">sans objet</span>{% else %}<span class="chip chip-gray">{{ 'après règlement' if not l.paiement_recu_le else '—' }}</span>{% endif %}</td>
+        <td class="col-sep">{% if l.score_init %}<span class="chip chip-g" title="Score a l entree">{{ l.score_init }} %</span>{% else %}<span class="chip chip-gray">{{ '—' if s.passee else 'à venir' }}</span>{% endif %}</td>
+        <td style="white-space:nowrap">{% if l.score_fin %}<span class="chip chip-g" title="Score en sortie">{{ l.score_fin }} %</span> <a class="icon-btn" title="Ouvrir le recapitulatif pedagogique" target="_blank" href="/session/{{ s.session.code }}/recap/{{ l.mail }}" onclick="event.stopPropagation()"><i class="ti ti-file-text"></i></a><button type="button" class="icon-btn" title="Envoyer le recapitulatif par mail" onclick="event.stopPropagation();envoyerRecap(this)" data-mail="{{ l.mail }}" data-nom="{{ l.nom }} {{ l.prenom }}"><i class="ti ti-send"></i></button>{% else %}<span class="chip chip-gray">{{ '—' if s.passee else 'à venir' }}</span>{% endif %}</td>
+        <td class="col-sep">{% if l.note_satisfaction %}<span class="chip chip-g" title="Note moyenne sur 5">{{ l.note_satisfaction }}/5</span>{% else %}<span class="chip chip-gray">{{ '—' if s.passee else 'à venir' }}</span>{% endif %}</td>
+        <td style="white-space:nowrap">{% if l.lien_attestation %}<a href="{{ l.lien_attestation }}" target="_blank" class="chip chip-b" title="Ouvrir l attestation dans le Drive" onclick="event.stopPropagation()"><i class="ti ti-certificate" style="font-size:12px"></i>{{ 'Envoyée' if l.attestation_envoyee_le else 'Attestation' }}</a>{% elif certificat and certificat.auto and not certificat.envoye_le and certificat.raison.startswith('prevu') %}<span class="chip chip-auto" title="Envoi automatique à tous">auto {{ certificat.moment[:5] }}</span>{% else %}<span class="chip chip-gray">—</span>{% endif %}{% if certificats_liens and certificats_liens.get(l.mail) %} <a href="{{ certificats_liens.get(l.mail) }}" target="_blank" class="chip chip-b" title="Ouvrir le certificat" onclick="event.stopPropagation()"><i class="ti ti-award" style="font-size:12px"></i>Certificat</a>{% endif %}</td>
         <td>
           <div style="display:flex;gap:4px">
             {% if l.lien_pdf %}<a class="icon-btn" title="Ouvrir la convention signee dans le Drive" href="{{ l.lien_pdf }}" target="_blank" aria-label="convention" onclick="event.stopPropagation()"><i class="ti ti-eye"></i></a>{% endif %}
@@ -719,11 +725,11 @@ html[data-sombre] .tab-valider:hover{background:#3a2f1f}
       </tr>
     {% else %}
       {% if s.lecture_ratee %}
-      <tr><td colspan="13" class="vide" style="color:var(--danger);text-align:left;padding:16px 14px;line-height:1.6">
+      <tr><td colspan="11" class="vide" style="color:var(--danger);text-align:left;padding:16px 14px;line-height:1.6">
         <i class="ti ti-alert-triangle"></i><b>Les inscriptions n'ont pas pu être lues.</b><br>
         {{ s.lecture_ratee }}</td></tr>
       {% else %}
-      <tr><td colspan="13" class="vide"><i class="ti ti-user-plus"></i>Aucune inscription validée</td></tr>
+      <tr><td colspan="11" class="vide"><i class="ti ti-user-plus"></i>Aucune inscription validée</td></tr>
       {% endif %}
     {% endfor %}
     </tbody>
@@ -731,6 +737,23 @@ html[data-sombre] .tab-valider:hover{background:#3a2f1f}
   </div></div>
   {% endif %}
 
+</div>
+
+{# L'HISTORIQUE — la carte « Actions realisees » du haut de page, devenue un
+   onglet : ce qui a ete fait, combien de fois, et quand pour la derniere fois. #}
+<div id="vue-historique" style="display:none">
+  <div class="table-wrap fs-histo">
+    {% for a in actions_faites or [] %}{% if a.nb %}
+    <div class="fs-h-l">
+      <i class="ti {{ a.icone }}"></i>
+      <span class="fs-h-n">{{ a.libelle }}</span>
+      <span class="fs-h-c">{{ a.nb }}<small>/{{ a.sur }}</small></span>
+      <span class="fs-h-d">{{ a.dernier[:16] }}{% if a.detail %} · {{ a.detail }}{% endif %}</span>
+    </div>
+    {% endif %}{% else %}
+    <div class="vide" style="padding:24px;text-align:center;color:var(--muted)">Aucune action pour l'instant.</div>
+    {% endfor %}
+  </div>
 </div>
 
 <div id="vue-valider" style="display:none">
@@ -3558,4 +3581,221 @@ function paEnvoyer(gens, verifier){
 }
 </script>
 {% endif %}
+{# LE STYLE DE LA FICHE A+ — en fin de page, pour passer devant les regles
+   plus anciennes de ce gabarit a specificite egale. #}
+<style>
+@font-face{font-family:"Space Grotesk";font-weight:300 700;font-display:swap;
+  src:url({{ statique('space-grotesk-latin.woff2') }}) format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Space Grotesk";font-weight:300 700;font-display:swap;
+  src:url({{ statique('space-grotesk-latin-ext.woff2') }}) format("woff2");
+  unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+/* ---------- LE BANDEAU ---------- */
+/* L'anneau jaune est dessine en fond, et non par un element debordant : le
+   bandeau ne peut pas couper ce qui deborde, sans quoi il couperait aussi le
+   menu « Plus ». */
+.fs-hero{background:#121c48 radial-gradient(circle at calc(100% + 20px) -40px,transparent 0 118px,rgba(255,210,63,.10) 119px 160px,transparent 161px);
+  border-radius:22px;padding:26px 28px;color:#fff;display:flex;flex-wrap:wrap;gap:24px;position:relative;margin-bottom:16px}
+.fs-gauche{display:flex;gap:20px;align-items:flex-start;flex:1 1 520px;min-width:0;position:relative;z-index:1}
+.fs-date{flex:none;width:92px;height:104px;border-radius:18px;background:#ffd23f;color:#121c48;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.fs-date span{font:800 11.5px Inter,sans-serif;letter-spacing:1.4px}
+.fs-date b{font:700 32px/1.05 "Space Grotesk",Inter,sans-serif}
+.fs-ident{display:flex;flex-direction:column;gap:12px;min-width:0}
+.fs-tags{display:flex;gap:7px;flex-wrap:wrap}
+.fs-tag{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;font:700 10.5px Inter,sans-serif;
+  letter-spacing:.5px;text-transform:uppercase}
+.fs-titre{margin:0;font:700 32px/1.14 "Space Grotesk",Inter,sans-serif;letter-spacing:-.5px;color:#fff}
+.fs-chips{display:flex;flex-wrap:wrap;gap:7px}
+.fs-chip{display:inline-flex;align-items:center;gap:6px;height:29px;padding:0 11px;border-radius:999px;
+  background:rgba(255,255,255,.12);color:#e6ebff;font:500 12.5px Inter,sans-serif;white-space:nowrap}
+.fs-chip i{font-size:14px;opacity:.85}
+.fs-droite{display:flex;flex-direction:column;justify-content:space-between;gap:16px;flex:0 1 500px;position:relative;z-index:2}
+.fs-chiffres{display:flex;gap:28px;flex-wrap:wrap}
+.fs-gros{font:700 40px/1 "Space Grotesk",Inter,sans-serif;color:#fff}
+.fs-gros small{font-size:20px;color:#9fb0e8}
+.fs-sous{font-size:12.5px;color:#b9c4ee;margin-top:6px}
+.fs-hero .hero-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0}
+.fs-hero .btn{height:42px;border-radius:12px;padding:0 16px;font-size:13.5px;font-weight:600}
+.fs-btn-jaune{background:#ffd23f !important;border:1px solid #ffd23f !important;color:#121c48 !important;font-weight:700 !important}
+.fs-btn-jaune:hover{filter:brightness(.96)}
+.fs-btn-verre,.fs-hero .se-btn{background:rgba(255,255,255,.08) !important;border:1px solid rgba(255,255,255,.3) !important;
+  color:#fff !important;height:42px;border-radius:12px;font-weight:600}
+.fs-hero .se-btn i{color:#ffd23f !important}
+.fs-hero .se-btn:hover,.fs-btn-verre:hover{background:rgba(255,255,255,.16) !important}
+details.fs-plus{position:relative}
+details.fs-plus>summary{list-style:none;cursor:pointer}
+details.fs-plus>summary::-webkit-details-marker{display:none}
+.fs-menu{position:absolute;right:0;top:calc(100% + 8px);width:272px;background:var(--carte);border:1px solid var(--border);
+  border-radius:14px;box-shadow:0 16px 36px rgba(10,16,40,.24);padding:8px;z-index:40;display:flex;flex-direction:column}
+.fs-mt{font:700 10.5px Inter,sans-serif;letter-spacing:1.3px;text-transform:uppercase;color:var(--muted);padding:9px 10px 4px}
+.fs-menu a,.fs-menu button{display:flex;align-items:center;gap:10px;min-height:38px;padding:0 10px;border-radius:9px;border:0;
+  background:none;color:var(--text);font:500 13.5px Inter,sans-serif;text-align:left;cursor:pointer;text-decoration:none;width:100%}
+.fs-menu a:hover,.fs-menu button:hover{background:var(--bg)}
+.fs-menu i{font-size:16px;color:var(--muted)}
+.fs-menu .fs-rouge,.fs-menu .fs-rouge i{color:var(--danger)}
+
+/* ---------- LE PARCOURS EN TROIS TEMPS ---------- */
+.fs-parcours{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:14px}
+.fs-phase{background:var(--carte);border:1px solid var(--border);border-radius:18px;overflow:hidden;display:flex;flex-direction:column}
+.fs-ph-t{padding:11px 18px;display:flex;justify-content:space-between;align-items:center;gap:8px;
+  font:700 11px Inter,sans-serif;letter-spacing:1.3px;text-transform:uppercase}
+.fs-ph-t span:last-child{font:600 11.5px Inter,sans-serif;letter-spacing:0;text-transform:none;opacity:.88}
+.fs-avant .fs-ph-t{background:#2f5fe0;color:#fff}
+.fs-pendant .fs-ph-t{background:#f08c00;color:#1c0d00}
+.fs-apres .fs-ph-t{background:#7c5bf7;color:#fff}
+.fs-ph-b{padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.fs-k{display:flex;flex-direction:column;gap:6px}
+.fs-k-l{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px;color:var(--muted)}
+.fs-k-l em{font-style:normal;font-size:12px}
+.fs-k-v{font:700 20px "Space Grotesk",Inter,sans-serif;color:var(--text);white-space:nowrap}
+.fs-k-v small{font-size:13px;color:var(--muted);font-weight:500}
+.fs-barre{height:9px;border-radius:99px;background:var(--bg);overflow:hidden}
+.fs-barre i{display:block;height:9px;border-radius:99px}
+.fs-e{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13.5px;font-weight:600;color:var(--text)}
+.fs-emarg .carte-emargement{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--bg);
+  border:1px dashed var(--border2);border-radius:12px;padding:10px 12px;margin:2px 0 0;box-shadow:none}
+.fs-auto{background:#f1edff;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:3px;font-size:13px;color:#4b3fa0}
+.fs-auto b{font:700 14.5px "Space Grotesk",Inter,sans-serif;color:#3b2a8f}
+.fs-auto a{font-weight:600;color:#5b3fc4}
+.fs-btn-s{height:34px;padding:0 12px;border-radius:10px;font-size:12.5px;font-weight:600}
+
+/* ---------- LES ETIQUETTES D'ETAT ---------- */
+.c{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:8px;font:600 12px Inter,sans-serif;white-space:nowrap}
+.c-ok{background:#dcf5e8;color:#0a6a46}
+.c-ok::before,#corps-inscrits .chip-g::before{content:"";width:7px;height:3.5px;border-left:2px solid currentColor;
+  border-bottom:2px solid currentColor;transform:rotate(-45deg) translateY(-1px);flex:none}
+.c-att{background:#ffefd6;color:#8a4d00}
+.c-att::before{content:"";width:7px;height:7px;border-radius:50%;background:#f08c00}
+.c-todo{background:var(--bg);color:var(--muted)}
+.c-todo::before{content:"";width:7px;height:7px;border-radius:50%;border:1.5px solid var(--border2);box-sizing:border-box}
+
+/* ---------- A FAIRE ---------- */
+.fs-afaire{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.fs-af{border-radius:18px;padding:18px 20px;display:flex;gap:16px;align-items:center}
+.fs-af>b{font:700 46px/1 "Space Grotesk",Inter,sans-serif;flex:none;min-width:40px;text-align:center}
+.fs-af>b i{font-size:34px}
+.fs-af>div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fs-af-t{font:700 14.5px Inter,sans-serif}
+.fs-af-s{font-size:12.5px;opacity:.9}
+.fs-btn-noir{align-self:flex-start;height:34px;padding:0 13px;border-radius:10px;background:#141a2e !important;
+  color:#fff !important;border:1px solid #141a2e !important;font-size:12.5px;font-weight:600;margin-top:2px}
+.fs-af-orange{background:#ffefd6;color:#6e4200}.fs-af-orange>b{color:#b45f00}
+.fs-af-bleu{background:#e3eaff;color:#24357a}.fs-af-bleu>b{color:#2448b8}
+.fs-af-violet{background:#ece6ff;color:#3f338a}.fs-af-violet>b{color:#5b3fc4}
+.fs-af-vert{background:#dcf5e8;color:#0a5a3c}.fs-af-vert>b{color:#0b7a52}
+
+/* ---------- LES ONGLETS ---------- */
+.tabs{display:flex;gap:4px;flex-wrap:wrap;background:var(--card2,#f2f4f8);padding:4px;border-radius:14px;
+  border-bottom:0;margin-bottom:14px;width:max-content;max-width:100%;box-sizing:border-box}
+.tabs .tab{border:0;border-radius:11px;padding:9px 15px;margin:0;font-weight:600;font-size:13.5px;color:var(--muted);
+  display:inline-flex;align-items:center;gap:7px}
+.tabs .tab:hover{color:var(--text)}
+.tabs .tab.active{background:#141a2e;color:#fff;border:0}
+.tabs .tab-valider.active{background:var(--warn);color:#1c0d00}
+.fs-cnt{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 6px;
+  border-radius:999px;background:#ffd23f;color:#141a2e;font:800 11px Inter,sans-serif}
+.filter-btn{height:32px;padding:0 14px;border-radius:10px;font-size:12.5px;font-weight:600}
+.filter-btn.active{background:#141a2e;color:#fff;border-color:#141a2e}
+
+/* ---------- LE TABLEAU DES INSCRITS ---------- */
+.fs-table{border-collapse:separate;border-spacing:0}
+.fs-table th,.fs-table td{padding-left:6px;padding-right:6px}
+.fs-table thead th{white-space:normal}
+.fs-table td{white-space:nowrap}
+.fs-table td:nth-child(2){white-space:normal}
+/* Les infobulles de la derniere colonne s'ouvrent vers la gauche : centrees,
+   elles depassaient du tableau et faisaient apparaitre un defilement horizontal. */
+.fs-table td:last-child [data-tip]:after{left:auto;right:0;transform:none}
+.fs-table td:last-child [data-tip]:not(.ti):before{left:auto;right:8px;transform:none}
+/* « Saisir » et la cloche de relance tiennent sur une ligne : la relance garde
+   son infobulle, seule son etiquette s'efface. */
+#corps-inscrits .reg-btn + .rel-btn{font-size:0;padding:0 8px;gap:0}
+#se_boutons{order:2;display:inline-flex}
+details.fs-plus{order:3}
+.fs-table thead th{font-size:12px}
+.fs-table .col-header-group{background:#e3eaff;color:#2448b8;font:800 10.5px Inter,sans-serif;letter-spacing:1.3px;
+  text-transform:uppercase;padding:9px 10px;text-align:left;border-bottom:0}
+.fs-table .col-header-group.orange{background:#ffefd6;color:#8a4d00}
+.fs-table .col-header-group.green{background:#ece6ff;color:#5b3fc4}
+.fs-sh{font:700 11.5px Inter,sans-serif !important;color:var(--text) !important;text-transform:none !important;letter-spacing:0 !important;line-height:1.25 !important;
+  white-space:normal}
+.fs-sh-b{background:#f3f6ff}.fs-sh-o{background:#fff8ec}.fs-sh-v{background:#f6f3ff}
+.fs-table td{padding-top:11px;padding-bottom:11px;vertical-align:middle}
+.fs-p{display:flex;gap:11px;align-items:center;min-width:200px;max-width:260px}
+.fs-p-m{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:185px}
+.fs-av{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+  font:700 13px "Space Grotesk",Inter,sans-serif;color:#fff;flex:none}
+.fs-p-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fs-p-n{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px}
+.fs-p-s{font-size:12px;color:var(--text);opacity:.8}
+.fs-p-m{font-size:11px;color:var(--muted)}
+.fs-mq{display:inline-flex;align-items:center;height:19px;padding:0 6px;border-radius:5px;font:700 10px Inter,sans-serif;
+  letter-spacing:.3px;text-transform:uppercase}
+.fs-mq-inv{background:#efeafe;color:#5b3fc4}.fs-mq-code{background:#dcf5e8;color:#0a6a46}.fs-mq-adapt{background:#ffefd6;color:#8a4d00}
+#corps-inscrits .chip{height:26px;padding:0 10px;border-radius:8px;font-size:12px;font-weight:600;gap:6px;border:0}
+#corps-inscrits .chip .dot{display:none}
+#corps-inscrits .chip-g{background:#dcf5e8;color:#0a6a46}
+#corps-inscrits .chip-gray{background:var(--bg);color:var(--muted);border:0}
+#corps-inscrits .chip-b{background:#e3eaff;color:#2448b8;text-decoration:none}
+#corps-inscrits .chip-inv{background:#efeafe;color:#5b3fc4}
+#corps-inscrits .chip-part{background:#ffefd6;color:#8a4d00}
+#corps-inscrits .chip-auto{background:#efeafe;color:#4b2fb0}
+#corps-inscrits .rel-btn,#corps-inscrits .reg-btn{height:26px;padding:0 10px;border-radius:8px;border:0;background:#ffefd6;
+  color:#8a4d00;font-size:12px;font-weight:600}
+#corps-inscrits .rel-btn:hover,#corps-inscrits .reg-btn:hover{background:#ffe2b3}
+
+/* ---------- L'HISTORIQUE ---------- */
+.fs-histo{padding:6px 0}
+.fs-h-l{display:grid;grid-template-columns:28px minmax(0,1fr) 90px minmax(0,1.2fr);gap:12px;align-items:center;
+  padding:11px 18px;border-top:1px solid var(--border);font-size:13px}
+.fs-h-l:first-child{border-top:0}
+.fs-h-l i{font-size:17px;color:var(--accent)}
+.fs-h-n{font-weight:600}
+.fs-h-c{font:700 17px "Space Grotesk",Inter,sans-serif}
+.fs-h-c small{font-size:12px;color:var(--muted);font-weight:500}
+.fs-h-d{color:var(--muted);font-size:12px}
+
+/* ---------- PETITS ECRANS ---------- */
+@media (max-width:1100px){.fs-parcours,.fs-afaire{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- MODE SOMBRE ---------- */
+html[data-sombre] .fs-hero{background:#0f1736;border:1px solid #23305e}
+html[data-sombre] .fs-auto{background:#2a2350;color:#cfc4ff}
+html[data-sombre] .fs-auto b{color:#e2dbff}
+html[data-sombre] .fs-auto a{color:#b9a8ff}
+html[data-sombre] .c-ok,html[data-sombre] #corps-inscrits .chip-g{background:#123d2c;color:#7fe0b4}
+html[data-sombre] .c-att,html[data-sombre] #corps-inscrits .rel-btn,html[data-sombre] #corps-inscrits .reg-btn,
+html[data-sombre] #corps-inscrits .chip-part{background:#3d2c10;color:#f5c87a}
+html[data-sombre] #corps-inscrits .chip-b{background:#1d2b55;color:#a9c0ff}
+html[data-sombre] #corps-inscrits .chip-inv,html[data-sombre] #corps-inscrits .chip-auto{background:#2a2350;color:#c8b9ff}
+html[data-sombre] .fs-af-orange{background:#3a2a12;color:#f3d29a}html[data-sombre] .fs-af-orange>b{color:#ffb547}
+html[data-sombre] .fs-af-bleu{background:#1b2650;color:#c4d2ff}html[data-sombre] .fs-af-bleu>b{color:#8fb0ff}
+html[data-sombre] .fs-af-violet{background:#2a2350;color:#d5cbff}html[data-sombre] .fs-af-violet>b{color:#b9a8ff}
+html[data-sombre] .fs-af-vert{background:#123d2c;color:#bdeed7}html[data-sombre] .fs-af-vert>b{color:#5fd6a2}
+html[data-sombre] .fs-table .col-header-group{background:#1b2650;color:#a9c0ff}
+html[data-sombre] .fs-table .col-header-group.orange{background:#3a2a12;color:#f5c87a}
+html[data-sombre] .fs-table .col-header-group.green{background:#2a2350;color:#c8b9ff}
+html[data-sombre] .fs-sh-b{background:#18203d}html[data-sombre] .fs-sh-o{background:#2b2216}html[data-sombre] .fs-sh-v{background:#211d38}
+html[data-sombre] .fs-mq-inv{background:#2a2350;color:#c8b9ff}html[data-sombre] .fs-mq-code{background:#123d2c;color:#7fe0b4}
+html[data-sombre] .fs-mq-adapt{background:#3a2a12;color:#f5c87a}
+html[data-sombre] .tabs .tab.active,html[data-sombre] .filter-btn.active{background:#ffd23f;color:#141a2e;border-color:#ffd23f}
+</style>
+<script>
+// Les cartes « A faire » menent au bon filtre, ou au bon onglet.
+function fsFiltre(mode){
+  var b = document.querySelector('.filter-btn[data-f="' + mode + '"]');
+  if(!b) return;
+  var t = document.querySelector('.tab[data-vue="inscrits"]'); if(t) t.click();
+  b.click(); b.scrollIntoView({behavior: "smooth", block: "center"});
+}
+function fsOnglet(vue){
+  var t = document.querySelector('.tab[data-vue="' + vue + '"]');
+  if(t){ t.click(); t.scrollIntoView({behavior: "smooth", block: "start"}); }
+}
+// Le menu « Plus » se referme quand on clique ailleurs.
+document.addEventListener("click", function(e){
+  document.querySelectorAll("details.fs-plus[open]").forEach(function(d){ if(!d.contains(e.target)) d.removeAttribute("open"); });
+});
+</script>
 {% endblock %}

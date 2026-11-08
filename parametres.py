@@ -70,6 +70,13 @@ SCHEMA = [
     {"cle": "envois_auto_autorises", "section": "automatismes", "type": "booleen", "defaut": True,
      "libelle": "Autoriser les envois sans validation",
      "aide": "Si vous décochez, DFM demandera toujours confirmation avant d'envoyer un mail programmé."},
+    # LE RETOUR A L'ANCIENNE FICHE DE SESSION — 08/11/2026. La fiche a ete
+    # refaite d'apres la maquette A+ ; l'ancienne reste disponible, intacte,
+    # le temps de s'assurer que rien ne manque. Un clic, sans redeploiement.
+    {"cle": "fiche_session", "section": "affichage", "type": "choix", "defaut": "nouvelle",
+     "libelle": "Fiche de session",
+     "options": [("nouvelle", "Nouvelle présentation"), ("classique", "Présentation classique (d'avant le 08/11/2026)")],
+     "aide": "La présentation de la page d'une session. La classique reste disponible si quelque chose vous manque."},
     {"cle": "periode_defaut", "section": "affichage", "type": "choix", "defaut": "tout",
      "libelle": "Période affichée à l'ouverture",
      "options": [("tout", "Tout l'historique"), ("avenir", "Sessions à venir"),
