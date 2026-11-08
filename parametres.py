@@ -59,9 +59,14 @@ SCHEMA = [
     # praticien est encore au fauteuil, et le mail est enfoui sous ceux de la
     # soiree quand il les lit. A la pause de midi il consulte son telephone, et
     # deux minutes de questionnaire tiennent entre deux rendez-vous.
+    # 48 HEURES APRES — 08/11/2026, regle de Franck : attestation et certificat a
+    # TOUS les inscrits, avec ou sans reponse aux questionnaires.
+    {"cle": "delai_fin_jours", "section": "automatismes", "type": "nombre", "defaut": 2,
+     "libelle": "Attestations et certificats", "unite": "jours après le dernier jour",
+     "aide": "Délai avant l'envoi automatique de l'attestation et du certificat à tous les inscrits."},
     {"cle": "heure_certificat", "section": "automatismes", "type": "heure", "defaut": "12:30",
-     "libelle": "Certificat et remerciements",
-     "aide": "Heure d'envoi, le lendemain du dernier jour de formation : certificat, attestation, code promo et demande d'avis."},
+     "libelle": "Attestations et certificats : heure d'envoi",
+     "aide": "Heure de cet envoi : attestation, certificat s'il y en a un, code promo et demande d'avis."},
     {"cle": "envois_auto_autorises", "section": "automatismes", "type": "booleen", "defaut": True,
      "libelle": "Autoriser les envois sans validation",
      "aide": "Si vous décochez, DFM demandera toujours confirmation avant d'envoyer un mail programmé."},

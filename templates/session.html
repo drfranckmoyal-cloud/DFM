@@ -243,15 +243,18 @@ html[data-sombre] .jal-rond{background:#20242f}
       <span><i class="ti ti-coin"></i>{{ s.session.tarif }} € TTC</span>
       <span><i class="ti ti-users"></i>{{ s.places_occupees }} inscrit{{ 's' if s.places_occupees > 1 }}</span>
     </div>
-    {# LE MAIL DU LENDEMAIN — 08/11/2026 : certificat, attestation, code promo et
-       demande d'avis. Seulement pour une formation qui a un certificat. #}
+    {# LE MAIL DE FIN DE FORMATION — 08/11/2026 : 48 h apres la fin, a tous les
+       inscrits, l'attestation, le certificat s'il y en a un, le code promo et
+       la demande d'avis. #}
     {% if certificat %}
     <div class="session-meta" style="margin-top:6px">
-      <span title="Certificat, attestation, code promo et demande d'avis, le lendemain de la formation"><i class="ti ti-certificate"></i>
-      {% if certificat.envoye_le %}Mail du certificat parti le {{ certificat.envoye_le }}
-      {% elif not certificat.auto %}Mail du certificat <b>retenu</b> · <a href="#" onclick="certAuto(1);return false">rétablir l'envoi</a>
-      {% elif certificat.raison.startswith('prevu') %}Mail du certificat le {{ certificat.moment }} · <a href="#" onclick="certAuto(0);return false">retenir</a>
-      {% else %}Mail du certificat : {{ certificat.raison or 'en cours' }} · <a href="#" onclick="certAuto(0);return false">retenir</a>{% endif %}</span>
+      <span title="48 h après la fin, à tous les inscrits : attestation{{ ', certificat' if certificat.fond }}, code promo et demande d'avis"><i class="ti ti-certificate"></i>
+      {% set quoi = 'Attestations et certificats' if certificat.fond else 'Attestations' %}
+      {% if certificat.envoye_le %}{{ quoi }} parties le {{ certificat.envoye_le }}
+      {% elif not certificat.auto %}{{ quoi }} : envoi automatique <b>retenu</b> · <a href="#" onclick="certAuto(1);return false">rétablir l'envoi</a>
+      {% elif certificat.raison.startswith('prevu') %}{{ quoi }} envoyées à tous le {{ certificat.moment }} · <a href="#" onclick="certAuto(0);return false">retenir</a>
+      {% elif certificat.raison == 'trop tard pour partir seul' %}{{ quoi }} : pas d'envoi automatique, la formation date de plus d'une semaine
+      {% else %}{{ quoi }} : {{ certificat.raison or 'envoi en cours' }} · <a href="#" onclick="certAuto(0);return false">retenir</a>{% endif %}</span>
     </div>
     <script>
     function certAuto(v){
@@ -267,7 +270,7 @@ html[data-sombre] .jal-rond{background:#20242f}
     {# LES CERTIFICATS, A IMPRIMER A L'AVANCE — 08/11/2026. Deux gestes : les
        fabriquer (ceux qui manquent, meme avant la formation), puis choisir
        lesquels telecharger, en un seul dossier. #}
-    {% if certificat %}<button type="button" class="btn btn-second" title="Fabrique les certificats qui manquent, même avant la formation" onclick="ceGenerer(this)"><i class="ti ti-award"></i>Générer les certificats</button>
+    {% if certificat and certificat.fond %}<button type="button" class="btn btn-second" title="Fabrique les certificats qui manquent, même avant la formation" onclick="ceGenerer(this)"><i class="ti ti-award"></i>Générer les certificats</button>
     <button type="button" class="btn btn-second" title="Choisir les certificats à télécharger, en un seul dossier" onclick="ceOuvrir()"><i class="ti ti-download"></i>Télécharger les certificats</button>{% endif %}
     {% if s.sheet.lien_emargement %}<a class="btn btn-emargement" href="{{ s.sheet.lien_emargement }}" target="_blank"><i class="ti ti-clipboard-check"></i>Émargement</a>{% endif %}
     <button type="button" class="btn btn-second" title="Produit la feuille vierge à partir des inscrits actuels" onclick="regenererEmargement(this)"><i class="ti ti-refresh"></i>{{ 'Régénérer émargement' if s.sheet.lien_emargement else "Générer l'émargement" }}</button>

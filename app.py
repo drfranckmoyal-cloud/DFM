@@ -1327,7 +1327,7 @@ def detail_session(code):
     # LES CERTIFICATS DE CHACUN, pour la colonne des attestations — 08/11/2026.
     certificat_info = _certificat_info(code)
     certificats_liens = {}
-    if certificat_info:
+    if certificat_info and certificat_info.get("fond"):
         for _l in (s.get("lignes") or []) if isinstance(s, dict) else []:
             _lien = _certificat_lien(code, _l)
             if _lien:
@@ -2172,22 +2172,22 @@ def certificats_auto(code):
     actif = request.form.get("actif") == "1"
     e = _cert.poser_envoi(code, auto=actif)
     try:
-        journal.ecrire("Mail du certificat " + ("rétabli" if actif else "retenu"), "", "", "", code)
+        journal.ecrire("Mail de fin de formation " + ("rétabli" if actif else "retenu"), "", "", "", code)
     except Exception:
         pass
     return jsonify({"ok": True, "etat": e})
 
 
 def _certificat_info(code):
-    """Ce que la fiche de session affiche du mail du lendemain. None sans certificat."""
+    """Ce que la fiche de session affiche du mail de fin de formation — pour
+    TOUTES les sessions depuis le 08/11/2026. « fond » dit si la formation a un
+    certificat : les boutons et le jalon des certificats en dependent."""
     try:
         import certificat as _cert
-        if not _cert.fond(code):
-            return None
         e = _cert.etat_envoi(code)
         m = _cert.moment_envoi(code)
         pret, raison = _cert.a_envoyer_maintenant(code)
-        return {"auto": e["auto"], "envoye_le": e["envoye_le"],
+        return {"auto": e["auto"], "envoye_le": e["envoye_le"], "fond": bool(_cert.fond(code)),
                 "moment": m.strftime("%d/%m/%Y à %H:%M") if m else "", "raison": raison}
     except Exception:
         return None
@@ -3429,14 +3429,14 @@ def _certificats_auto():
         _CERT_PARTIS.add(code)
         r = subprocess.run([sys.executable, "envoyer_certificats.py", code],
                            capture_output=True, text=True, cwd=DOSSIER, timeout=1800)
-        envoyes = r.stdout.count("Certificat envoye.")
+        envoyes = r.stdout.count("Certificat envoye.") + r.stdout.count("Attestation envoyee.")
         rates = [l.strip() for l in r.stdout.splitlines() if "NON ENVOYES" in l]
         if r.returncode != 0 or rates:
             detail = rates[-1] if rates else ((r.stderr or "").strip().splitlines() or ["erreur"])[-1]
-            _auto_signaler("Mail du certificat", Exception(detail[:150]), code)
+            _auto_signaler("Mail de fin de formation", Exception(detail[:150]), code)
         if envoyes:
             try:
-                journal.ecrire("Mail du certificat envoyé automatiquement", "",
+                journal.ecrire("Mail de fin de formation envoyé automatiquement", "",
                                "%d destinataire(s)" % envoyes, "", code)
             except Exception:
                 pass
@@ -5936,7 +5936,7 @@ def _qd_operationnel(code):
         "nb_factures": len([p for p in participants if p["facture_lien"]]),
         "nb_attestations": len([p for p in participants if p["attestation_lien"]]),
         "nb_certificats": len([p for p in participants if p["certificat_lien"]]),
-        "a_certificat": _certificat_info(code) is not None,
+        "a_certificat": bool((_certificat_info(code) or {}).get("fond")),
         "nb_presents": len([p for p in participants if p["present"]]),
         "emargement": emargement,
         "tarif": tarif,

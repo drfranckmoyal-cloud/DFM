@@ -286,7 +286,14 @@ def poser_envoi(code_session, **valeurs):
 
 
 def moment_envoi(code_session):
-    """Le lendemain du dernier jour, a l'heure reglee. None sans journees."""
+    """Le dernier jour plus le delai regle (deux jours), a l'heure reglee.
+    None sans journees.
+
+    48 HEURES APRES LA FIN — 08/11/2026, regle de Franck : « les attestations ET
+    certificats partent 48 heures apres, automatiquement, a TOUS les apprenants,
+    avec ou sans reponse aux questionnaires ». Le surlendemain a 12h30 : deux
+    jours pleins pour repondre a l'evaluation de sortie, et l'heure ou un
+    praticien lit ses mails."""
     from datetime import datetime, timedelta
     import jours as _J
     import sessions as _s
@@ -305,14 +312,20 @@ def moment_envoi(code_session):
         h, m = (int(x) for x in heure.split(":")[:2])
     except ValueError:
         h, m = 12, 30
-    return datetime.strptime(fin, "%Y-%m-%d") + timedelta(days=1, hours=h, minutes=m)
+    try:
+        import parametres
+        delai = int(parametres.valeur("delai_fin_jours", 2) or 2)
+    except Exception:
+        delai = 2
+    return datetime.strptime(fin, "%Y-%m-%d") + timedelta(days=delai, hours=h, minutes=m)
 
 
 def a_envoyer_maintenant(code_session, maintenant=None):
-    """(oui, raison) : le mail du lendemain doit-il partir maintenant ?"""
+    """(oui, raison) : le mail de fin de formation doit-il partir maintenant ?
+
+    TOUTES LES FORMATIONS, PAS SEULEMENT CELLES QUI ONT UN CERTIFICAT — regle du
+    08/11/2026. Sans certificat, le mail porte l'attestation seule."""
     from datetime import datetime
-    if not fond(code_session):
-        return False, "pas de certificat pour cette formation"
     e = etat_envoi(code_session)
     if e["envoye_le"]:
         return False, "deja envoye le " + e["envoye_le"]

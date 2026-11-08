@@ -1680,8 +1680,9 @@ def tests_mail_du_certificat():
         C.ETAT = os.path.join(tempfile.mkdtemp(prefix="dfm-cert-"), "etat.json")
         C.fond = lambda code: "fond.jpg" if code == "avec" else None
         C.moment_envoi = lambda code: dt(2027, 2, 6, 12, 30)
-        verifier("sans certificat, pas de mail", not C.a_envoyer_maintenant("sans", dt(2027, 2, 6, 13, 0))[0])
-        verifier("pas avant le lendemain a l'heure dite",
+        verifier("sans certificat, l'attestation part quand meme",
+                 C.a_envoyer_maintenant("sans", dt(2027, 2, 6, 13, 0))[0])
+        verifier("pas avant le moment prevu",
                  not C.a_envoyer_maintenant("avec", dt(2027, 2, 6, 12, 29))[0])
         verifier("a l'heure dite, il part", C.a_envoyer_maintenant("avec", dt(2027, 2, 6, 12, 31))[0])
         verifier("une semaine plus tard, il ne part plus seul",
@@ -1697,10 +1698,22 @@ def tests_mail_du_certificat():
     verifier("le modele existe et se range parmi les usages", bool(f) and "certificat" in M.USAGES)
     S = dict(FICHE, marque="Smileclub Formations", signature_mail="Franck")
     base = {"prenom": "Lea", "nom": "ESSAI", "mail": "lea@essai.test"}
-    ctx = M.contexte(S, base, {"certificat": "1", "lien_satisfaction": "https://essai.test/q",
+    ctx = M.contexte(S, base, {"certificat": "1", "sans_certificat": "", "remise_fidelite": "1",
+                               "documents_fin": "Ton certificat et ton attestation",
+                               "lien_satisfaction": "https://essai.test/q",
                                "satisfaction_a_faire": "1", "satisfaction_faite": ""})
-    h = M.rendre(f, ctx)["html"]
+    r = M.rendre(f, ctx)
+    h = r["html"]
     verifier("le code promo est dans son cadre", "REMISE10" in h and "dashed" in h)
+    verifier("l'objet annonce le certificat et l'attestation", "Ton certificat et ton attestation" in r["objet"])
+    ctx3 = M.contexte(S, base, {"certificat": "", "sans_certificat": "1", "remise_fidelite": "",
+                                "documents_fin": "Ton attestation", "lien_satisfaction": "https://essai.test/q",
+                                "satisfaction_a_faire": "1", "satisfaction_faite": ""})
+    r3 = M.rendre(f, ctx3)
+    verifier("sans certificat, le mail ne parle que de l'attestation",
+             "certificat de fin" not in r3["html"] and "attestation de formation" in r3["html"]
+             and r3["objet"].startswith("Merci Lea ! Ton attestation"), r3["objet"])
+    verifier("sans code actif chez l'organisme, pas d'offre", "REMISE10" not in r3["html"])
     verifier("le bouton mene au questionnaire de la personne", "https://essai.test/q" in h and "Je donne mon avis" in h)
     ctx2 = M.contexte(S, base, {"certificat": "1", "lien_satisfaction": "https://essai.test/q",
                                 "satisfaction_a_faire": "", "satisfaction_faite": "1"})

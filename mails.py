@@ -50,8 +50,8 @@ USAGES = {
     # certificat et l'attestation, offre un code pour la prochaine formation,
     # et demande l'avis du stagiaire. Il part tout seul, le lendemain de la
     # fin de la formation, a l'heure reglee dans les parametres.
-    "certificat": {"nom": "Certificat et remerciements",
-                   "quand": "Part le lendemain de la formation, à l'heure réglée dans les paramètres",
+    "certificat": {"nom": "Fin de formation : attestation et certificat",
+                   "quand": "Part 48 h après la fin de la formation, à tous les inscrits, avec ou sans réponse aux questionnaires",
                    "icone": "ti-certificate", "couleur": "#0f9e6a"},
     "invitation": {"nom": "Apprenant invité",
                    "quand": "Part uniquement quand vous marquez quelqu'un comme invité — jamais par le pipeline",
@@ -101,6 +101,7 @@ BALISES = [
         ("duree", "Durée", "14 heures"),
         ("tarif", "Tarif en euros", "000"),
         ("code_promo", "Code promo saisi à l'inscription", "BIENVENUE"),
+        ("documents_fin", "« Ton certificat et ton attestation », ou « Ton attestation »", "Ton certificat et ton attestation"),
         ("remise", "Remise du code promo, en euros", "98"),
         ("formateur", "Nom du formateur", "NOM Prénom"),
     ]),
@@ -347,8 +348,8 @@ DEFAUTS = {
  "rappel": {"titre": "Rappel J-20 — texte d'origine", "objet": "Votre formation approche · {{titre_formation}}"},
  "facture": {"titre": "Facture acquittée — texte d'origine", "objet": "Votre facture · {{titre_formation}}"},
  "attestation": {"titre": "Attestation de formation — texte d'origine", "objet": "Votre attestation · {{titre_formation}}"},
- "certificat": {"titre": "Certificat et remerciements — texte d'origine",
-                "objet": "Merci {{prenom}} ! Ton certificat · {{titre_formation}}"},
+ "certificat": {"titre": "Fin de formation : attestation et certificat — texte d'origine",
+                "objet": "Merci {{prenom}} ! {{documents_fin}} · {{titre_formation}}"},
  "accuse-reception": {"titre": "Demande bien reçue — texte d'origine",
                 "objet": "Votre demande d'inscription est bien arrivée · {{formation}}"},
  "invitation": {"titre": "Apprenant invité — texte d'origine",
@@ -678,11 +679,15 @@ BLOCS_DEFAUTS = {
  "certificat": [
   {"type": "texte", "contenu": "Bonjour **{{prenom}}**,"},
   {"type": "texte", "contenu": "Un immense merci pour ta présence à la formation **« {{titre_formation}} »**. Ce fut un vrai plaisir de partager ces journées avec toi."},
-  {"type": "texte", "contenu": "Tu trouveras ci-joint ton **certificat de fin de formation**, ainsi que ton **attestation de formation**, à conserver pour ton dossier de formation continue."},
+  # Avec ou sans certificat : la formation n'en a pas toujours un.
+  {"type": "texte", "si": "certificat", "contenu": "Tu trouveras ci-joint ton **certificat de fin de formation**, ainsi que ton **attestation de formation**, à conserver pour ton dossier de formation continue."},
+  {"type": "texte", "si": "sans_certificat", "contenu": "Tu trouveras ci-joint ton **attestation de formation**, à conserver pour ton dossier de formation continue."},
   {"type": "texte", "contenu": "Et si un cas te pose question dans les semaines qui viennent, écris-moi : je reste disponible."},
   # UN ENCADRE DISCRET — 08/11/2026, Franck : « démesurément grand ». Une ligne
-  # de texte et le code a cote, rien de plus.
-  {"type": "brut", "contenu": "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"margin:18px 0;border-collapse:collapse;\"><tr><td style=\"background:#f5f8ff;border:1px solid #e0e8fb;border-radius:8px;padding:10px 14px;font-size:14px;line-height:1.5;color:#1a1d2e;\">"
+  # de texte et le code a cote, rien de plus. « remise_fidelite » n'est posee
+  # que si l'organisme a ce code ACTIF : jamais dans un mail de DSF, et plus
+  # du tout le jour ou le code est desactive.
+  {"type": "brut", "si": "remise_fidelite", "contenu": "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"margin:18px 0;border-collapse:collapse;\"><tr><td style=\"background:#f5f8ff;border:1px solid #e0e8fb;border-radius:8px;padding:10px 14px;font-size:14px;line-height:1.5;color:#1a1d2e;\">"
                               "Pour ta prochaine formation chez {{marque}}&nbsp;: <strong>10&nbsp;% de remise</strong> avec le code "
                               "<span style=\"display:inline-block;border:1px dashed #4f7ef8;border-radius:5px;background:#ffffff;padding:1px 8px;font-family:'Courier New',Courier,monospace;font-weight:bold;letter-spacing:1px;color:#1a1d2e;\">REMISE10</span>"
                               " &middot; <a href=\"https://smileclubformations.com\" style=\"color:#4f7ef8;\">les prochaines dates</a>"

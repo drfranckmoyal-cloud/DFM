@@ -1,4 +1,8 @@
-"""Le mail du lendemain : certificat, attestation, code promo, demande d'avis.
+"""Le mail de fin de formation : attestation, certificat, code promo, demande d'avis.
+
+48 HEURES APRES LA FIN, A TOUS LES INSCRITS, avec ou sans reponse aux
+questionnaires — regle de Franck du 08/11/2026. Pour TOUTES les formations :
+celles qui n'ont pas de certificat recoivent l'attestation seule.
 
     python3 envoyer_certificats.py <code>                  a ceux qui n'ont pas encore leur attestation
     python3 envoyer_certificats.py <code> a@b.fr,c@d.fr    a ceux-la seulement, meme deja servis
@@ -45,9 +49,19 @@ S = session(CODE)
 ORG = organisme_de(S["code"])
 print(f"-> Session : {S['nom_formation']} ({S['code']})")
 
-if not _cert.fond(S["code"]):
-    print("-> Pas de certificat pour cette formation : rien a envoyer.")
-    exit()
+AVEC_CERTIFICAT = bool(_cert.fond(S["code"]))
+if not AVEC_CERTIFICAT:
+    print("-> Pas de certificat pour cette formation : l'attestation part seule.")
+
+
+def remise_fidelite():
+    """Le code de fidelite n'est propose que s'il est actif chez cet organisme."""
+    try:
+        import codes_promo
+        r = codes_promo.trouver(ORG, "REMISE10")
+        return "1" if (r and r.get("actif", True)) else ""
+    except Exception:
+        return ""
 
 
 def lien_satisfaction(mail):
@@ -79,7 +93,10 @@ def envoyer(ligne, certificat_bytes, attestation_bytes, repondu, essai=False):
     nom_prenom = f"{ligne['prenom']} {ligne['nom']}".strip()
     mail = (ligne.get("mail") or "").strip()
     ctx = _mails.contexte(S, ligne, {
-        "certificat": "1",
+        "certificat": "1" if certificat_bytes else "",
+        "sans_certificat": "" if certificat_bytes else "1",
+        "documents_fin": "Ton certificat et ton attestation" if certificat_bytes else "Ton attestation",
+        "remise_fidelite": remise_fidelite(),
         "lien_satisfaction": lien_satisfaction(mail),
         "satisfaction_a_faire": "" if repondu else "1",
         "satisfaction_faite": "1" if repondu else "",
@@ -101,6 +118,8 @@ def envoyer(ligne, certificat_bytes, attestation_bytes, repondu, essai=False):
         message.attach(logo)
     for octets, nom in ((certificat_bytes, _cert.nom_fichier(ligne)),
                         (attestation_bytes, f"Attestation - {nom_prenom}.pdf")):
+        if not octets:
+            continue
         pj = MIMEApplication(octets, _subtype="pdf")
         pj.add_header("Content-Disposition", "attachment", filename=nom)
         message.attach(pj)
@@ -115,7 +134,7 @@ if ESSAI:
     ligne = {c: "" for c in suivi.COL}
     ligne.update({"prenom": "Franck", "nom": "MOYAL", "mail": ESSAI, "fonction": "Chirurgien-dentiste"})
     print(f"-> Essai pour {ESSAI} : certificat et attestation fabriques a la volee...")
-    cert = _cert.fabriquer(S["code"], ligne)
+    cert = _cert.fabriquer(S["code"], ligne) if AVEC_CERTIFICAT else None
     donnees = _att.valider_par_le_responsable(_att.pour(S["code"], ligne, logo_data))
     attest = _pdf.depuis_html(_att.html(donnees))
     envoyer(ligne, cert, attest, repondu=False, essai=True)
@@ -126,10 +145,7 @@ if ESSAI:
 # ---------------------------------------------------------------------------
 # L'ENVOI REEL
 # ---------------------------------------------------------------------------
-lignes = [l for l in suivi.lire_lignes_de(S["code"])
-          if not l["annule_le"]
-          and "recontact" not in (l["demande"] or "").lower()
-          and suivi.calculer_statut(l) not in suivi.PAS_ENCORE_INSCRIT]
+lignes = _cert.beneficiaires(S["code"])
 if CIBLES:
     lignes = [l for l in lignes if (l["mail"] or "").strip().lower() in CIBLES]
 else:
@@ -145,8 +161,8 @@ compte, rates = 0, []
 for ligne in lignes:
     nom_prenom = f"{ligne['prenom']} {ligne['nom']}".strip()
     print(f"-> {nom_prenom}...")
-    cert = _cert.existant(S["code"], ligne)
-    if not cert:
+    cert = _cert.existant(S["code"], ligne) if AVEC_CERTIFICAT else None
+    if AVEC_CERTIFICAT and not cert:
         # Fabrique a la volee et range : le passage du matin a pu manquer.
         try:
             cert = _cert.fabriquer(S["code"], ligne)
@@ -169,11 +185,13 @@ for ligne in lignes:
         continue
     suivi.ecrire(ligne["_numero"], "attestation_envoyee_le", suivi.aujourdhui(), S["code"])
     try:
-        journal.ecrire("Certificat envoyé", (ligne["prenom"].strip() + " " + ligne["nom"].strip().upper()).strip(),
-                       ligne["mail"] + " — avec l'attestation et le code promo", "", S["code"])
+        journal.ecrire("Certificat envoyé" if cert else "Attestation envoyée",
+                       (ligne["prenom"].strip() + " " + ligne["nom"].strip().upper()).strip(),
+                       ligne["mail"] + (" — avec l'attestation" if cert else "")
+                       + " — envoi de fin de formation", "", S["code"])
     except Exception:
         pass
-    print("   Certificat envoye.")
+    print("   Certificat envoye." if cert else "   Attestation envoyee.")
     compte += 1
 
 # LE PASSAGE EST NOTE MEME S'IL Y A DES RATES. Sans cela, le guet le relancerait
