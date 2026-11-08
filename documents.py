@@ -45,6 +45,10 @@ CATEGORIES = {
     # chaque fiche de session.
     "recu": ("dossier_factures", "Factures", ""),
     "attestation": ("dossier_attestations", "Attestations", ""),
+    # LE CERTIFICAT — 08/11/2026. Range a part en local, mais dans le MEME
+    # dossier Drive que les attestations : il part avec elles, il se cherche
+    # avec elles. Voir certificat.py.
+    "certificat": ("dossier_attestations", "Attestations", ""),
     "emargement": ("dossier_emargement", "Emargement", ""),
 }
 

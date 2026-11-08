@@ -640,6 +640,9 @@ BLOCS_DEFAUTS = {
   {"type": "brut", "contenu": "<p>Merci d'avoir particip&eacute; &agrave; la formation"},
   {"type": "brut", "contenu": "<strong>&laquo; {{titre_formation}} &raquo;</strong>. Ce fut un plaisir de te compter parmi nous.</p>"},
   {"type": "brut", "contenu": "<p>Tu trouveras ci-joint ton <strong>attestation de formation</strong>, &agrave; conserver pour ton dossier\n  de formation continue.</p>"},
+  # Le certificat, quand la formation en a un et qu'il est joint — 08/11/2026.
+  # La balise « certificat » n'est posee que par l'envoi des attestations.
+  {"type": "brut", "si": "certificat", "contenu": "<p>Tu trouveras aussi ton <strong>certificat</strong> de fin de formation.</p>"},
   {"type": "brut", "contenu": "<p>Si tu as des questions sur les cas abord&eacute;s pendant ces deux jours, ou si tu souhaites un avis\n  sur une situation clinique, n'h&eacute;site pas &agrave; m'&eacute;crire &mdash; je reste disponible.</p>"},
   {"type": "brut", "contenu": "<p>De nouvelles sessions et d'autres formations sont r&eacute;guli&egrave;rement propos&eacute;es.\n  Nous te tiendrons inform&eacute;.</p>"},
   {"type": "brut", "contenu": "<p style=\"margin-top: 24px;\">Bien &agrave; toi,<br>"},

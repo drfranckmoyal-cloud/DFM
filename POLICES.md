@@ -55,3 +55,12 @@ Ensuite, `./deployer.sh` comme d'habitude.
 Les deux polices autorisent cet hébergement : **Inter** est sous SIL Open Font
 1.1, **Tabler Icons** sous MIT. Les mentions sont dans l'en-tête de
 `static/polices.css`.
+
+## Les polices du certificat (8 novembre 2026)
+
+`static/bebas-neue-*.woff2` et `static/questrial-*.woff2` ne servent pas aux
+pages : elles sont **intégrées dans chaque certificat PDF** (`certificat.py`),
+pour écrire le nom et les dates dans le style du modèle Canva. Toutes deux
+viennent de Google Fonts et sont sous **SIL Open Font 1.1**, qui autorise cette
+intégration. Les chasses des lettres recopiées dans `certificat.py` servent à
+réduire un nom trop long : si l'on change de police, il faut les remesurer.

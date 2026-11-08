@@ -52,9 +52,18 @@ for ligne in a_envoyer:
     if not attestation_bytes:
         print("   Attestation introuvable, ni en local ni dans le Drive.")
         continue
+    # LE CERTIFICAT ACCOMPAGNE L'ATTESTATION, quand la formation en a un et
+    # qu'il est fabrique. Il ne part jamais seul : decocher quelqu'un dans la
+    # fenetre d'envoi retient les deux. Voir certificat.py.
+    import certificat as _cert
+    certificat_bytes = None
+    try:
+        certificat_bytes = _cert.existant(CODE, ligne)
+    except Exception as e:
+        print(f"   (certificat illisible : {e})")
     import mails as _mails
     _modele = _mails.pour_formation(S.get("formation", ""), "attestation")
-    _ctx = _mails.contexte(S, ligne, {})
+    _ctx = _mails.contexte(S, ligne, {"certificat": "1" if certificat_bytes else ""})
     _rendu = _mails.rendre(_modele, _ctx)
     html = _rendu["html"]
     # Dimensions du logo lues dans le fichier et posees en HTML ET en CSS :
@@ -78,6 +87,10 @@ for ligne in a_envoyer:
     pj = MIMEApplication(attestation_bytes, _subtype="pdf")
     pj.add_header("Content-Disposition", "attachment", filename=f"Attestation - {nom_prenom}.pdf")
     message.attach(pj)
+    if certificat_bytes:
+        pj2 = MIMEApplication(certificat_bytes, _subtype="pdf")
+        pj2.add_header("Content-Disposition", "attachment", filename=_cert.nom_fichier(ligne))
+        message.attach(pj2)
     # L'ENVOI PASSE PAR LA PORTE « courrier », plus par l'API Gmail. C'est
     # l'organisme DE LA SESSION qui decide d'ou part le mail : deux entites,
     # deux adresses, et un mail parti sous la mauvaise identite ne se rattrape pas.
@@ -85,7 +98,8 @@ for ligne in a_envoyer:
     suivi.ecrire(ligne["_numero"], "attestation_envoyee_le", suivi.aujourdhui(), CODE)
     try:
         qui = (ligne["prenom"] or "").strip() + " " + (ligne["nom"] or "").strip().upper()
-        journal.ecrire("Attestation envoyée", qui.strip(), ligne["mail"], "", S["code"])
+        journal.ecrire("Attestation envoyée", qui.strip(),
+                       ligne["mail"] + (" — certificat joint" if certificat_bytes else ""), "", S["code"])
     except Exception:
         pass
     print("   Attestation envoyee.")

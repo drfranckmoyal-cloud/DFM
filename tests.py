@@ -1583,6 +1583,78 @@ def tests_codes_promo():
         del imp.ECHECS[:]
 
 
+def tests_certificats():
+    """LE CERTIFICAT D'USURES — 08/11/2026. Un fond Canva, trois choses ecrites
+    par DFM : le titre, le nom et les dates. On verifie qu'elles tiennent, que
+    « DR » ne s'ecrit que devant un praticien, et qu'il part avec l'attestation."""
+    print("\n  LES CERTIFICATS")
+    _isoler()
+    import certificat as C
+    import sessions as _s
+    print("    les dates tiennent sous « Dates: »")
+    for jours, attendu in ((["2026-11-04", "2026-11-05"], "4 et 5 novembre 2026"),
+                           (["2026-10-31", "2026-11-01"], "31 octobre et 1er novembre 2026"),
+                           (["2026-12-30", "2027-01-02"], "30 décembre 2026 et 2 janvier 2027"),
+                           (["2027-01-06", "2027-03-10", "2027-05-19", "2027-12-03"],
+                            "du 6 janvier au 3 décembre 2027"),
+                           ([], "")):
+        verifier("%s" % (attendu or "aucune journee"), C.dates_courtes(jours) == attendu,
+                 C.dates_courtes(jours))
+    print("    le nom tient sur le filet")
+    D = C.DISPOSITION["nom"]
+    court = C.corps_qui_tient("DR  LEVY Kelly", C._BEBAS, D["taille"], D["largeur"], D["espacement"])
+    long_ = C.corps_qui_tient("DR  DE VILLAUCOURT-SAINT-EXUPERY Marie-Quitterie", C._BEBAS,
+                              D["taille"], D["largeur"], D["espacement"])
+    verifier("un nom court garde le corps du modele", court == D["taille"], court)
+    verifier("un nom long est reduit pour tenir", long_ < D["taille"], long_)
+    verifier("et il tient vraiment", C._chasse("DR  DE VILLAUCOURT-SAINT-EXUPERY Marie-Quitterie",
+                                               C._BEBAS, D["espacement"]) * long_ <= D["largeur"] + 0.5)
+    print("    « DR » devant un praticien seulement")
+    verifier("chirurgien-dentiste : DR", C._praticien({"fonction": "Chirurgien-dentiste"}))
+    verifier("fonction vide : la regle par defaut, praticien", C._praticien({"fonction": ""}))
+    verifier("assistante dentaire : pas de DR", not C._praticien({"fonction": "Assistant(e) dentaire"}))
+    print("    un fond par organisme et par formation")
+    garde_sessions = dict(_s.SESSIONS)
+    garde_fond, garde_session, garde_org = C.fond, _s.session, _s.organisme_de
+    try:
+        # D'autres essais remplacent organisme_de : on remet la vraie regle.
+        _s.organisme_de = lambda c=None: ((_s.SESSIONS.get(c) or {}).get("organisme") or "").strip()
+        _s.SESSIONS["essai-cert"] = {"organisme": "mon-organisme", "formation": "usures"}
+        _s.SESSIONS["essai-cert-dsf"] = {"organisme": "dsf", "formation": "usures"}
+        verifier("DSF n'herite pas du fond Smileclub", C.fond("essai-cert-dsf") is None)
+        image = os.path.join(tempfile.mkdtemp(prefix="dfm-cert-"), "fond.jpg")
+        with open(image, "wb") as f:
+            f.write(b"\xff\xd8\xff\xd9")
+        C.fond = lambda code: image if code == "essai-cert" else None
+        _s.session = lambda c=None: {"code": c, "jours": ["2026-11-04", "2026-11-05"],
+                                     "date_debut": "2026-11-04", "date_fin": "2026-11-05"}
+        d = C.pour("essai-cert", {"nom": "Levy", "prenom": "Kelly", "fonction": "Chirurgien-dentiste"})
+        verifier("le dossier se calcule", bool(d) and d["titre"] == "DR" and d["nom"] == "LEVY Kelly"
+                 and d["dates"] == "4 et 5 novembre 2026", d and (d["titre"], d["nom"], d["dates"]))
+        h = C.html(d) if d else ""
+        verifier("le gabarit ecrit DR, le nom et les dates",
+                 ">DR<" in h and "LEVY Kelly" in h and "4 et 5 novembre 2026" in h)
+        verifier("les polices voyagent dans le document", h.count("data:font/woff2;base64,") == 4)
+        a = C.pour("essai-cert", {"nom": "Baer", "prenom": "Sandy", "fonction": "Assistant(e) dentaire"})
+        verifier("une assistante n'a pas de DR", a and a["titre"] == "" and ">DR<" not in C.html(a))
+        verifier("sans fond, pas de certificat", C.pour("essai-cert-dsf", {"nom": "X"}) is None)
+    finally:
+        _s.SESSIONS.clear()
+        _s.SESSIONS.update(garde_sessions)
+        C.fond, _s.session, _s.organisme_de = garde_fond, garde_session, garde_org
+    print("    il part avec l'attestation, et seulement avec elle")
+    racine = os.path.dirname(os.path.abspath(__file__))
+    env = open(os.path.join(racine, "envoyer_attestation.py"), encoding="utf-8").read()
+    verifier("l'envoi joint le certificat quand il existe",
+             "_cert.existant(CODE, ligne)" in env and "message.attach(pj2)" in env)
+    verifier("le traitement quotidien le fabrique apres l'attestation",
+             open(os.path.join(racine, "dfm.py"), encoding="utf-8").read().index("generer_certificats.py")
+             > open(os.path.join(racine, "dfm.py"), encoding="utf-8").read().index("generer_attestations.py"))
+    import documents
+    verifier("il se range avec les attestations dans le Drive",
+             documents.CATEGORIES["certificat"][0] == documents.CATEGORIES["attestation"][0])
+
+
 def tests_archive_et_verrous():
     """L'ARCHIVE DU SOIR NE DOIT PAS FAIRE SAUTER LE JOURNAL DE LA BASE — 31/10/2026.
 
@@ -2408,7 +2480,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:

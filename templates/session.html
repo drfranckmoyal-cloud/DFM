@@ -2831,7 +2831,8 @@ function ouvrirAttestations(){
       return '<label class="at-ligne"><input type="checkbox" data-mail="' + atEchappe(g.mail) + '"'
         + coche + bloque + ' onchange="atCompter()">'
         + '<span style="flex:1;font-size:13px">' + atEchappe(g.nom)
-        + '<span style="display:block;font-size:11px;color:var(--muted)">' + atEchappe(g.mail) + '</span></span>'
+        + '<span style="display:block;font-size:11px;color:var(--muted)">' + atEchappe(g.mail)
+        + (g.certificat ? ' · <i class="ti ti-certificate" style="font-size:11px"></i> certificat joint' : '') + '</span></span>'
         + etat + '</label>';
     }).join("");
     modale.innerHTML =

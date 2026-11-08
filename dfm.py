@@ -158,6 +158,9 @@ ETAPES = [
     ("Generation des factures", "generer_factures.py", False),
     ("Envoi des factures", "envoyer_facture.py", False),
     ("Generation des attestations", "generer_attestations.py", False),
+    # Le certificat, pour les formations qui en ont un modele. Il ne part pas
+    # seul : il accompagne l'attestation. Voir certificat.py.
+    ("Generation des certificats", "generer_certificats.py", False),
     # L'envoi des attestations n'est plus automatique : il passe par la fenetre
     # de validation de la fiche de session, ou l'on decoche les absents.
     # Voir /session/<code>/attestations/envoyer dans app.py.

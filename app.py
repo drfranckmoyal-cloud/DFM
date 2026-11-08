@@ -2037,6 +2037,14 @@ def reclamation_enregistrer(ident):
     except Exception:
         pass
     return jsonify({"ok": True, "reclamation": fiche})
+def _certificat_present(code, ligne):
+    try:
+        import certificat as _cert
+        return _cert.present(code, ligne)
+    except Exception:
+        return False
+
+
 @app.route("/codes-promo")
 def codes_promo_ecran():
     """Les codes promo de l'organisme actif — 08/11/2026. Voir codes_promo.py.
@@ -6432,6 +6440,8 @@ def liste_attestations(code):
                      # `attestation_le` ne se pose qu'une fois le resultat connu :
                      # avant, le document existe mais ses cases sont vides.
                      "complete": bool(l.get("attestation_le")),
+                     # Le certificat part avec elle quand il existe.
+                     "certificat": _certificat_present(code, l),
                      "lien": lien,
                      "envoyee_le": l.get("attestation_envoyee_le") or ""})
     gens.sort(key=lambda g: g["nom"])

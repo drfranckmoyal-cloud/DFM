@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Certificat — {{ c.nom }}</title>
+{# LE FOND EST L'IMAGE DU MODELE CANVA ; seuls le titre, le nom et les dates
+   s'ecrivent ici. Les positions sont en pixels du modele (1123 x 794), qui
+   sont aussi des pixels CSS : la page fait exactement un A4 paysage. Voir
+   certificat.py. Les polices voyagent dans le document : un PDF fabrique
+   sans reseau ne doit pas retomber sur une police de secours. #}
+<style>
+@font-face { font-family: "Bebas Neue"; src: url({{ c.police_nom[0] }}) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Bebas Neue"; src: url({{ c.police_nom[1] }}) format("woff2");
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Questrial"; src: url({{ c.police_dates[0] }}) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Questrial"; src: url({{ c.police_dates[1] }}) format("woff2");
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@page { size: 297mm 210mm; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 297mm; height: 210mm; }
+.page { position: relative; width: 297mm; height: 210mm; overflow: hidden; }
+.fond { position: absolute; left: 0; top: 0; width: 297mm; height: 210mm; }
+.nom { position: absolute; left: {{ c.d.nom.gauche }}px; width: {{ c.d.nom.largeur }}px;
+  bottom: calc(210mm - {{ c.d.nom.bas }}px); text-align: center; white-space: nowrap;
+  font-family: "Bebas Neue", sans-serif; font-size: {{ c.taille_nom }}px; line-height: 1;
+  letter-spacing: {{ c.d.nom.espacement }}em; color: {{ c.d.nom.couleur }}; }
+.nom .titre { margin-right: .22em; }
+.dates { position: absolute; left: {{ c.d.dates.gauche }}px; top: {{ c.d.dates.haut }}px;
+  width: {{ c.d.dates.largeur }}px; white-space: nowrap; font-family: "Questrial", sans-serif;
+  font-size: {{ c.taille_dates }}px; line-height: .96; color: {{ c.d.dates.couleur }}; }
+</style>
+</head>
+<body>
+<div class="page">
+  <img class="fond" src="{{ c.fond }}" alt="">
+  <div class="nom">{% if c.titre %}<span class="titre">{{ c.titre }}</span>{% endif %}{{ c.nom }}</div>
+  <div class="dates">{{ c.dates }}</div>
+</div>
+</body>
+</html>
