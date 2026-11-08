@@ -2037,6 +2037,117 @@ def reclamation_enregistrer(ident):
     except Exception:
         pass
     return jsonify({"ok": True, "reclamation": fiche})
+@app.route("/codes-promo")
+def codes_promo_ecran():
+    """Les codes promo de l'organisme actif — 08/11/2026. Voir codes_promo.py.
+
+    LES SESSIONS PROPOSEES SONT CELLES A VENIR. Un code sur une session passee
+    ne servirait a personne ; celles qu'un code vise deja restent cochees
+    meme passees, pour qu'on voie ce qu'il couvrait.
+    """
+    import codes_promo as CP
+    import inscription as _insc
+    import profil as PR
+    import suivi as _suivi
+    org = PR.actif()
+    aujourd = date.today().isoformat()
+    try:
+        usages = CP.utilisations(org)
+    except Exception as e:
+        usages = {}
+        print("   (utilisations des codes illisibles : %s)" % str(e)[:80])
+    codes = CP.lister(org)
+    visees = {s for r in codes for s in (r.get("sessions") or [])}
+    sessions = []
+    for c in CP.sessions_de(org):
+        try:
+            S = fiche_session(c)
+        except Exception:
+            continue
+        if _est_client_code(c):            # le centre saisit ses participants
+            continue
+        fin = S.get("date_fin") or S.get("date_debut") or ""
+        if fin and fin < aujourd and c not in visees:
+            continue
+        sessions.append({"code": c, "nom": S.get("nom_formation") or c,
+                         "dates": S.get("date_texte") or "", "debut": S.get("date_debut") or "",
+                         "tarif": S.get("tarif") or "", "lien": _insc.lien(c) or "",
+                         "stripe": bool((S.get("stripe_lien") or "").strip())})
+    sessions.sort(key=lambda s: s["debut"])
+    noms = {s["code"]: s for s in sessions}
+    for r in codes:
+        r["libelle"] = CP.libelle(r)
+        r["inscrits"] = usages.get(r["code"], [])
+        cibles = r.get("sessions") or [s["code"] for s in sessions
+                                         if not (s["debut"] and s["debut"] < aujourd)]
+        r["liens"] = [{"nom": noms[c]["nom"], "dates": noms[c]["dates"],
+                       "lien": noms[c]["lien"] + "&code=" + r["code"],
+                       "prix": int(_suivi.euros(noms[c]["tarif"]) - CP.remise(r, noms[c]["tarif"]))}
+                      for c in cibles if c in noms and noms[c]["lien"]]
+        r["expire"] = bool(r.get("jusqu_au") and r["jusqu_au"] < aujourd)
+        r["portee"] = [("%s, %s" % (noms[c]["nom"], noms[c]["dates"])) if c in noms else c
+                       for c in (r.get("sessions") or [])]
+    return render_template("codes_promo.html", codes=codes, sessions=sessions)
+
+
+def _est_client_code(code):
+    try:
+        import sessions as _s
+        return bool(_s.est_client(code))
+    except Exception:
+        return False
+
+
+@app.route("/codes-promo/enregistrer", methods=["POST"])
+def codes_promo_enregistrer():
+    import codes_promo as CP
+    import profil as PR
+    org = PR.actif()
+    f = request.form
+    deja = CP.trouver(org, f.get("code"))
+    ok, message = CP.poser(org, f.get("code"), (f.get("type") or "").strip(), f.get("valeur"),
+                           sessions=f.getlist("sessions"), jusqu_au=f.get("jusqu_au") or "",
+                           plafond=f.get("max") or 0, note=f.get("note") or "",
+                           stripe=f.get("stripe") == "1",
+                           par=(getattr(journal, "AUTEUR", "") or ""))
+    if not ok:
+        return jsonify({"ok": False, "message": message})
+    r = CP.trouver(org, f.get("code"))
+    portee = ", ".join(r.get("sessions") or []) or "toutes les sessions"
+    try:
+        journal.ecrire("Code promo modifié" if deja else "Code promo créé", "",
+                       "%s — %s — %s" % (r["code"], CP.libelle(r), portee))
+    except Exception:
+        pass
+    pub, detail = CP.publier(org)
+    if not pub:
+        message += (" ATTENTION : il n'est pas encore reconnu par le formulaire "
+                    "(%s). Réessayez dans un instant." % detail)
+    return jsonify({"ok": True, "message": message, "publie": pub})
+
+
+@app.route("/codes-promo/<code>/activer", methods=["POST"])
+def codes_promo_activer(code):
+    import codes_promo as CP
+    import profil as PR
+    org = PR.actif()
+    actif = request.form.get("actif") == "1"
+    if not CP.activer(org, code, actif):
+        return jsonify({"ok": False, "message": "Code inconnu."})
+    try:
+        journal.ecrire("Code promo réactivé" if actif else "Code promo désactivé", "",
+                       CP.normaliser(code))
+    except Exception:
+        pass
+    pub, detail = CP.publier(org)
+    message = ("Code réactivé." if actif else
+               "Code désactivé : le formulaire le refuse désormais. Les inscriptions "
+               "déjà faites gardent leur remise.")
+    if not pub:
+        message += " ATTENTION : le formulaire n'est pas encore à jour (%s)." % detail
+    return jsonify({"ok": True, "message": message, "publie": pub})
+
+
 @app.route("/conservation")
 def politique_conservation():
     """La politique de conservation, telle qu'on la produit en controle.
@@ -6171,6 +6282,7 @@ def _ap_dossier(mail):
                 "titre": S.get("titre_complet") or "", "date_texte": S.get("date_texte") or "",
                 "debut": S.get("date_debut") or "", "adresse": S.get("adresse") or "",
                 "montant_du": du, "montant_recu": montant, "statut": statut,
+                "code_promo": d.get("code_promo") or "", "remise": d.get("remise") or "",
                 "annule": bool(d.get("annule_le")), "present": bool(d.get("present")),
                 "score_init": nb(d.get("score_init")), "score_fin": nb(d.get("score_fin")),
                 "satisfaction": nb(d.get("note_satisfaction")),

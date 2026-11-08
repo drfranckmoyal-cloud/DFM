@@ -25,6 +25,75 @@ function propre(v, max) {
   return String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, max);
 }
 
+// ------------------------------------------------------------------
+// LES CODES PROMO — 08/11/2026. La liste est tenue par DFM (codes_promo.py) et
+// recopiee dans « Codes_promo » ; cette fonction ne fait que la lire. Les
+// regles de calcul sont LES MEMES que celles de DFM, a l'euro pres : la page
+// annonce le prix que la convention ecrira.
+// ------------------------------------------------------------------
+function codePropre(v) {
+  return String(v == null ? "" : v).replace(/\s+/g, "").toUpperCase().slice(0, 30);
+}
+
+function euros(v) {
+  const n = parseFloat(String(v == null ? "" : v).replace(",", ".").replace(/[^0-9.]/g, ""));
+  return isFinite(n) ? n : 0;
+}
+
+function aujourdhuiParis() {
+  // « 2026-11-08 » : un code valable jusqu'au 30 l'est jusqu'a minuit a Paris.
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date());
+}
+
+async function jugerCode(of, codeSession, saisi, mail) {
+  const code = codePropre(saisi);
+  if (!code) return { ok: false, message: "Aucun code saisi." };
+  const { data: sess, error: e1 } = await supabase
+    .from("Sessions_inscription").select("code_session,tarif")
+    .eq("code_session", codeSession).eq("organisme", of).limit(1);
+  if (e1) return { ok: false, message: "Base indisponible.", panne: true };
+  if (!sess || !sess.length) return { ok: false, message: "Formation inconnue." };
+  const tarif = euros(sess[0].tarif);
+
+  // LE CLOISONNEMENT, ENCORE : on ne cherche que parmi les codes de CET organisme.
+  const { data: codes, error: e2 } = await supabase
+    .from("Codes_promo").select("*").eq("organisme", of).eq("code", code).limit(1);
+  if (e2) return { ok: false, message: "Base indisponible.", panne: true };
+  const r = codes && codes[0];
+  if (!r) return { ok: false, message: "Ce code n'existe pas." };
+  if (!r.actif) return { ok: false, message: "Ce code n'est plus valable." };
+  const visees = r.sessions || [];
+  if (visees.length && visees.indexOf(codeSession) < 0) {
+    return { ok: false, message: "Ce code ne s'applique pas à cette formation." };
+  }
+  if (r.jusqu_au && aujourdhuiParis() > String(r.jusqu_au).slice(0, 10)) {
+    return { ok: false, message: "Ce code a expiré." };
+  }
+  const plafond = Number(r.max_utilisations || 0);
+  if (plafond > 0) {
+    // Un renvoi corrige du formulaire ne consomme pas une seconde utilisation.
+    let q = supabase.from("Inscriptions").select("id", { count: "exact", head: true })
+      .eq("organisme", of).eq("code_promo", code);
+    if (mail) q = q.neq("mail", String(mail).toLowerCase());
+    const { count, error: e3 } = await q;
+    if (e3) return { ok: false, message: "Base indisponible.", panne: true };
+    if ((count || 0) >= plafond) {
+      return { ok: false, message: "Ce code a déjà été utilisé le nombre de fois prévu." };
+    }
+  }
+  const v = Number(r.valeur || 0);
+  let remise = r.type === "pourcentage" ? Math.floor(tarif * v / 100 + 0.5) : v;
+  remise = Math.max(0, Math.min(remise, tarif));
+  // Une formation offerte passe par l'invitation, pas par un code.
+  if (remise <= 0 || remise >= tarif) {
+    return { ok: false, message: "Ce code ne s'applique pas à cette formation." };
+  }
+  return {
+    ok: true, code, tarif, remise, prix: tarif - remise,
+    libelle: r.type === "pourcentage" ? v + " %" : v + " €",
+  };
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return reponse(405, { ok: false, message: "Methode non autorisee" });
@@ -93,7 +162,16 @@ exports.handler = async (event) => {
   }
 
   // ------------------------------------------------------------------
-  // 2. LA DEMANDE D'INSCRIPTION.
+  // 2. UN CODE PROMO, JUGE AVANT L'ENVOI : la page montre le prix reduit.
+  // ------------------------------------------------------------------
+  if (data.action === "code") {
+    const j = await jugerCode(of, propre(data.session, 120), data.code, propre(data.mail, 200));
+    if (j.panne) return reponse(500, { ok: false, message: j.message });
+    return reponse(200, j);
+  }
+
+  // ------------------------------------------------------------------
+  // 3. LA DEMANDE D'INSCRIPTION.
   // ------------------------------------------------------------------
   if (data.action === "inscrire") {
     const d = data.donnees || {};
@@ -128,6 +206,18 @@ exports.handler = async (event) => {
     }
     ligne.mail = ligne.mail.toLowerCase();
     ligne.nom = ligne.nom.toUpperCase();
+
+    // LE CODE EST REJUGE ICI, au moment ou il compte. La page l'a deja verifie,
+    // mais elle tourne chez le visiteur : on ne lui fait pas confiance. Un code
+    // refuse arrete l'envoi avec son motif — la personne a vu un prix, elle ne
+    // doit pas en recevoir un autre sans le savoir.
+    ligne.code_promo = "";
+    if (codePropre(d.code_promo)) {
+      const j = await jugerCode(of, code, d.code_promo, ligne.mail);
+      if (j.panne) return reponse(500, { ok: false, message: j.message });
+      if (!j.ok) return reponse(200, { ok: false, champ: "code_promo", message: "Code promo : " + j.message });
+      ligne.code_promo = j.code;
+    }
 
     // UN RENVOI CORRIGE REMPLACE, il ne double pas. Quelqu'un qui se rend
     // compte d'une faute de frappe renvoie le formulaire ; deux lignes pour

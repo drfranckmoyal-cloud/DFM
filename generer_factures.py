@@ -113,13 +113,22 @@ for ligne in a_facturer:
     # ACQUITTEE — elle n'est emise qu'apres paiement. Afficher un IBAN sur une
     # facture acquittee inviterait a payer deux fois.
     import facture as _fac
+    # LA REMISE D'UN CODE PROMO, SI ELLE EXPLIQUE LE MONTANT. Voir
+    # codes_promo.remise_de : un montant repris a la main s'ecrit seul.
+    import codes_promo as _cp
+    try:
+        _m = float(str(montant).replace(",", ".").replace(" ", "").replace("€", "") or 0)
+    except ValueError:
+        _m = 0.0
+    _rem, _code = _cp.remise_de(ligne, S.get("tarif"), _m)
+    _remise = {"code": _code, "montant": _rem} if _rem else None
     if AVANT_REGLEMENT:
         # Pas de bloc « acquittee » : la facture porte l'IBAN, comme celle
         # d'un client. Afficher un paiement qui n'a pas eu lieu serait faux ;
         # afficher les deux inviterait a payer deux fois.
         pdf_bytes = _fac.fabriquer(
             S, numero, nom_prenom, float(str(montant).replace(",", ".") or 0), 1,
-            civilite="Docteur ",
+            civilite="Docteur ", remise=_remise,
             mention_reglement="À régler avant le début du dernier module",
             ligne_reglement="Par virement sur le compte ci-dessous. "
                             "Le règlement peut être échelonné ; chaque versement "
@@ -127,7 +136,7 @@ for ligne in a_facturer:
     else:
         pdf_bytes = _fac.fabriquer(
             S, numero, nom_prenom, float(str(montant).replace(",", ".") or 0), 1,
-            civilite="Docteur ",
+            civilite="Docteur ", remise=_remise,
             paiement={"le": ligne["paiement_recu_le"],
                       "mode": ligne["mode_paiement"] or "virement",
                       "reference": ligne["reference_paiement"] or "-"})

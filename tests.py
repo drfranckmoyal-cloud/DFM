@@ -1252,8 +1252,8 @@ def tests_miroir_debloque():
              '"columnCount": len(_suivi.COL)' in app_)
     verifier("et n'est plus un nombre ecrit a la main",
              '"columnCount": 52' not in app_)
-    verifier("53 colonnes aujourd'hui, A..BA",
-             len(_sv.COL) == 53 and _sv.lettre_colonne(len(_sv.COL) - 1) == "BA",
+    verifier("55 colonnes aujourd'hui, A..BC",
+             len(_sv.COL) == 55 and _sv.lettre_colonne(len(_sv.COL) - 1) == "BC",
              "%d / %s" % (len(_sv.COL), _sv.lettre_colonne(len(_sv.COL) - 1)))
 
 
@@ -1453,6 +1453,134 @@ def tests_echecs_alternes():
     finally:
         A.journal.ecrire = vrai
         A._AUTO_ERREURS.clear()
+
+
+def tests_codes_promo():
+    """LE CODE PROMO, DU FORMULAIRE A LA FACTURE — 08/11/2026.
+
+    Une remise juste a un endroit et fausse a un autre est pire que pas de
+    remise : la convention signee dirait 877, la facture 975. On suit donc le
+    meme inscrit partout ou son prix s'ecrit."""
+    print("\n  LES CODES PROMO")
+    _isoler()
+    import codes_promo as CP
+    import convention
+    import facture
+    import importer_demandes as imp
+    import inscription as I
+    import invitations as inv
+    import mails
+    import sessions as _s
+    import suivi
+
+    garde = {"cp": CP.FICHIER, "inv": inv.FICHIER, "s_session": _s.session, "s_etat": _s.etat,
+             "sv_session": suivi.session, "raf": suivi.rafraichir_statuts,
+             "marq": I.marquer_importee, "img": convention._images}
+    CP.FICHIER = os.path.join(tempfile.mkdtemp(prefix="dfm-cp-"), "codes_promo.json")
+    inv.FICHIER = os.path.join(tempfile.mkdtemp(prefix="dfm-inv-"), "invitations.json")
+    fiche = dict(FICHE, stripe_lien="https://buy.stripe.com/essai", marque="Smileclub",
+                 objectifs=["Objectif"], jours=[])
+    code = fiche["code"]
+    _s.SESSIONS[code] = dict(fiche)
+    _s.FORMATIONS["essai"] = {"nom_formation": "Essai", "tarif": "975"}
+    _s.SESSIONS[code]["formation"] = "essai"
+    _s.session = lambda c=None: dict(fiche)
+    _s.etat = lambda c=None: {"statut_session": "ouverte"}
+    suivi.session = lambda c=None: dict(fiche)
+    suivi.rafraichir_statuts = lambda *a, **k: None
+    I.marquer_importee = lambda ident: None
+    convention._images = lambda code_session=None: ("data:image/png;base64,AA",
+                                                    "data:image/png;base64,BB", [])
+    try:
+        print("    les regles")
+        org = "mon-organisme"
+        verifier("100 % est refuse : c'est une invitation",
+                 not CP.poser(org, "TOUT", "pourcentage", 100)[0])
+        verifier("un code a espaces ou accents est refuse", not CP.poser(org, "été 26", "montant", 50)[0])
+        verifier("10 % se pose", CP.poser(org, "dix", "pourcentage", "10")[0])
+        CP.poser(org, "CENT", "montant", 100, sessions=["autre-session"])
+        CP.poser(org, "VIEUX", "montant", 50, jusqu_au="2026-01-31")
+        r, m, _ = CP.verifier(org, code, " Dix ", "975")
+        verifier("10 % de 975 : 98 euros, arrondis a l'euro", r and m == 98.0, m)
+        verifier("un code d'une autre session est refuse", not CP.verifier(org, code, "CENT", "975")[0])
+        verifier("un code expire est refuse", not CP.verifier(org, code, "VIEUX", "975")[0])
+        verifier("mais pas pour une demande faite avant la date",
+                 bool(CP.verifier(org, code, "VIEUX", "975", le="30/01/2026 18:00:00")[0]))
+        verifier("un code de Smileclub n'existe pas chez DSF", CP.trouver("dsf", "DIX") is None)
+
+        print("    l'import arrete le prix")
+        demandes = [dict(_demande("PROMO", "Lea", "lea@essai.test", ident=1), code_promo="dix"),
+                    dict(_demande("FAUX", "Paul", "paul@essai.test", ident=2), code_promo="NIMPORTE"),
+                    dict(_demande("INVIT", "Zoe", "zoe@essai.test", ident=3), code_promo="DIX"),
+                    _demande("SANS", "Max", "max@essai.test", ident=4)]
+        inv.poser(code, "zoe@essai.test")
+        del imp.ECHECS[:]
+        imp.traiter(code, demandes)
+        L = {l["nom"]: l for l in suivi.lire_lignes_de(code)}
+        p = L.get("PROMO") or {}
+        verifier("le code et la remise sont sur la ligne",
+                 p.get("code_promo") == "DIX" and p.get("remise") == "98", (p.get("code_promo"), p.get("remise")))
+        verifier("et le prix arrete est 877", p.get("montant_du") == "877", p.get("montant_du"))
+        verifier("que tout DFM lit", suivi.montant_attendu(p, "975") == 877.0)
+        f = L.get("FAUX") or {}
+        verifier("un code inconnu laisse le tarif", f.get("montant_du") == "975" and not f.get("code_promo"))
+        verifier("et il est signale", any("NIMPORTE" in e for e in imp.ECHECS), imp.ECHECS)
+        z = L.get("INVIT") or {}
+        verifier("un invite ne doit rien, code ou pas",
+                 suivi.montant_attendu(z, "975") == 0.0 and not z.get("code_promo"))
+        verifier("sans code, rien ne change",
+                 (L.get("SANS") or {}).get("montant_du") == "975" and not (L.get("SANS") or {}).get("code_promo"))
+        verifier("le compte des utilisations le trouve",
+                 [x["qui"] for x in CP.utilisations(org).get("DIX", [])] == ["Lea PROMO"])
+
+        CP.activer(org, "DIX", False)
+        r2 = {}
+        verifier("desactive entre l'envoi et l'import, il reste acquis",
+                 CP.appliquer(r2, fiche, code, "DIX", le="08/11/2026")[0] and r2.get("montant_du") == "877")
+        verifier("mais le formulaire le refuse", not CP.verifier(org, code, "DIX", "975")[0])
+        CP.activer(org, "DIX", True)
+
+        print("    la convention et la facture l'ecrivent")
+        d, souci = convention.pour(code, ligne=p)
+        verifier("la convention se calcule", bool(d), souci)
+        if d:
+            verifier("prix public, remise, code et total",
+                     (d["prix_public"], d["remise"], d["code_promo"], d["total"]) == ("975", "98", "DIX", "877"),
+                     (d.get("prix_public"), d.get("remise"), d.get("code_promo"), d.get("total")))
+            html = convention.html(d)
+            verifier("et le gabarit les imprime", "Remise accordée (code DIX)" in html and "877" in html)
+        d0, _ = convention.pour(code, ligne=L.get("SANS"))
+        verifier("sans code, pas de ligne de remise", d0 and not d0["remise"])
+        verifier("un prix repris a la main n'affiche pas une remise qui ne s'additionne plus",
+                 CP.remise_de(dict(p, montant_du="700"), "975", 700.0) == (0.0, ""))
+        fa = facture.pour(fiche, "F-1", "Lea PROMO", 877.0, 1, remise={"code": "DIX", "montant": 98.0})
+        verifier("la facture porte le prix public et la remise",
+                 fa["remise"] == {"code": "DIX", "montant": "98", "prix": "975"} and fa["total"] == "877",
+                 fa["remise"])
+        verifier("et son gabarit aussi", "Remise accordée (code DIX)" in facture.html(fa))
+
+        print("    le lien de carte ne fait pas payer le plein tarif")
+        verifier("975 euros dus : le lien Stripe", CP.lien_paiement(fiche, L.get("SANS")) == fiche["stripe_lien"])
+        verifier("877 euros dus : pas de lien", CP.lien_paiement(fiche, p) == "")
+        CP.poser(org, "DIX", "pourcentage", 10, stripe=True)
+        verifier("sauf si le code existe aussi dans Stripe",
+                 CP.lien_paiement(fiche, p) == fiche["stripe_lien"] + "?prefilled_promo_code=DIX",
+                 CP.lien_paiement(fiche, p))
+        CP.poser(org, "DIX", "pourcentage", 10, stripe=False)
+        c = mails.contexte(fiche, p)
+        verifier("le mail annonce son prix, sans lien de carte",
+                 c["lien_paiement"] == "" and c["tarif"].replace("\u202f", "") == "877",
+                 (c["lien_paiement"], c["tarif"]))
+        bouton = {"type": "bouton", "libelle": "Régler", "lien": "{{lien_paiement}}"}
+        verifier("et son bouton de paiement disparait", not mails._bloc_retenu(bouton, c))
+        verifier("il reste pour qui doit le tarif", mails._bloc_retenu(bouton, mails.contexte(fiche, L.get("SANS"))))
+    finally:
+        CP.FICHIER, inv.FICHIER = garde["cp"], garde["inv"]
+        _s.session, _s.etat = garde["s_session"], garde["s_etat"]
+        suivi.session, suivi.rafraichir_statuts = garde["sv_session"], garde["raf"]
+        I.marquer_importee, convention._images = garde["marq"], garde["img"]
+        _s.SESSIONS.pop(code, None)
+        del imp.ECHECS[:]
 
 
 def tests_archive_et_verrous():
@@ -2280,7 +2408,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:

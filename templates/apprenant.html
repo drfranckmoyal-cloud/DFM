@@ -159,6 +159,7 @@
           </div>
           <div class="ap-fc-p">
             <div class="ap-fc-m">{{ p.montant_du|round|int }} €</div>
+            {% if p.code_promo %}<span class="chip chip-b" title="Code promo saisi à l'inscription">{{ p.code_promo }} · −{{ p.remise }} €</span>{% endif %}
             {% if p.annule %}<span class="chip chip-r"><span class="dot dot-r"></span>Annulée</span>
             {% elif p.montant_recu %}<span class="chip chip-g"><span class="dot dot-g"></span>Réglé</span>
             {% else %}<span class="chip chip-w"><span class="dot dot-w"></span>{{ p.statut }}</span>{% endif %}

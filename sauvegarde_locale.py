@@ -52,6 +52,9 @@ CONTENU = [
     "attestations.json",             # la numerotation AT2026-xxx, qui ne se rejoue pas
     "bibliotheque.json", "communications.json", "campagnes.json",
     "marqueurs.json", "auto.json", "questionnaires_figes",
+    # AJOUTES LE 08/11/2026 : les deux registres qui fixent un prix. Celui des
+    # invitations manquait depuis sa creation le 17/10.
+    "invitations.json", "codes_promo.json",
     # LES DOCUMENTS PRODUITS ET DEPOSES. Conventions, factures, attestations,
     # emargements, CV et diplomes des formateurs, programmes et RIB.
     # 4,7 Mo — les caches en sont exclus, voir CACHES ci-dessous.

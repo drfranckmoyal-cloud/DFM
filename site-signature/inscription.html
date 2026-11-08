@@ -152,6 +152,14 @@
   .msg{border-radius:10px;padding:13px 15px;font-size:13.5px;margin-top:14px}
   .msg-err{background:#fbecea;color:#a63a35;border:1px solid #f3cdc9}
   .msg-info{background:#fdf6ec;color:var(--ambre);border:1px solid #f5dda6}
+  .msg-ok{background:#e9f7f0;color:#13704b;border:1px solid #c5ead8}
+
+  /* --- LE CODE PROMO --- un champ et son bouton sur une ligne. Le bouton n'est
+     pas l'action de la page : il ne prend ni sa largeur ni sa couleur. */
+  .promo{display:flex;gap:8px}
+  .promo input{flex:1;min-width:0;text-transform:uppercase;letter-spacing:.04em}
+  .promo button{width:auto;margin-top:0;padding:0 18px;font-size:14px;background:#fff;
+    color:var(--bleu);border:1px solid #d3dae9;flex:none}
 
   #confirmation{display:none;text-align:center;padding:14px 6px}
   #confirmation .check{width:70px;height:70px;border-radius:50%;background:#e7f7f0;
@@ -252,6 +260,14 @@
               nous vous rappellerons pour organiser votre accueil.</p>
           </div>
 
+          <label for="code_promo">Code promo</label>
+          <div class="promo">
+            <input type="text" id="code_promo" autocomplete="off" autocapitalize="characters"
+                   spellcheck="false" maxlength="30" placeholder="Facultatif">
+            <button type="button" id="promo_ok">Appliquer</button>
+          </div>
+          <div id="promo_msg"></div>
+
           <button id="valider" type="button">Envoyer ma demande d'inscription</button>
           <div id="erreur"></div>
 
@@ -288,6 +304,11 @@
   // pouvoir la prendre plutot que de repartir.
   var SESSION_VOULUE = (P.get("s") || "").trim();
   var SESSIONS = [], INFO = {};
+  // LE CODE PROMO PEUT VENIR DU LIEN — 08/11/2026 : « &code=BIENVENUE », pour
+  // un mail ou une page du site. Il est seulement PRE-SAISI : il est juge comme
+  // s'il avait ete tape, et le visiteur voit le prix avant d'envoyer.
+  var CODE_LIEN = (P.get("code") || "").trim();
+  var PROMO = null;      // le dernier code accepte : {code, session}
 
   var CHOIX = {
     // DEUX CHOIX, ET DEUX SEULEMENT — decide par Franck le 22/08/2026.
@@ -579,6 +600,40 @@
     el("valider").textContent = s.complet
       ? "Me placer en liste d'attente"
       : "Envoyer ma demande d'inscription";
+    // Un code juge pour une formation ne vaut pas forcement pour l'autre.
+    if (el("code_promo").value.trim()) promoVerifier();
+  }
+
+  function prixTexte(n){
+    n = Number(n) || 0;
+    return (Math.round(n) === n ? String(n) : n.toFixed(2).replace(".", ",")) + " €";
+  }
+  function promoAfficher(html, ton){
+    el("promo_msg").innerHTML = html ? '<div class="msg msg-' + ton + '">' + html + '</div>' : "";
+  }
+  // LE PRIX REDUIT S'AFFICHE AVANT L'ENVOI. C'est le serveur qui juge — la page
+  // ne connait pas les codes — et il les rejugera a l'envoi.
+  function promoVerifier(){
+    var saisi = el("code_promo").value.replace(/\s+/g, "").toUpperCase();
+    el("code_promo").value = saisi;
+    PROMO = null;
+    if (!saisi){ promoAfficher(""); return Promise.resolve(); }
+    var session = el("session").value;
+    promoAfficher(txt("Vérification du code…"), "info");
+    return fetch("/.netlify/functions/inscrire", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({action: "code", of: OF, session: session, code: saisi,
+                            mail: el("mail").value.trim()})
+    }).then(function(r){ return r.json(); }).then(function(j){
+      if (el("session").value !== session || el("code_promo").value !== saisi) return;
+      if (!j.ok){ promoAfficher(txt(j.message || "Ce code n'est pas valable."), "err"); return; }
+      PROMO = {code: j.code, session: session};
+      promoAfficher("<b>Code " + txt(j.code) + " appliqué</b> : −" + txt(j.libelle) +
+        ". Votre tarif : <b>" + prixTexte(j.prix) + " TTC</b> au lieu de " +
+        prixTexte(j.tarif) + ".", "ok");
+    }).catch(function(e){
+      promoAfficher(txt("Le code n'a pas pu être vérifié : " + e.message), "err");
+    });
   }
 
   function demarrer(){
@@ -669,6 +724,7 @@
         (INFO.mail_contact ? "<br>" + txt(INFO.mail_contact) : "") +
         (INFO.telephone_contact ? " · " + txt(INFO.telephone_contact) : "");
       el("zone").style.display = "block";
+      if (CODE_LIEN && !el("code_promo").value) el("code_promo").value = CODE_LIEN;
       majSession();
     }).catch(function(e){
       erreur("erreur_haut", "Impossible de joindre le serveur : " + e.message);
@@ -677,6 +733,14 @@
   }
 
   el("descriptif_plus").addEventListener("click", basculerRepli);
+  el("promo_ok").addEventListener("click", promoVerifier);
+  el("code_promo").addEventListener("keydown", function(e){
+    if (e.key === "Enter"){ e.preventDefault(); promoVerifier(); }
+  });
+  el("code_promo").addEventListener("input", function(){
+    // Le code change : l'ancien verdict ne vaut plus.
+    PROMO = null; promoAfficher("");
+  });
 
   el("valider").addEventListener("click", function(){
     var d = {
@@ -706,6 +770,20 @@
     if (d.mail.indexOf("@") < 0 || d.mail.lastIndexOf(".") < d.mail.indexOf("@")){
       erreur("erreur", "Cette adresse mail ne semble pas valide."); return;
     }
+    d.code_promo = el("code_promo").value.replace(/\s+/g, "").toUpperCase();
+    // UN CODE TAPE MAIS PAS ENCORE JUGE l'est avant l'envoi : on n'envoie pas
+    // une demande dont la personne n'a pas vu le prix.
+    if (d.code_promo && !(PROMO && PROMO.code === d.code_promo && PROMO.session === d.session)){
+      promoVerifier().then(function(){
+        if (PROMO && PROMO.code === d.code_promo) envoyer(d);
+        else erreur("erreur", "Le code promo n'est pas valable : corrigez-le, ou effacez-le pour vous inscrire au tarif normal.");
+      });
+      return;
+    }
+    envoyer(d);
+  });
+
+  function envoyer(d){
     var b = el("valider"), avant = b.textContent;
     b.disabled = true; b.textContent = "Envoi en cours…";
     el("erreur").innerHTML = "";
@@ -715,6 +793,7 @@
     }).then(function(r){ return r.json(); }).then(function(j){
       if (!j.ok){
         erreur("erreur", j.message || "L'enregistrement a échoué.");
+        if (j.champ === "code_promo"){ PROMO = null; promoAfficher(txt(j.message), "err"); }
         b.disabled = false; b.textContent = avant;
         return;
       }
@@ -731,7 +810,8 @@
         el("conf_texte").textContent = "Nous avons bien reçu votre demande pour « " + quoi +
           " »" + (s && s.date_texte ? ", le " + s.date_texte : "") + ".";
         el("conf_suite").textContent = "Vous allez recevoir un message avec votre convention " +
-          "de formation à signer en ligne.";
+          "de formation à signer en ligne." + (d.code_promo ? " Votre code " + d.code_promo +
+          " est pris en compte : elle portera le tarif réduit." : "");
       }
       el("formulaire").style.display = "none";
       el("confirmation").style.display = "block";
@@ -740,7 +820,7 @@
       erreur("erreur", "Envoi impossible : " + e.message);
       b.disabled = false; b.textContent = avant;
     });
-  });
+  }
 
   demarrer();
 })();

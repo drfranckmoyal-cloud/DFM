@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block titre %}Codes promo{% endblock %}
+{% block entete %}Codes promo{% endblock %}
+{% block sous_entete %}Des remises que le praticien saisit lui-même sur le formulaire d'inscription{% endblock %}
+{% block actions %}
+<a class="btn btn-ghost" href="/reglements"><i class="ti ti-coin"></i>Règlements</a>
+{% endblock %}
+{% block corps %}
+<style>
+.cp-i{background:var(--carte);border:1px solid var(--border);border-radius:12px;
+  padding:14px 16px;margin-bottom:14px;font-size:12.5px;color:var(--muted);line-height:1.7}
+.cp-c{background:var(--carte);border:1px solid var(--border);border-radius:12px;
+  padding:16px 18px;margin-bottom:14px}
+.cp-c.off{opacity:.62}
+.cp-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.cp-code{font-size:16px;font-weight:700;letter-spacing:.6px;font-family:ui-monospace,Menlo,monospace}
+.cp-val{font-size:14px;font-weight:600;color:var(--accent)}
+.cp-g{font-size:12.5px;color:var(--muted);margin-bottom:8px;line-height:1.6}
+.cp-d{margin-left:auto;display:flex;gap:8px}
+.cp-l{display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 0;border-top:1px solid var(--border)}
+.cp-l input{flex:1;min-width:0;font-size:11.5px;padding:5px 8px;border:1px solid var(--border);
+  border-radius:6px;background:var(--bg);color:inherit;font-family:ui-monospace,Menlo,monospace}
+.cp-f{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px 16px}
+.cp-f label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.6px;
+  color:var(--muted);font-weight:600;margin-bottom:5px}
+.cp-f input[type=text],.cp-f input[type=number],.cp-f input[type=date],.cp-f select{
+  width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--bg);color:inherit;font-size:13px;font-family:inherit}
+.cp-aide{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5}
+.cp-s{display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+.cp-s label{display:flex;gap:8px;align-items:baseline;text-transform:none;letter-spacing:0;
+  font-size:12.5px;font-weight:400;color:inherit;margin:0}
+.cp-vide{padding:22px 0;text-align:center;color:var(--muted);font-size:12.5px}
+.cp-ins{font-size:12px;color:var(--muted);margin-top:6px}
+</style>
+
+<div class="cp-i">
+  <i class="ti ti-tag" style="font-size:15px"></i>
+  <b>Comment ça marche.</b> Le praticien tape le code sur le formulaire d'inscription — celui
+  qu'ouvrent les boutons du site — et voit aussitôt son prix réduit. À la reprise de sa
+  demande, DFM arrête ce prix sur sa fiche : <b>convention, facture, mails et relances
+  l'utilisent tout seuls</b>, avec la remise et le code écrits en toutes lettres.<br>
+  <b>Paiement par carte :</b> le lien Stripe d'une session encaisse son tarif plein. Il n'est
+  donc pas proposé à qui a une remise — le virement reste — sauf si vous avez créé le même
+  code dans Stripe et coché la case correspondante.<br>
+  <b>Un code ne s'efface pas</b>, il se désactive : les inscriptions déjà faites gardent leur
+  remise, et le journal garde la trace.
+</div>
+
+<div class="cp-c">
+  <div class="cp-h"><span style="font-size:15px;font-weight:600">Créer ou modifier un code</span></div>
+  <div class="cp-g">Pour modifier un code existant, retapez son nom : ses réglages sont remplacés.</div>
+  <form id="cp_form" onsubmit="return false">
+    <div class="cp-f">
+      <div><label for="cp_code">Code</label>
+        <input type="text" id="cp_code" name="code" placeholder="BIENVENUE26" maxlength="30"
+               style="text-transform:uppercase;font-family:ui-monospace,Menlo,monospace">
+        <div class="cp-aide">3 à 30 lettres ou chiffres, sans espace ni accent.</div></div>
+      <div><label for="cp_type">Remise</label>
+        <div style="display:flex;gap:8px">
+          <input type="number" id="cp_valeur" name="valeur" min="1" step="1" placeholder="10" style="width:90px">
+          <select id="cp_type" name="type">
+            <option value="pourcentage">% du prix</option>
+            <option value="montant">€ de remise</option>
+          </select>
+        </div>
+        <div class="cp-aide">Arrondie à l'euro. Pour offrir la formation, utilisez l'invitation.</div></div>
+      <div><label for="cp_fin">Valable jusqu'au</label>
+        <input type="date" id="cp_fin" name="jusqu_au">
+        <div class="cp-aide">Inclus. Vide : sans limite de date.</div></div>
+      <div><label for="cp_max">Nombre d'utilisations</label>
+        <input type="number" id="cp_max" name="max" min="0" step="1" placeholder="illimité">
+        <div class="cp-aide">Vide ou 0 : illimité.</div></div>
+      <div><label for="cp_note">Note pour vous</label>
+        <input type="text" id="cp_note" name="note" maxlength="200" placeholder="Congrès ADF 2026">
+        <div class="cp-aide">Jamais montrée au praticien.</div></div>
+    </div>
+    <div style="margin-top:14px">
+      <label style="font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600">Formations concernées</label>
+      <div class="cp-s" style="margin-top:6px">
+        {% for s in sessions %}
+        <label><input type="checkbox" name="sessions" value="{{ s.code }}">
+          <span><b>{{ s.nom }}</b> — {{ s.dates }}{% if s.tarif %} · {{ s.tarif }} €{% endif %}</span></label>
+        {% else %}
+        <span class="cp-aide">Aucune session à venir.</span>
+        {% endfor %}
+      </div>
+      <div class="cp-aide">Rien de coché : le code vaut pour toutes les sessions de l'organisme, y compris celles à venir.</div>
+    </div>
+    <div style="margin-top:12px">
+      <label style="display:flex;flex-direction:row;gap:8px;align-items:baseline;font-size:12.5px;cursor:pointer">
+        <input type="checkbox" id="cp_stripe" value="1">
+        <span>Ce code existe aussi dans Stripe, sous le même nom et avec <b>la même remise en euros</b> :
+          le praticien pourra payer par carte, le code saisi pour lui.</span></label>
+    </div>
+    <div style="margin-top:16px">
+      <button type="button" class="btn btn-primary" id="cp_ok" onclick="cpEnregistrer()"><i class="ti ti-check"></i>Enregistrer le code</button>
+    </div>
+  </form>
+</div>
+
+{% for c in codes %}
+<div class="cp-c {{ 'off' if not c.actif or c.expire }}">
+  <div class="cp-h">
+    <span class="cp-code">{{ c.code }}</span>
+    <span class="cp-val">−{{ c.libelle }}</span>
+    {% if not c.actif %}<span class="chip chip-gray">Désactivé</span>
+    {% elif c.expire %}<span class="chip chip-gray">Expiré</span>
+    {% else %}<span class="chip chip-g"><span class="dot dot-g"></span>Actif</span>{% endif %}
+    {% if c.stripe %}<span class="chip chip-b">aussi dans Stripe</span>{% endif %}
+    <span class="cp-d">
+      <button type="button" class="btn btn-ghost" onclick="cpReprendre(this)" data-code="{{ c.code }}"
+        data-type="{{ c.type }}" data-valeur="{{ c.valeur|int }}" data-fin="{{ c.jusqu_au }}" data-max="{{ c.max or '' }}"
+        data-note="{{ c.note }}" data-stripe="{{ '1' if c.stripe }}" data-sessions="{{ (c.sessions or [])|join(',') }}"><i class="ti ti-pencil"></i>Modifier</button>
+      {% if c.actif %}<button type="button" class="btn btn-ghost" onclick="cpActiver('{{ c.code }}', 0)"><i class="ti ti-player-pause"></i>Désactiver</button>
+      {% else %}<button type="button" class="btn btn-ghost" onclick="cpActiver('{{ c.code }}', 1)"><i class="ti ti-player-play"></i>Réactiver</button>{% endif %}
+    </span>
+  </div>
+  <div class="cp-g">
+    {% if c.sessions %}{{ c.portee|join(' · ') }}{% else %}Toutes les sessions{% endif %}
+    · {% if c.jusqu_au %}jusqu'au {{ c.jusqu_au[8:10] }}/{{ c.jusqu_au[5:7] }}/{{ c.jusqu_au[:4] }}{% else %}sans date de fin{% endif %}
+    · {% if c.max %}{{ c.inscrits|length }} / {{ c.max }} utilisation{{ 's' if c.max > 1 }}{% else %}{{ c.inscrits|length }} utilisation{{ 's' if c.inscrits|length > 1 }}{% endif %}
+    {% if c.note %}<br><i>{{ c.note }}</i>{% endif %}
+    <br>Créé le {{ c.cree_le }}{% if c.par %} par {{ c.par }}{% endif %}{% if c.modifie_le %} · modifié le {{ c.modifie_le }}{% endif %}
+  </div>
+  {% if c.liens and c.actif and not c.expire %}
+  <div style="font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600;margin:4px 0 2px">
+    Liens qui ouvrent le formulaire avec le code déjà saisi — pour un mail ou le site</div>
+  {% for l in c.liens %}
+  <div class="cp-l">
+    <span style="white-space:nowrap"><b>{{ l.nom }}</b> {{ l.dates }} · {{ l.prix }} €</span>
+    <input type="text" readonly value="{{ l.lien }}" onclick="this.select()">
+    <button type="button" class="btn btn-ghost" onclick="cpCopier(this)" title="Copier le lien"><i class="ti ti-copy"></i></button>
+  </div>
+  {% endfor %}
+  {% endif %}
+  {% if c.inscrits %}
+  <div class="cp-ins"><b>L'ont utilisé :</b>
+    {% for p in c.inscrits %}{{ p.qui }} ({{ p.session }}, −{{ p.remise }} €){{ ', ' if not loop.last }}{% endfor %}</div>
+  {% endif %}
+</div>
+{% else %}
+<div class="cp-c"><div class="cp-vide">Aucun code pour l'instant.</div></div>
+{% endfor %}
+
+<script>
+function cpEnvoyer(url, fd){
+  return fetch(url, {method: "POST", body: fd, headers: {"X-Requested-With": "fetch"}})
+    .then(function(r){ return r.json(); });
+}
+function cpEnregistrer(){
+  var f = document.getElementById("cp_form"), fd = new FormData(f);
+  fd.set("code", (fd.get("code") || "").trim().toUpperCase());
+  fd.set("stripe", document.getElementById("cp_stripe").checked ? "1" : "");
+  var b = document.getElementById("cp_ok"); b.disabled = true;
+  cpEnvoyer("/codes-promo/enregistrer", fd).then(function(j){
+    b.disabled = false;
+    if(!j.ok){ dfmInfo("Code non enregistré", j.message, "attention"); return; }
+    dfmFenetre({ton: j.publie ? "succes" : "attention", titre: j.message, corps: "",
+      boutons: [{libelle: "Fermer", style: "primaire", action: function(){ location.reload(); }}]});
+  }).catch(function(e){ b.disabled = false; dfmInfo("Erreur", String(e), "danger"); });
+}
+function cpActiver(code, actif){
+  var fd = new FormData(); fd.set("actif", String(actif));
+  var faire = function(){
+    cpEnvoyer("/codes-promo/" + encodeURIComponent(code) + "/activer", fd).then(function(j){
+      if(!j.ok){ dfmInfo("Rien n'a changé", j.message, "attention"); return; }
+      dfmFenetre({ton: "succes", titre: j.message, corps: "",
+        boutons: [{libelle: "Fermer", style: "primaire", action: function(){ location.reload(); }}]});
+    });
+  };
+  if(actif){ faire(); return; }
+  dfmConfirmer({titre: "Désactiver " + code + " ?",
+    corps: "Le formulaire le refusera dès maintenant. Les praticiens déjà inscrits avec ce code gardent leur remise.",
+    valider: "Désactiver", action: faire});
+}
+function cpReprendre(b){
+  var d = b.dataset;
+  document.getElementById("cp_code").value = d.code;
+  document.getElementById("cp_valeur").value = d.valeur;
+  document.getElementById("cp_type").value = d.type;
+  document.getElementById("cp_fin").value = d.fin || "";
+  document.getElementById("cp_max").value = d.max || "";
+  document.getElementById("cp_note").value = d.note || "";
+  document.getElementById("cp_stripe").checked = d.stripe === "1";
+  var vis = (d.sessions || "").split(",");
+  document.querySelectorAll('#cp_form input[name=sessions]').forEach(function(x){ x.checked = vis.indexOf(x.value) >= 0; });
+  window.scrollTo({top: 0, behavior: "smooth"});
+}
+function cpCopier(b){
+  var i = b.parentNode.querySelector("input");
+  i.select();
+  try { navigator.clipboard.writeText(i.value); } catch(e){ document.execCommand("copy"); }
+  b.innerHTML = '<i class="ti ti-check"></i>';
+  setTimeout(function(){ b.innerHTML = '<i class="ti ti-copy"></i>'; }, 1500);
+}
+</script>
+{% endblock %}

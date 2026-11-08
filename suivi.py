@@ -55,6 +55,11 @@ COL = {
     # deux precedentes : une colonne inseree ailleurs decalerait tout le
     # classeur.
     "versements": 52,
+    # LE CODE PROMO ET SA REMISE — 08/11/2026. Poses a l'import, une fois : le
+    # prix qui en resulte est dans « montant_du », que tout DFM lit deja. Ces
+    # deux colonnes ne servent qu'a dire POURQUOI ce prix — sur la convention,
+    # sur la facture, a l'ecran. Au bout de la rangee, comme les precedentes.
+    "code_promo": 53, "remise": 54,
 }
 
 # CE QUI N'OCCUPE PAS ENCORE UNE PLACE. Une file d'attente et une demande non

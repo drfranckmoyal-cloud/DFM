@@ -102,6 +102,11 @@
 </table>
 
 <table class="tot">
+  {% if f.remise %}
+  <tr><td>Prix public</td><td class="m">{{ f.remise.prix }} €</td></tr>
+  <tr><td>Remise accordée (code {{ f.remise.code }})</td>
+    <td class="m">−&nbsp;{{ f.remise.montant }} €</td></tr>
+  {% endif %}
   <tr><td>Montant unitaire</td>
     <td class="m">{{ f.unitaire }} € × {{ f.quantite }}</td></tr>
   <tr><td>TVA</td><td class="m">Non applicable</td></tr>

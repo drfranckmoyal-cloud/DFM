@@ -113,7 +113,11 @@ for ligne in concernes:
         # praticien recevait un « Regler ma formation » qui ne menait nulle part.
         # Un bouton mort sur une demande d'argent est pire que pas de bouton ; le
         # virement juste en dessous, lui, fonctionne toujours.
-        _lien_stripe = (S.get("stripe_lien") or "").strip()
+        # LE LIEN DE CETTE PERSONNE : vide si elle doit un autre prix que celui
+        # du lien Stripe de la session (code promo, prix convenu). Voir
+        # codes_promo.lien_paiement.
+        import codes_promo as _cp
+        _lien_stripe = _cp.lien_paiement(S, ligne)
         _bouton_stripe = ""
         if _lien_stripe:
             _bouton_stripe = (

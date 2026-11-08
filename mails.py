@@ -93,6 +93,8 @@ BALISES = [
         ("lieu_court", "Lieu en abrégé, pour une phrase", "Paris 15e (61 rue Balard)"),
         ("duree", "Durée", "14 heures"),
         ("tarif", "Tarif en euros", "000"),
+        ("code_promo", "Code promo saisi à l'inscription", "BIENVENUE"),
+        ("remise", "Remise du code promo, en euros", "98"),
         ("formateur", "Nom du formateur", "NOM Prénom"),
     ]),
     ("Liens", [
@@ -591,7 +593,7 @@ BLOCS_DEFAUTS = {
   {"type": "texte", "contenu": "Tu trouveras ci-joint ta **convention signée** des deux parties."},
   {"type": "encadre", "ton": "vert", "si": "invite", "contenu": "Tu es **invité·e par {{marque}}** : **rien à régler**. Si un message précédent t'a parlé de paiement, il ne te concerne pas."},
   {"type": "texte", "si": "payant", "contenu": "Il ne te reste plus qu'à régler ta formation (**{{tarif}} €**, déjeuners inclus), jusqu'à **20 jours avant** la formation."},
-  {"type": "texte", "si": "payant", "contenu": "*Deux options :*"},
+  {"type": "texte", "si": "lien_paiement", "contenu": "*Deux options :*"},
   {"type": "bouton", "si": "payant", "libelle": "Régler ma formation", "lien": "{{lien_paiement}}", "couleur": "violet", "sous": "(paiement par carte bancaire)"},
   {"type": "texte", "si": "payant", "contenu": "**Ou par virement :**\nMotif : {{formation}} + Nom Prénom"},
   {"type": "tableau", "si": "payant", "titre": "", "lignes": [
@@ -1003,6 +1005,13 @@ def _bloc_retenu(bloc, contexte):
     existants, et tous ceux que Franck ecrira sans y penser, se comportent
     exactement comme avant.
     """
+    # UN BOUTON SANS DESTINATION DISPARAIT — 08/11/2026. « Regler ma
+    # formation » vers un lien vide menerait nulle part : c'est le cas de
+    # quiconque doit un autre prix que celui du lien Stripe de la session. Le
+    # virement, ecrit juste a cote dans tous les modeles, reste.
+    if (bloc or {}).get("type") == "bouton" and "{{" in str(bloc.get("lien") or ""):
+        if not remplacer(bloc.get("lien"), contexte or {}).strip():
+            return False
     si = str((bloc or {}).get("si") or "").strip().lower()
     if not si:
         return True
@@ -1092,7 +1101,12 @@ def contexte(S, ligne=None, extras=None):
         "telephone": n(S.get("telephone_contact")),
         "iban": n(S.get("iban")),
         "bic": n(S.get("bic")),
-        "lien_paiement": n(S.get("stripe_lien")),
+        # LE LIEN DE CETTE PERSONNE, pas celui de la session — 08/11/2026. Le
+        # lien Stripe encaisse le tarif de la session : vide pour qui doit un
+        # autre prix (code promo, prix convenu), et son bouton disparait.
+        "lien_paiement": _lien_paiement(S, ligne),
+        "code_promo": n((ligne or {}).get("code_promo")),
+        "remise": n((ligne or {}).get("remise")),
         "lien_signature": "",
         "lien_annulation": "",
         "delai_reglement": "",
@@ -1136,6 +1150,16 @@ def contexte(S, ligne=None, extras=None):
         if valeur is not None:
             c[cle] = str(valeur)
     return c
+def _lien_paiement(S, ligne):
+    try:
+        import codes_promo
+        return codes_promo.lien_paiement(S, ligne)
+    except Exception:
+        # Dans le doute, pas de lien : un bouton qui encaisserait le mauvais
+        # prix est pire qu'un virement.
+        return "" if (ligne or {}).get("code_promo") else str(S.get("stripe_lien") or "")
+
+
 def remplacer(texte, contexte):
     if not texte:
         return ""

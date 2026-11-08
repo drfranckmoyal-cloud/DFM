@@ -24,6 +24,7 @@ import sys
 from datetime import datetime
 
 import inscription as I
+import codes_promo as _promo
 import contacts as _contacts
 import invitations as _inv
 import journal
@@ -79,9 +80,17 @@ def _capacite(code):
     return occupees, maxi, (maxi > 0 and occupees >= maxi)
 
 
+# Ce que le code promo a donne pour chaque ligne en cours de creation, le
+# temps de l'ecrire au journal une fois la ligne relue. Garde a part plutot que
+# dans le tuple : un sixieme element se deballe a trois endroits, et le
+# 17/10/2026 un cinquieme oublie a l'un d'eux a laisse une inscrite sans fiche.
+_PROMOS = {}
+
+
 def traiter(code, demandes):
     """Reprend les demandes d'UNE session. Rend le nombre de lignes creees."""
     S = _s.session(code)
+    _PROMOS.clear()
     print("\n-> Session : %s (%s)" % (S.get("nom_formation") or "?", code))
 
     # LES DEJA-CONNUS PROTEGENT CONTRE UNE MARQUE PERDUE. « importee_le » est
@@ -174,8 +183,29 @@ def traiter(code, demandes):
         if invitation:
             ligne["invite_le"] = invitation.get("le") or quand
             ligne["montant_du"] = "0"
+        # LE CODE PROMO ARRETE LE PRIX ICI — 08/11/2026. Le formulaire l'a juge
+        # au moment de l'envoi ; DFM le rejuge sur SON registre, au jour de la
+        # demande et non au jour de l'import, puis ecrit le prix qui en
+        # resulte. Un invite ne doit rien : un code n'a rien a lui retirer.
+        promo = ""
+        saisi = _promo.normaliser(d.get("code_promo"))
+        if saisi and not invitation:
+            try:
+                ok, promo = _promo.appliquer(ligne, S, code, saisi, le=ligne["horodateur"])
+            except Exception as e:
+                ok, promo = False, "registre illisible (%s)" % str(e)[:50]
+            if not ok:
+                # Le formulaire l'avait accepte : un refus ici veut dire que les
+                # deux registres divergent. Cela merite un signalement, pas un
+                # silence — la personne a vu un prix reduit avant d'envoyer.
+                print("   ! %-28s code %s non applique : %s" % (qui, saisi, promo))
+                ECHECS.append("%s : %s — code promo %s non applique (%s)" % (code, qui, saisi, promo))
+                promo = "refus:" + saisi + " — " + promo
         rappel = "recontact" in (ligne["demande"] or "").lower()
         a_creer.append((d, ligne, qui, rappel, invitation))
+        if promo and not promo.startswith("refus:"):
+            print("   . %-28s code promo %s" % (qui, promo))
+        _PROMOS[id(ligne)] = promo
         if invitation:
             marque = "INVITE\u00b7E — rien a regler"
         elif _validation_manuelle:
@@ -253,6 +283,15 @@ def traiter(code, demandes):
                 journal.ecrire("Nouvelle inscription", qui, d.get("mail") or "", "", code)
         except Exception:
             pass
+        promo = _PROMOS.pop(id(ligne), "")
+        if promo:
+            try:
+                if promo.startswith("refus:"):
+                    journal.ecrire("Code promo refusé", qui, promo[len("refus:"):], "", code)
+                else:
+                    journal.ecrire("Code promo appliqué", qui, promo, "", code)
+            except Exception:
+                pass
         # L'INVITATION SE CONSOMME. Sans cela, la meme adresse reinscrite plus
         # tard sur une autre session heriterait d'une gratuite qui n'etait pas
         # pour elle. Elle reste au registre, datee : c'est la trace de qui a

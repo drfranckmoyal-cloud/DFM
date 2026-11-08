@@ -38,7 +38,7 @@ def _jours(S):
 
 
 def pour(S, numero, destinataire, unitaire, quantite, civilite="",
-         mention_reglement="", ligne_reglement="", paiement=None):
+         mention_reglement="", ligne_reglement="", paiement=None, remise=None):
     """Le dossier d'une facture, prêt pour le gabarit.
 
     `destinataire` est le praticien ou la raison sociale : la facture ne
@@ -79,6 +79,13 @@ def pour(S, numero, destinataire, unitaire, quantite, civilite="",
         # Une facture deja reglee porte la trace du paiement ; une facture a
         # regler porte les coordonnees bancaires. Jamais les deux.
         "paiement": paiement or None,
+        # LA REDUCTION DE PRIX FIGURE SUR LA FACTURE — 08/11/2026. Le code de
+        # commerce l'exige (art. L441-9 : « toute reduction de prix acquise »),
+        # et c'est ce qui rend le montant lisible a cote du tarif annonce.
+        # {"code": "BIENVENUE", "montant": 98.0}, ou None.
+        "remise": ({"code": remise["code"], "montant": "%.0f" % remise["montant"],
+                    "prix": "%.0f" % (unitaire + remise["montant"])}
+                   if remise and remise.get("montant") else None),
     }
 
 

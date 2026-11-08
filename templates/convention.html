@@ -258,15 +258,27 @@
   {% if c.cycle %}
   <tr><td>Frais de formation&nbsp;: cycle complet de {{ c.nb_modules }} modules, déjeuners
       et dîners des conférences du soir compris</td>
-    <td class="m">{{ c.total }} € TTC</td></tr>
+    <td class="m">{{ c.prix_public if c.remise else c.total }} € TTC</td></tr>
+  {% if c.remise %}<tr><td>Remise accordée (code {{ c.code_promo }})</td>
+    <td class="m">−&nbsp;{{ c.remise }} € TTC</td></tr>{% endif %}
   <tr><td>Sommes versées à titre d'acompte (éventuellement)</td>
     <td class="m">0 € TTC</td></tr>
   <tr><td>Sommes restant dues, à solder avant le début du dernier module</td>
     <td class="m">{{ c.total }} € TTC</td></tr>
   {% else %}
+  {# UNE REMISE, DEUX LIGNES DE PLUS — 08/11/2026 : le prix public, puis ce qu'on
+     en retire. Sans code, la condition est fausse et l'acte est celui d'avant. #}
+  {% if c.remise %}
+  <tr><td>Frais de formation&nbsp;: prix public {{ c.prix_public }} euros TTC ×
+      {{ c.nb_participants }} participant{{ 's' if c.nb_participants > 1 }}</td>
+    <td class="m">{{ c.prix_public }} € TTC</td></tr>
+  <tr><td>Remise accordée (code {{ c.code_promo }})</td>
+    <td class="m">−&nbsp;{{ c.remise }} € TTC</td></tr>
+  {% else %}
   <tr><td>Frais de formation&nbsp;: coût unitaire {{ c.tarif }} euros TTC ×
       {{ c.nb_participants }} participant{{ 's' if c.nb_participants > 1 }}</td>
     <td class="m">{{ c.total }} € TTC</td></tr>
+  {% endif %}
   <tr><td>Sommes versées par l'entreprise à titre d'acomptes (éventuellement)</td>
     <td class="m">0 € TTC</td></tr>
   <tr><td>Sommes restant dues</td><td class="m">{{ c.total }} € TTC</td></tr>

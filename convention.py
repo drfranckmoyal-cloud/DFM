@@ -394,6 +394,11 @@ def _individuelle(S, ligne, signature_client="", code_session=None):
     # calculer le prix autrement que les sept autres.
     import suivi as _sv
     tarif = 0.0 if invite else _sv.montant_attendu(ligne, S.get("tarif"))
+    # LA REMISE D'UN CODE PROMO S'ECRIT SUR L'ACTE — 08/11/2026. Le prix seul
+    # (877) laisserait croire a un autre tarif que celui annonce ; le prix
+    # public, la remise et le code disent d'ou vient le chiffre que l'on signe.
+    import codes_promo as _cp
+    remise, code_promo = (0.0, "") if invite else _cp.remise_de(ligne, S.get("tarif"), tarif)
     d = _commun(S)
     d.update({
         # Formulations reprises telles quelles de sessions.balises_stagiaire :
@@ -408,6 +413,8 @@ def _individuelle(S, ligne, signature_client="", code_session=None):
         "nb_participants": 1,
         # Un seul stagiaire : le total EST le tarif.
         "tarif": _euros(tarif), "total": _euros(tarif),
+        "remise": _euros(remise) if remise else "", "code_promo": code_promo,
+        "prix_public": _euros(tarif + remise) if remise else "",
         # Dit au modele d'ecrire la mention de gratuite. Un drapeau plutot
         # qu'un « si le total vaut zero » dans le gabarit : la raison est ici,
         # pas dans la mise en page.
