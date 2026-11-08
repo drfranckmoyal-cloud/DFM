@@ -29,6 +29,7 @@ html, body { width: 297mm; height: 210mm; }
 .nom .titre { margin-right: .22em; }
 .dates { position: absolute; left: {{ c.d.dates.gauche }}px; top: {{ c.d.dates.haut }}px;
   width: {{ c.d.dates.largeur }}px; white-space: nowrap; font-family: "Questrial", sans-serif;
+  text-align: {{ c.d.dates.alignement or 'left' }};
   font-size: {{ c.taille_dates }}px; line-height: .96; color: {{ c.d.dates.couleur }}; }
 </style>
 </head>

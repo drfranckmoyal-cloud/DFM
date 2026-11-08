@@ -1644,6 +1644,13 @@ def tests_certificats():
         _s.SESSIONS.clear()
         _s.SESSIONS.update(garde_sessions)
         C.fond, _s.session, _s.organisme_de = garde_fond, garde_session, garde_org
+    print("    chaque modele sa disposition")
+    verifier("Usures : la disposition d'origine", C.disposition("usures") is C.DISPOSITION)
+    mc = C.disposition("masterclass")
+    verifier("Masterclass : « Date: » ecrit par DFM, aligne a droite",
+             mc["dates"]["prefixe"] == "Date: " and mc["dates"]["alignement"] == "right")
+    verifier("une formation inconnue retombe sur la disposition d'origine",
+             C.disposition("inconnue") is C.DISPOSITION)
     print("    il part avec l'attestation, et seulement avec elle")
     racine = os.path.dirname(os.path.abspath(__file__))
     env = open(os.path.join(racine, "envoyer_attestation.py"), encoding="utf-8").read()

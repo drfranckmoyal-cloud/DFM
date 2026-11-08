@@ -1508,6 +1508,29 @@ def _jalons_session(code, s):
          "etat": "fait" if etat_sess.get("terminee_le") else "attente",
          "date": etat_sess.get("terminee_le") or "", "sur": "session archivée"},
     ]
+    # LE CERTIFICAT, UNE ETAPE DU DEROULE — 08/11/2026, demande de Franck. Seulement
+    # pour une formation qui en a un. Il part avec l'attestation : une personne
+    # dont l'attestation est partie alors que son certificat existait l'a recu.
+    try:
+        import certificat as _cert
+        if _cert.fond(code):
+            avec = [l for l in actifs if str(l.get("attestation_envoyee_le") or "").strip()
+                    and _cert.present(code, l)]
+            e = _cert.etat_envoi(code)
+            m = _cert.moment_envoi(code)
+            if avec or e["envoye_le"]:
+                sur = "%d sur %d inscrit(s)" % (len(avec), n) if n else ""
+            elif not e["auto"]:
+                sur = "envoi retenu"
+            else:
+                sur = "prévu le %s" % m.strftime("%d/%m/%Y à %H:%M") if m else ""
+            jalons.insert(len(jalons) - 1, {
+                "libelle": "Certificats envoyés", "court": "Certificats", "icone": "ti-award",
+                "etat": ("fait" if (n and len(avec) >= n) else ("partiel" if avec else "attente")),
+                "date": e["envoye_le"] or date_max("attestation_envoyee_le", avec),
+                "sur": sur})
+    except Exception:
+        pass
     for j in jalons:
         j.setdefault("date", "")
     return jalons

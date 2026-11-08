@@ -40,10 +40,26 @@ DISPOSITION = {
     # Le nom, centre au-dessus du filet bleu (x 259 a 879, y 442).
     "nom": {"gauche": 259, "largeur": 620, "bas": 443, "taille": 63.6,
             "couleur": "#38527d", "espacement": 0.052},
-    # Les dates, sous « Dates: » en bas a droite.
+    # Les dates, sous « Dates: » en bas a droite : le libelle est dans le fond.
     "dates": {"gauche": 848, "haut": 681, "largeur": 262, "taille": 24,
-              "couleur": "#000001"},
+              "couleur": "#000001", "alignement": "left", "prefixe": ""},
 }
+# UNE DISPOSITION PAR MODELE, quand le modele differe — 08/11/2026. Celui de la
+# Masterclass (« Certificat MASTECLASS Compo ») centre un nom plus grand sur la
+# page, et ecrit « Date: » et la date sur UNE ligne alignee a droite : le
+# libelle n'est pas dans le fond, DFM l'ecrit avec la date.
+DISPOSITIONS = {
+    "masterclass": {
+        "nom": {"gauche": 182, "largeur": 760, "bas": 443, "taille": 74.8,
+                "couleur": "#38527d", "espacement": 0.052},
+        "dates": {"gauche": 691.5, "haut": 651.7, "largeur": 375.7, "taille": 24,
+                  "couleur": "#000001", "alignement": "right", "prefixe": "Date: "},
+    },
+}
+
+
+def disposition(code_formation):
+    return DISPOSITIONS.get(code_formation or "", DISPOSITION)
 
 # Chasses des glyphes, en fraction de corps, mesurees sur les polices le
 # 08/11/2026 (fontTools). Elles servent a REDUIRE le corps d'un nom trop long
@@ -58,7 +74,7 @@ _BEBAS = {
     "'": .188, ".": .188,
 }
 _QUESTRIAL = {
-    "0": .55, "1": .55, "2": .55, "3": .55, "4": .55, "5": .55, "6": .55,
+    "D": .703, ":": .203, "0": .55, "1": .55, "2": .55, "3": .55, "4": .55, "5": .55, "6": .55,
     "7": .55, "8": .55, "9": .55, " ": .213, "-": .36, ",": .22, ".": .203,
     "a": .595, "b": .595, "c": .544, "d": .595, "e": .557, "f": .307, "g": .595,
     "h": .566, "i": .205, "j": .205, "k": .502, "l": .205, "m": .868, "n": .566,
@@ -168,13 +184,13 @@ def pour(code_session, ligne):
         image = "data:image/jpeg;base64," + base64.b64encode(f.read()).decode()
     titre = "DR" if _praticien(ligne) else ""
     nom = nom_affiche(ligne)
-    D = DISPOSITION
+    D = disposition((_s.SESSIONS.get(code_session) or {}).get("formation"))
     # Le « DR » et le nom forment UNE ligne, centree sur le filet : c'est elle
     # qui doit tenir. L'ecart entre les deux vaut une demi-ligne.
     complet = (titre + "  " + nom) if titre else nom
     taille_nom = corps_qui_tient(complet, _BEBAS, D["nom"]["taille"], D["nom"]["largeur"],
                                  D["nom"]["espacement"])
-    dates = dates_courtes(_J.resume(S).get("jours"))
+    dates = D["dates"].get("prefixe", "") + dates_courtes(_J.resume(S).get("jours"))
     taille_dates = corps_qui_tient(dates, _QUESTRIAL, D["dates"]["taille"], D["dates"]["largeur"])
     return {
         "fond": image, "titre": titre, "nom": nom, "dates": dates,

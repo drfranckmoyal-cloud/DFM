@@ -10,7 +10,7 @@
  *
  * POURQUOI. DFM prenait ses polices chez deux hebergeurs exterieurs, par des
  * feuilles de style QUI BLOQUENT l'affichage : celle des icones pesait 218 Ko
- * et amenait une police de 809 Ko pour 204 icones sur les 5268 qu'elle contient,
+ * et amenait une police de 809 Ko pour 207 icones sur les 5268 qu'elle contient,
  * et celle d'Inter etait revalidee chez Google tous les jours. Tout est servi
  * par DFM, les icones reduites aux seules employees, et plus aucun tiers n'est
  * sur le chemin d'une page.
@@ -55,6 +55,7 @@
 .ti-arrows-join:before{content:"\edaf"}
 .ti-arrows-sort:before{content:"\eb5a"}
 .ti-arrows-vertical:before{content:"\eb5b"}
+.ti-award:before{content:"\ea2c"}
 .ti-bell:before{content:"\ea35"}
 .ti-bell-dollar:before{content:"\f817"}
 .ti-bell-ringing:before{content:"\ed07"}
@@ -163,6 +164,7 @@
 .ti-mail-cog:before{content:"\f93b"}
 .ti-mail-forward:before{content:"\eeac"}
 .ti-mail-heart:before{content:"\f93f"}
+.ti-mail-question:before{content:"\f944"}
 .ti-map-2:before{content:"\eae7"}
 .ti-map-pin:before{content:"\eae8"}
 .ti-message-2:before{content:"\eaec"}
@@ -233,6 +235,7 @@
 .ti-user-minus:before{content:"\eb4a"}
 .ti-user-off:before{content:"\ecf9"}
 .ti-user-plus:before{content:"\eb4b"}
+.ti-user-question:before{content:"\f7cf"}
 .ti-user-search:before{content:"\ef89"}
 .ti-user-x:before{content:"\eb4c"}
 .ti-users:before{content:"\ebf2"}
