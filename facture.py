@@ -25,6 +25,14 @@ def _nombre(valeur):
         return 0.0
 
 
+def _montant(x):
+    """« 975 », ou « 877,50 » quand il y a des centimes — une remise en
+    pourcentage en produit (08/11/2026). Les montants ronds s'ecrivent comme
+    avant."""
+    x = round(float(x or 0), 2)
+    return ("%.0f" % x) if x == int(x) else ("%.2f" % x).replace(".", ",")
+
+
 def _jours(S):
     try:
         import jours as _J
@@ -70,8 +78,8 @@ def pour(S, numero, destinataire, unitaire, quantite, civilite="",
         "date_formation": j.get("texte") or S.get("date_texte") or "",
         "jours_formation": j.get("detail") or [],
         "duree": j.get("duree") or str(S.get("duree_heures") or S.get("duree") or ""),
-        "unitaire": "%.0f" % unitaire,
-        "total": "%.0f" % total,
+        "unitaire": _montant(unitaire),
+        "total": _montant(total),
         "mention_reglement": mention_reglement,
         "ligne_reglement": ligne_reglement,
         "iban": iban, "bic": bic,
@@ -83,8 +91,8 @@ def pour(S, numero, destinataire, unitaire, quantite, civilite="",
         # commerce l'exige (art. L441-9 : « toute reduction de prix acquise »),
         # et c'est ce qui rend le montant lisible a cote du tarif annonce.
         # {"code": "BIENVENUE", "montant": 98.0}, ou None.
-        "remise": ({"code": remise["code"], "montant": "%.0f" % remise["montant"],
-                    "prix": "%.0f" % (unitaire + remise["montant"])}
+        "remise": ({"code": remise["code"], "montant": _montant(remise["montant"]),
+                    "prix": _montant(unitaire + remise["montant"])}
                    if remise and remise.get("montant") else None),
     }
 

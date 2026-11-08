@@ -1501,7 +1501,7 @@ def tests_codes_promo():
         CP.poser(org, "CENT", "montant", 100, sessions=["autre-session"])
         CP.poser(org, "VIEUX", "montant", 50, jusqu_au="2026-01-31")
         r, m, _ = CP.verifier(org, code, " Dix ", "975")
-        verifier("10 % de 975 : 98 euros, arrondis a l'euro", r and m == 98.0, m)
+        verifier("10 % de 975 : 97,50 euros, au centime comme Stripe", r and m == 97.5, m)
         verifier("un code d'une autre session est refuse", not CP.verifier(org, code, "CENT", "975")[0])
         verifier("un code expire est refuse", not CP.verifier(org, code, "VIEUX", "975")[0])
         verifier("mais pas pour une demande faite avant la date",
@@ -1519,9 +1519,9 @@ def tests_codes_promo():
         L = {l["nom"]: l for l in suivi.lire_lignes_de(code)}
         p = L.get("PROMO") or {}
         verifier("le code et la remise sont sur la ligne",
-                 p.get("code_promo") == "DIX" and p.get("remise") == "98", (p.get("code_promo"), p.get("remise")))
-        verifier("et le prix arrete est 877", p.get("montant_du") == "877", p.get("montant_du"))
-        verifier("que tout DFM lit", suivi.montant_attendu(p, "975") == 877.0)
+                 p.get("code_promo") == "DIX" and p.get("remise") == "97.50", (p.get("code_promo"), p.get("remise")))
+        verifier("et le prix arrete est 877,50", p.get("montant_du") == "877.50", p.get("montant_du"))
+        verifier("que tout DFM lit", suivi.montant_attendu(p, "975") == 877.5)
         f = L.get("FAUX") or {}
         verifier("un code inconnu laisse le tarif", f.get("montant_du") == "975" and not f.get("code_promo"))
         verifier("et il est signale", any("NIMPORTE" in e for e in imp.ECHECS), imp.ECHECS)
@@ -1536,7 +1536,7 @@ def tests_codes_promo():
         CP.activer(org, "DIX", False)
         r2 = {}
         verifier("desactive entre l'envoi et l'import, il reste acquis",
-                 CP.appliquer(r2, fiche, code, "DIX", le="08/11/2026")[0] and r2.get("montant_du") == "877")
+                 CP.appliquer(r2, fiche, code, "DIX", le="08/11/2026")[0] and r2.get("montant_du") == "877.50")
         verifier("mais le formulaire le refuse", not CP.verifier(org, code, "DIX", "975")[0])
         CP.activer(org, "DIX", True)
 
@@ -1545,18 +1545,20 @@ def tests_codes_promo():
         verifier("la convention se calcule", bool(d), souci)
         if d:
             verifier("prix public, remise, code et total",
-                     (d["prix_public"], d["remise"], d["code_promo"], d["total"]) == ("975", "98", "DIX", "877"),
+                     (d["prix_public"], d["remise"], d["code_promo"], d["total"]) == ("975", "97,50", "DIX", "877,50"),
                      (d.get("prix_public"), d.get("remise"), d.get("code_promo"), d.get("total")))
             html = convention.html(d)
-            verifier("et le gabarit les imprime", "Remise accordée (code DIX)" in html and "877" in html)
+            verifier("et le gabarit les imprime", "Remise accordée (code DIX)" in html and "877,50" in html)
         d0, _ = convention.pour(code, ligne=L.get("SANS"))
         verifier("sans code, pas de ligne de remise", d0 and not d0["remise"])
         verifier("un prix repris a la main n'affiche pas une remise qui ne s'additionne plus",
                  CP.remise_de(dict(p, montant_du="700"), "975", 700.0) == (0.0, ""))
-        fa = facture.pour(fiche, "F-1", "Lea PROMO", 877.0, 1, remise={"code": "DIX", "montant": 98.0})
-        verifier("la facture porte le prix public et la remise",
-                 fa["remise"] == {"code": "DIX", "montant": "98", "prix": "975"} and fa["total"] == "877",
-                 fa["remise"])
+        fa = facture.pour(fiche, "F-1", "Lea PROMO", 877.5, 1, remise={"code": "DIX", "montant": 97.5})
+        verifier("la facture porte le prix public et la remise, centimes compris",
+                 fa["remise"] == {"code": "DIX", "montant": "97,50", "prix": "975"} and fa["total"] == "877,50",
+                 (fa["remise"], fa["total"]))
+        verifier("un montant rond s'ecrit comme avant",
+                 facture.pour(fiche, "F-2", "X", 975.0, 1)["total"] == "975")
         verifier("et son gabarit aussi", "Remise accordée (code DIX)" in facture.html(fa))
 
         print("    le lien de carte ne fait pas payer le plein tarif")
@@ -1569,7 +1571,7 @@ def tests_codes_promo():
         CP.poser(org, "DIX", "pourcentage", 10, stripe=False)
         c = mails.contexte(fiche, p)
         verifier("le mail annonce son prix, sans lien de carte",
-                 c["lien_paiement"] == "" and c["tarif"].replace("\u202f", "") == "877",
+                 c["lien_paiement"] == "" and c["tarif"].replace("\u202f", "") == "877,50",
                  (c["lien_paiement"], c["tarif"]))
         bouton = {"type": "bouton", "libelle": "Régler", "lien": "{{lien_paiement}}"}
         verifier("et son bouton de paiement disparait", not mails._bloc_retenu(bouton, c))

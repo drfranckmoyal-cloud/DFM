@@ -82,7 +82,9 @@ async function jugerCode(of, codeSession, saisi, mail) {
     }
   }
   const v = Number(r.valeur || 0);
-  let remise = r.type === "pourcentage" ? Math.floor(tarif * v / 100 + 0.5) : v;
+  // Au centime, comme Stripe et comme DFM (codes_promo.remise) : 10 % de 975 =
+  // 97,50. Calcule en centimes pour echapper aux arrondis binaires.
+  let remise = r.type === "pourcentage" ? Math.round(tarif * v) / 100 : v;
   remise = Math.max(0, Math.min(remise, tarif));
   // Une formation offerte passe par l'invitation, pas par un code.
   if (remise <= 0 || remise >= tarif) {

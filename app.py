@@ -2090,7 +2090,8 @@ def codes_promo_ecran():
                                          if not (s["debut"] and s["debut"] < aujourd)]
         r["liens"] = [{"nom": noms[c]["nom"], "dates": noms[c]["dates"],
                        "lien": noms[c]["lien"] + "&code=" + r["code"],
-                       "prix": int(_suivi.euros(noms[c]["tarif"]) - CP.remise(r, noms[c]["tarif"]))}
+                       "prix": CP.montant_texte(_suivi.euros(noms[c]["tarif"])
+                                                - CP.remise(r, noms[c]["tarif"])).replace(".", ",")}
                       for c in cibles if c in noms and noms[c]["lien"]]
         r["expire"] = bool(r.get("jusqu_au") and r["jusqu_au"] < aujourd)
         r["portee"] = [("%s, %s" % (noms[c]["nom"], noms[c]["dates"])) if c in noms else c

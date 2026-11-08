@@ -22,11 +22,13 @@ UN CODE NE S'EFFACE PAS. On le desactive : il reste au registre, avec qui l'a
 cree et quand. C'est la trace d'une pratique commerciale, et des factures le
 citent.
 
-LA REMISE EST ARRONDIE A L'EURO. Conventions et factures ecrivent des euros
-entiers depuis toujours ; 10 % de 975 euros donnent 98 euros de remise, et non
-97,50 qu'aucun document ne saurait ecrire juste.
+LA REMISE SE CALCULE AU CENTIME, COMME STRIPE — 08/11/2026. Elle etait
+arrondie a l'euro (10 % de 975 = 98) pour que les documents restent en euros
+entiers ; mais le premier coupon cree dans Stripe, REMISE10, en pourcentage,
+encaissait 877,50 euros quand la convention en annoncait 877. Le paiement par
+carte et l'acte signe doivent dire le meme chiffre : la convention, la facture
+et les mails savent ecrire « 877,50 ».
 """
-import math
 import os as _os
 import re as _re
 from datetime import date, datetime
@@ -71,8 +73,14 @@ def trouver(organisme, code):
     return e
 
 
+def montant_texte(x):
+    """« 877 » ou « 877.50 » : un montant tel qu'il s'ecrit sur la ligne."""
+    x = round(float(x or 0), 2)
+    return ("%d" % x) if x == int(x) else ("%.2f" % x)
+
+
 def remise(regle, tarif):
-    """La remise en euros entiers. Jamais plus que le tarif."""
+    """La remise en euros, au centime, comme Stripe la calcule. Jamais plus que le tarif."""
     try:
         t = float(str(tarif or 0).replace(",", ".").replace(" ", ""))
     except ValueError:
@@ -80,7 +88,9 @@ def remise(regle, tarif):
     if t <= 0 or not regle:
         return 0.0
     v = float(regle.get("valeur") or 0)
-    r = math.floor(t * v / 100.0 + 0.5) if regle.get("type") == "pourcentage" else v
+    # round(t * v) / 100 : 975 x 10 = 9750 centimes, sans erreur d'arrondi
+    # binaire — le meme calcul que la fonction Netlify (inscrire.js).
+    r = round(t * v) / 100.0 if regle.get("type") == "pourcentage" else v
     return float(max(0.0, min(float(r), t)))
 
 
@@ -248,9 +258,10 @@ def appliquer(ligne, S, code_session, code, le=None):
         return False, motif
     tarif = float(str(S.get("tarif") or 0).replace(",", "."))
     ligne["code_promo"] = r["code"]
-    ligne["remise"] = "%d" % montant
-    ligne["montant_du"] = "%d" % (tarif - montant)
-    return True, "%s : %s de remise, reste %d €" % (r["code"], libelle(r), tarif - montant)
+    ligne["remise"] = montant_texte(montant)
+    ligne["montant_du"] = montant_texte(tarif - montant)
+    return True, "%s : %s de remise, reste %s €" % (r["code"], libelle(r),
+                                                     montant_texte(tarif - montant))
 
 
 def remise_de(ligne, tarif_session, du):
