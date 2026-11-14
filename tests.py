@@ -2678,6 +2678,20 @@ def tests_courriel_de_validation():
              _m.contexte({"adresse": "x"})["date_limite"] == "",
              "[%s]" % _m.contexte({"adresse": "x"})["date_limite"])
 
+    print("    la consigne garde sa date quand il y en a une, et la perd sinon (14/11/2026)")
+    blocs = {"objet": "x", "blocs": [
+        {"type": "texte", "si": "date_limite", "contenu":
+            "**Pour confirmer ton inscription, remplis le questionnaire ci-dessous. "
+            "Réponse attendue avant le {{date_limite}}.**"},
+        {"type": "texte", "si": "sans_date_limite", "contenu":
+            "**Pour confirmer ton inscription, remplis le questionnaire ci-dessous.**"}]}
+    avec = _m.rendre(blocs, c)["html"]
+    sans = _m.rendre(blocs, _m.contexte(dict(S, date_limite=""), {"prenom": "Camille"}))["html"]
+    verifier("avec une date : la phrase entiere, une seule fois",
+             avec.count("Pour confirmer") == 1 and "avant le samedi 7 novembre 2026." in avec)
+    verifier("sans date : la consigne seule, sans « avant le . »",
+             sans.count("Pour confirmer") == 1 and "Réponse attendue" not in sans)
+
     print("    le nombre de modules aussi, et leur duree")
     verifier("trois modules", c["nb_modules"] == "trois", c["nb_modules"])
     verifier("de trois jours", c["jours_par_module"] == "trois", c["jours_par_module"])

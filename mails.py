@@ -1115,6 +1115,14 @@ def contexte(S, ligne=None, extras=None):
         "lieu_court": n(S.get("lieu_court") or S.get("adresse")),
         # LA DATE LIMITE DE REPONSE, portee par la session. Vide ailleurs.
         "date_limite": _date_limite(S),
+        # SON CONTRAIRE, pour qu'un modele choisisse entre deux versions du meme
+        # paragraphe — 14/11/2026, courriel 01 d'Esthetique 360. « si:
+        # date_limite » retire un bloc ; il ne sait pas en mettre un autre a la
+        # place. Avec les deux, la phrase « Pour confirmer… Reponse attendue
+        # avant le … » reste UN paragraphe quand la session a une date, et perd
+        # sa seconde moitie quand elle n'en a pas. Meme principe que
+        # « sans_certificat ».
+        "sans_date_limite": "" if _date_limite(S) else "1",
         # LE LIEN DU FORMULAIRE D'INSCRIPTION DE CETTE SESSION — 24/10/2026.
         # Il etait calcule par l'ecran de session et passe a la main par la
         # seule route qui s'en servait : tout autre modele qui portait la balise
