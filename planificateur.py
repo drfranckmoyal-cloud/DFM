@@ -45,7 +45,11 @@ PASSAGE_HEURES = ((8, 30), (13, 30))
 # Un disque perdu, et la piste d'audit disparaissait avec lui. L'archive pese
 # 4,6 Mo, caches exclus : la faire tous les jours ne coute rien.
 SAUVEGARDE_HEURE = (19, 30)
-SAUVEGARDES_GARDEES = 30
+# SEPT ARCHIVES, ET NON PLUS TRENTE — decide par Franck le 14/11/2026. L'archive
+# contient desormais les documents : 65 Mo, et non plus 4,6. Trente faisaient
+# 2 Go sur un disque de 8, a cote des instantanes de 3h30 qui gardent deja
+# tout : le disque s'est sature, et les sauvegardes se sont arretees.
+SAUVEGARDES_GARDEES = 7
 
 # La chaine client, dans son ordre reel : la facture precede la contresignature
 # parce qu'elle voyage en piece jointe de son mail.
