@@ -159,6 +159,14 @@ def depuis_html(html, delai=60):
                 env["HOME"] = maison
         except Exception:
             pass
+        # CHROME RANGE SES BROUILLONS DANS NOTRE DOSSIER, efface a la fin. Il les
+        # posait dans le /tmp de la machine (un « scoped_dir » de 1,5 Mo et un
+        # fichier « .com.google.Chrome » par document) et ne les retirait
+        # jamais : 666 + 908 restes, 608 Mo, et 334 Mo de cache a cote. Le
+        # disque de 8 Go du serveur s'est rempli deux fois, le 31/10 puis le
+        # 14/11/2026, bloquant les sauvegardes et coupant des PDF en cours
+        # d'ecriture. Le profil, lui, reste persistant (voir plus haut).
+        env["TMPDIR"] = dossier
         r = subprocess.run(
             [exe, "--headless", "--disable-gpu",
              # Sans cela, Chrome ajoute l'URL du fichier et un numero de page
@@ -177,6 +185,9 @@ def depuis_html(html, delai=60):
              # 185 Go apparents le 28/10/2026. Sous Linux, l'option est sans
              # objet et Chrome l'ignore. Verifie le 29/10/2026 avec Chrome 156.
              "--disable-features=MacAppCodeSignClone",
+             # Le cache d'un document ne sert pas au suivant : il vit et meurt
+             # avec le dossier de travail de CE document.
+             "--disk-cache-dir=" + os.path.join(dossier, "cache"),
              "--print-to-pdf=" + cible, "file://" + source],
             capture_output=True, timeout=delai, env=env)
         if not os.path.exists(cible):

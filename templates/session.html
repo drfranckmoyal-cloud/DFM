@@ -679,22 +679,20 @@ html[data-sombre] .tab-valider:hover{background:#3a2f1f}
     <tbody id="corps-inscrits">
     {% for l in s.actifs %}
       <tr data-mail="{{ l.mail }}" data-nom="{{ (l.nom ~ ' ' ~ l.prenom ~ ' ' ~ l.mail)|lower }}"
+          data-nomseul="{{ l.nom }}" data-prenom="{{ l.prenom }}" data-ville="{{ l.ville }}"
           data-conv="{{ 'ok' if l.signe_le else 'ko' }}"
           data-regl="{{ 'ok' if l.paiement_recu_le or l.invite_le else 'ko' }}"
           data-complet="{{ 'ok' if (l.invite_le and l.signe_le) or (l.paiement_recu_le and l.facture_le) else 'ko' }}">
         <td><input type="checkbox" onclick="cocher(this)" aria-label="sélectionner"></td>
-        {% set AV = ['#2f5fe0', '#0f8a63', '#7c5bf7', '#e0611a', '#0e7490', '#c0266d'] %}
         <td>
           <div class="fs-p">
-            <div class="fs-av" style="background:{{ AV[loop.index0 % 6] }}">{{ (l.prenom or ' ')[:1]|upper }}{{ (l.nom or ' ')[:1]|upper }}</div>
             <div class="fs-p-t">
               <div class="fs-p-n"><strong>{{ l.nom }} {{ l.prenom }}</strong>
                 {% if l.invite_le %}<span class="fs-mq fs-mq-inv">Invité·e</span>{% endif %}
                 {% if l.code_promo %}<span class="fs-mq fs-mq-code" title="Code promo saisi à l'inscription : {{ l.remise }} € de remise">{{ l.code_promo }}</span>{% endif %}
                 {% if l.besoin_adaptation %}<span class="fs-mq fs-mq-adapt" title="A declare un besoin d adaptation a l inscription">Adaptation</span>{% endif %}
                 <a class="icon-btn" style="width:22px;height:20px" title="Ouvrir la fiche de cet apprenant" href="/apprenant/{{ l.mail }}" onclick="event.stopPropagation()"><i class="ti ti-user-circle" style="font-size:14px"></i></a></div>
-              <div class="fs-p-s">{{ l.ville }}{% if l.ville %} · {% endif %}{% if 'sans' in l.dejeuner|lower %}repas{% elif 'avec' in l.dejeuner|lower %}<span title="{{ l.restrictions }}">repas, restrictions</span>{% else %}sans repas{% endif %}</div>
-              <div class="fs-p-m">{{ l.mail }}</div>
+              <div class="fs-p-s">{{ l.ville }}{% if l.ville %} · {% endif %}{% if 'sans' in l.dejeuner|lower %}repas{% elif 'avec' in l.dejeuner|lower %}<span title="{{ l.restrictions }}">repas, restrictions</span>{% else %}sans repas{% endif %} · <span class="fs-p-m">{{ l.mail }}</span></div>
             </div>
           </div>
         </td>
@@ -2434,13 +2432,15 @@ function grExporter(){
     if(!cases[i].checked) continue;
     var tr = cases[i].closest("tr");
     if(!tr) continue;
+    // L'EXPORT LIT LES DONNEES DE LA LIGNE — 14/11/2026. Il lisait les colonnes
+    // par leur rang, celui de l'ancienne fiche : depuis la fiche A+, il aurait
+    // range les questionnaires a la place du montant et de la facture.
     var c = tr.querySelectorAll("td");
-    var titre = c[1].querySelector("strong") ? c[1].querySelector("strong").textContent.trim() : "";
-    var mail = c[1].querySelector("span") ? c[1].querySelector("span").textContent.trim() : "";
-    out.push([titre, "", mail, c[2].textContent.trim(),
+    var net = function(td){ return td ? td.textContent.replace(/\s+/g, " ").trim() : ""; };
+    out.push([tr.dataset.nomseul || "", tr.dataset.prenom || "", tr.dataset.mail || "", tr.dataset.ville || "",
               tr.dataset.conv === "ok" ? "Oui" : "Non",
               tr.dataset.regl === "ok" ? "Oui" : "Non",
-              c[6].textContent.trim(), "", c[7].textContent.trim()].join(";"));
+              net(c[4]), "", net(c[5])].join(";"));
     n++;
   }
   if(!n){ alert("Sélectionne au moins un inscrit."); return; }
@@ -3780,6 +3780,73 @@ html[data-sombre] .fs-sh-b{background:#18203d}html[data-sombre] .fs-sh-o{backgro
 html[data-sombre] .fs-mq-inv{background:#2a2350;color:#c8b9ff}html[data-sombre] .fs-mq-code{background:#123d2c;color:#7fe0b4}
 html[data-sombre] .fs-mq-adapt{background:#3a2a12;color:#f5c87a}
 html[data-sombre] .tabs .tab.active,html[data-sombre] .filter-btn.active{background:#ffd23f;color:#141a2e;border-color:#ffd23f}
+
+/* ---------- LA FICHE RESSERREE — 14/11/2026 ----------
+   Franck : « bien, mais trop imposante ». Tout descend d'un cran pour voir
+   davantage sans faire defiler, et la ligne d'un inscrit perd sa pastille
+   d'initiales et tient sur deux lignes au lieu de trois. */
+.fs-hero{padding:16px 20px;gap:14px;border-radius:16px;margin-bottom:12px}
+.fs-gauche{gap:14px;flex-basis:460px}
+.fs-date{width:60px;height:68px;border-radius:12px}
+.fs-date span{font-size:9.5px;letter-spacing:1px}
+.fs-date b{font-size:22px}
+.fs-ident{gap:7px}
+.fs-titre{font-size:22px;letter-spacing:-.3px}
+.fs-tag{height:19px;padding:0 6px;font-size:9.5px}
+.fs-chips{gap:5px}
+.fs-chip{height:24px;padding:0 9px;font-size:11.5px;gap:5px}
+.fs-chip i{font-size:12px}
+.fs-droite{gap:10px;flex-basis:460px}
+.fs-chiffres{gap:22px}
+.fs-gros{font-size:27px}
+.fs-gros small{font-size:15px}
+.fs-sous{font-size:11.5px;margin-top:3px}
+.fs-hero .btn,.fs-btn-verre,.fs-hero .se-btn{height:34px !important;border-radius:10px;padding:0 12px;font-size:12.5px}
+.fs-menu{top:calc(100% + 6px)}
+.fs-parcours{gap:10px;margin-bottom:10px}
+.fs-phase{border-radius:13px}
+.fs-ph-t{padding:6px 14px;font-size:10px}
+.fs-ph-t span:last-child{font-size:11px}
+.fs-ph-b{padding:10px 14px;gap:7px}
+.fs-k{gap:3px}
+.fs-k-l{font-size:12px}
+.fs-k-v{font-size:15px}
+.fs-k-v small{font-size:11.5px}
+.fs-barre,.fs-barre i{height:6px}
+.fs-e{font-size:12.5px}
+.fs-auto{padding:8px 11px;font-size:12px;border-radius:10px}
+.fs-auto b{font-size:13px}
+.fs-emarg .carte-emargement{padding:6px 10px;gap:8px}
+.fs-btn-s{height:28px;padding:0 10px;font-size:12px;border-radius:8px}
+.c{height:22px;padding:0 8px;font-size:11.5px;border-radius:7px}
+.fs-afaire{gap:10px;margin-bottom:12px}
+.fs-af{padding:9px 14px;gap:12px;border-radius:13px}
+.fs-af>b{font-size:30px;min-width:30px}
+.fs-af>b i{font-size:24px}
+.fs-af>div{gap:3px}
+.fs-af-t{font-size:13px}
+.fs-af-s{font-size:12px}
+.fs-btn-noir{height:26px;padding:0 10px;font-size:11.5px;border-radius:8px;margin-top:1px}
+.tabs{padding:3px;border-radius:12px;margin-bottom:10px}
+.tabs .tab{padding:6px 12px;font-size:12.5px;border-radius:9px}
+.fs-cnt{height:18px;min-width:20px;font-size:10.5px}
+.filter-btn{height:28px;padding:0 11px;font-size:12px}
+.fs-table td{padding-top:4px;padding-bottom:4px}
+.fs-table .col-header-group{padding:6px 8px}
+.fs-table thead th{padding-top:6px;padding-bottom:6px}
+.fs-p{min-width:200px;max-width:320px}
+.fs-p-t{gap:1px}
+.fs-p-n{font-size:12.5px;gap:5px}
+.fs-p-s{font-size:11px;color:var(--muted);opacity:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:310px}
+.fs-p-s .fs-p-m{display:inline;max-width:none}
+.fs-mq{height:17px;padding:0 5px;font-size:9.5px}
+#corps-inscrits .icon-btn{width:22px;height:22px}
+#corps-inscrits .chip{height:22px;padding:0 8px;font-size:11.5px;border-radius:7px}
+#corps-inscrits .rel-btn,#corps-inscrits .reg-btn{height:22px;padding:0 8px;font-size:11.5px;border-radius:7px}
+/* Les trois temps restent cote a cote sur un ecran de portable : empiles, ils
+   triplaient la hauteur du haut de page. */
+@media (max-width:1100px){.fs-parcours,.fs-afaire{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:860px){.fs-parcours,.fs-afaire{grid-template-columns:minmax(0,1fr)}}
 </style>
 <script>
 // Les cartes « A faire » menent au bon filtre, ou au bon onglet.

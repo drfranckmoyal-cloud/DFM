@@ -1809,6 +1809,18 @@ def tests_fiche_session_deux_presentations():
         A._par = garde
 
 
+def tests_chrome_sans_restes():
+    """CHROME NE LAISSE RIEN DERRIERE LUI — 14/11/2026. Ses brouillons
+    remplissaient le /tmp du serveur (1,5 Mo par PDF) : le disque de 8 Go
+    s'est sature deux fois, bloquant les sauvegardes et coupant des PDF."""
+    print("\n  CHROME SANS RESTES")
+    racine = os.path.dirname(os.path.abspath(__file__))
+    src = open(os.path.join(racine, "pdf.py"), encoding="utf-8").read()
+    verifier("ses fichiers temporaires vont dans le dossier efface", 'env["TMPDIR"] = dossier' in src)
+    verifier("son cache aussi", '"--disk-cache-dir=" + os.path.join(dossier, "cache")' in src)
+    verifier("et ce dossier est efface quoi qu'il arrive", "shutil.rmtree(dossier, ignore_errors=True)" in src)
+
+
 def tests_accuse_selon_situation():
     """L'ACCUSE ANNONCE LA BONNE SUITE — 08/11/2026 (Guillaume DUCHENE, liste
     d'attente, a qui l'on avait promis une convention)."""
@@ -2701,7 +2713,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:
