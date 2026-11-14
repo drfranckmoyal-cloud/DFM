@@ -1080,6 +1080,14 @@ function vdValider(){
             <div class="sl-dit">Vide : les mails ne proposeront <b>aucun bouton de paiement</b>. Le rappel J-20 gardera son bloc de virement, avec l'IBAN.</div>
             {% endif %}
           </td></tr>
+        <tr><td style="color:var(--muted);font-size:12px">Date limite de réponse</td>
+          <td>
+            <div class="sl-rangee">
+              <input type="date" id="sl_limite" value="{{ s.session.date_limite or '' }}">
+              <button type="button" class="btn btn-ghost" onclick="slEnregistrer('date_limite','sl_limite',this)"><i class="ti ti-check"></i>Enregistrer</button>
+            </div>
+            <div class="sl-dit">Reprise par les courriels qui demandent de confirmer une inscription : « Réponse attendue avant le … ».</div>
+          </td></tr>
         <tr><td style="color:var(--muted);font-size:12px">Réponses du Form</td>
           <td>
             <div class="sl-rangee">

@@ -1821,6 +1821,51 @@ def tests_chrome_sans_restes():
     verifier("et ce dossier est efface quoi qu'il arrive", "shutil.rmtree(dossier, ignore_errors=True)" in src)
 
 
+def tests_date_limite_a_l_ecran():
+    """LA DATE LIMITE DE REPONSE SE SAISIT A L'ECRAN — 14/11/2026. La balise
+    {{date_limite}} lisait une valeur qu'aucun ecran ne permettait de poser."""
+    print("\n  LA DATE LIMITE DE REPONSE, A L'ECRAN")
+    import acces
+    import app as A
+    import sessions as _S
+    racine = os.path.dirname(os.path.abspath(__file__))
+    lire = lambda n: open(os.path.join(racine, "templates", n), encoding="utf-8").read()
+    verifier("la creation de session propose le champ",
+             'name="date_limite"' in lire("session_creer.html"))
+    for page in ("session.html", "session_classique.html"):
+        verifier("%s : la fiche permet de la changer" % page,
+                 'id="sl_limite"' in lire(page) and "slEnregistrer('date_limite','sl_limite',this)" in lire(page))
+    L = A._lire_date_limite
+    verifier("vide : pas de date limite, et pas de refus", L("", "2027-01-06") == ("", None))
+    verifier("la date du calendrier est gardee", L("2026-11-07", "2027-01-06") == ("2026-11-07", None))
+    verifier("une date ecrite a la francaise aussi", L("07/11/2026", "2027-01-06") == ("2026-11-07", None))
+    verifier("une saisie illisible est refusee", L("bientot", "2027-01-06")[0] is None)
+    verifier("une date apres le premier jour est refusee", L("2027-02-01", "2027-01-06")[0] is None)
+    fichier = {"essai-limite": {"formation": "x", "organisme": "mon-organisme",
+                                "date_debut": "2027-01-06", "tarif": "6000"}}
+    ecrit = []
+    garde = (acces.protege, _S._charger_json, _S.enregistrer_session, dict(A.SESSIONS))
+    try:
+        acces.protege = lambda *a, **k: False
+        _S._charger_json = lambda chemin: fichier
+        _S.enregistrer_session = lambda code, fiche: ecrit.append(dict(fiche))
+        A.SESSIONS["essai-limite"] = fichier["essai-limite"]
+        client = A.app.test_client()
+        r = client.post("/session/essai-limite/liens", data={"date_limite": "2026-11-07"}).get_json()
+        verifier("enregistree depuis la fiche", r.get("ok") and ecrit
+                 and ecrit[-1].get("date_limite") == "2026-11-07", r)
+        verifier("le reste de la fiche ne bouge pas", ecrit and ecrit[-1].get("tarif") == "6000")
+        fichier["essai-limite"]["date_limite"] = "2026-11-07"
+        n = len(ecrit)
+        r = client.post("/session/essai-limite/liens", data={"date_limite": "le 7"}).get_json()
+        verifier("une saisie illisible n'ecrit rien", not r.get("ok") and len(ecrit) == n, r)
+        r = client.post("/session/essai-limite/liens", data={"date_limite": ""}).get_json()
+        verifier("vider le champ retire la date", r.get("ok") and "date_limite" not in ecrit[-1], r)
+    finally:
+        acces.protege, _S._charger_json, _S.enregistrer_session = garde[0], garde[1], garde[2]
+        A.SESSIONS.clear(); A.SESSIONS.update(garde[3])
+
+
 def tests_accuse_selon_situation():
     """L'ACCUSE ANNONCE LA BONNE SUITE — 08/11/2026 (Guillaume DUCHENE, liste
     d'attente, a qui l'on avait promis une convention)."""
@@ -2713,7 +2758,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes, tests_date_limite_a_l_ecran,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:

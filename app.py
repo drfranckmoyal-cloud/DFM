@@ -1054,6 +1054,34 @@ def creer_session():
                            fonctions=__import__("contacts").FONCTIONS,
                            heures_par_jour=__import__("jours").heures_par_jour(),
                            manques={c["id"]: _CL.complet(c) for c in _CL.liste()})
+def _lire_date_limite(brut, debut=""):
+    """La date limite de reponse saisie a l'ecran : (date ISO, souci).
+
+    POURQUOI UN CHAMP — 14/11/2026, demande de Franck. La balise
+    {{date_limite}} des courriels de confirmation (Esthetique 360, courriels 01
+    et 01 bis) lisait une valeur qu'AUCUN ECRAN NE PERMETTAIT DE SAISIR : celle
+    du cycle 2027 avait ete posee a la main dans sessions.json le 24/10/2026.
+    Une session creee a l'ecran n'en avait donc jamais, et seul Claude pouvait
+    la changer.
+
+    Vide : ("", None), la session n'a pas de date limite. Illisible, ou apres
+    le premier jour de la session : (None, message) — une date de reponse qui
+    tombe pendant la formation est une faute de frappe, pas un choix.
+    """
+    t = str(brut or "").strip()
+    if not t:
+        return "", None
+    import jours as _J
+    d = _J._d(t)
+    if not d:
+        return None, "La date limite de réponse « %s » n'est pas une date lisible." % t[:20]
+    d0 = _J._d(debut) if debut else None
+    if d0 and d > d0:
+        return None, ("La date limite de réponse (%s) tombe après le premier jour de la "
+                      "session (%s)." % (_J._jour(d), _J._jour(d0)))
+    return d.isoformat(), None
+
+
 @app.route("/sessions/nouvelle", methods=["POST"])
 def enregistrer_nouvelle_session():
     import re as _re
@@ -1101,6 +1129,9 @@ def enregistrer_nouvelle_session():
     debut, fin = _J.bornes(_liste)
     if not debut:
         return jsonify({"ok": False, "message": "Aucune journée de formation n'est retenue."})
+    _limite, _souci_limite = _lire_date_limite(d.get("date_limite"), debut)
+    if _souci_limite:
+        return jsonify({"ok": False, "message": _souci_limite + " Rien n'a été créé."})
     # Le mode se choisit ICI et nulle part ailleurs : il commande les documents
     # que la session produira. Le refus est prononce AVANT toute creation, pour
     # qu'une session client sans client ne puisse pas exister.
@@ -1156,6 +1187,8 @@ def enregistrer_nouvelle_session():
         v = (d.get(cle) or "").strip()
         if v:
             fiche[cle] = int(v) if cle == "places_max" else v
+    if _limite:
+        fiche["date_limite"] = _limite
     _h1 = (d.get("heure_debut") or "").strip()
     _h2 = (d.get("heure_fin") or "").strip()
     if _h1 and _h2:
@@ -1632,6 +1665,20 @@ def session_liens(code):
         if ident != (fiche.get("sheet_reponses") or ""):
             fiche["sheet_reponses"] = ident
             change.append("classeur de réponses " + ("renseigné" if ident else "retiré"))
+    # LA DATE LIMITE DE REPONSE — 14/11/2026. Voir _lire_date_limite.
+    if "date_limite" in request.form:
+        limite, souci = _lire_date_limite(request.form.get("date_limite"),
+                                          fiche.get("date_debut") or "")
+        if souci:
+            return jsonify({"ok": False, "message": souci + " Rien n'a été enregistré."})
+        if limite != (fiche.get("date_limite") or ""):
+            if limite:
+                import jours as _J
+                fiche["date_limite"] = limite
+                change.append("date limite de réponse : " + _J._jour(_J._d(limite)))
+            else:
+                fiche.pop("date_limite", None)
+                change.append("date limite de réponse retirée")
     if not change:
         return jsonify({"ok": True, "message": "Rien n'a changé."})
     _S.enregistrer_session(code, fiche)
@@ -1641,7 +1688,8 @@ def session_liens(code):
         pass
     return jsonify({"ok": True, "message": ", ".join(change).capitalize() + ".",
                     "stripe_lien": fiche.get("stripe_lien") or "",
-                    "sheet_reponses": fiche.get("sheet_reponses") or ""})
+                    "sheet_reponses": fiche.get("sheet_reponses") or "",
+                    "date_limite": fiche.get("date_limite") or ""})
 
 
 @app.route("/session/<code>/formulaire", methods=["POST"])
