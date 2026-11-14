@@ -104,9 +104,12 @@ for ligne in concernes:
     # suivi.montant_attendu, qui la detient pour tout DFM : un invite ne doit
     # rien, un montant vide vaut le tarif de la session, seul un zero ecrit est
     # un zero. Elle etait recopiee ici, et s'y est trompee deux fois le 17/10.
-    _du_nombre = suivi.montant_attendu(ligne, S.get("tarif"))
-    _du_texte = ("%d" % _du_nombre) if _du_nombre == int(_du_nombre) else ("%.2f" % _du_nombre)
-    if not ligne["paiement_recu_le"] and _du_nombre > 0:
+    #
+    # LE TEXTE DE L'ENCADRE VIT DANS mails.encadre_reglement_rappel — 14/11/2026 :
+    # un cycle a modules y dit le reste a payer et « avant le dernier module ».
+    import mails as _mails_r
+    _encadre = _mails_r.encadre_reglement_rappel(S, ligne)
+    if _encadre:
         # PAS DE LIEN, PAS DE BOUTON — 04/10/2026. Ce bouton pointait vers
         # S['stripe_lien'] sans verifier qu'il existe : sur une session creee sans
         # lien de paiement — et rien ne permettait d'en ajouter un apres coup — le
@@ -119,7 +122,7 @@ for ligne in concernes:
         import codes_promo as _cp
         _lien_stripe = _cp.lien_paiement(S, ligne)
         _bouton_stripe = ""
-        if _lien_stripe:
+        if _lien_stripe and _encadre["carte"]:
             _bouton_stripe = (
                 '    <div style="text-align:center;margin:16px 0;">\n'
                 '      <a href="' + _lien_stripe + '" style="display:inline-block;'
@@ -128,8 +131,8 @@ for ligne in concernes:
                 'R&eacute;gler ma formation</a>\n    </div>')
         bloc_reglement = f"""
   <div style="background:#fdf6ec;border:1px solid #f5dda6;border-radius:10px;padding:18px;margin:24px 0;">
-    <p style="margin:0 0 12px;font-size:14px;"><strong>Ton r&egrave;glement ne nous est pas encore parvenu.</strong><br>
-    Merci de le finaliser avant la formation ({_du_texte} &euro;, d&eacute;jeuners inclus).</p>
+    <p style="margin:0 0 12px;font-size:14px;"><strong>{_encadre['titre']}</strong><br>
+    {_encadre['phrase']}</p>
 {_bouton_stripe}
     <p style="margin:12px 0 6px;font-size:13px;"><strong>Ou par virement</strong> &mdash; motif : {S['nom_formation']} + Nom Pr&eacute;nom</p>
     <table style="width:100%;border-collapse:collapse;font-size:12px;">

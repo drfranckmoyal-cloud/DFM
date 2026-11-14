@@ -1022,6 +1022,50 @@ def _couleur_filet(S):
     return couleur, degrade
 
 
+def encadre_reglement_rappel(S, ligne):
+    """L'encadre « reglement » du rappel avant la formation, ou None s'il n'a pas lieu.
+
+    Rend {"titre", "phrase", "carte"} : les deux lignes du haut de l'encadre, et
+    si le bouton de paiement par carte a sa place.
+
+    UNE FORMATION ORDINAIRE NE CHANGE PAS D'UN CARACTERE : « Merci de le
+    finaliser avant la formation (975 €, dejeuners inclus) », a qui n'a pas
+    regle.
+
+    UN CYCLE A MODULES, SI — 14/11/2026, demande de Franck pour Esthetique 360.
+    Le texte des formations courtes y etait faux deux fois : la convention dit
+    « a solder avant le debut du DERNIER module », et non avant la formation ;
+    et une personne qui avait deja verse une partie relisait la somme entiere.
+    Pour un cycle, l'encadre dit donc LE RESTE A PAYER et la date du dernier
+    module, et il disparait quand tout est solde. Le bouton carte, qui encaisse
+    la somme entiere, ne reste que pour qui n'a encore rien verse.
+    """
+    import suivi as _suivi
+    du = _suivi.montant_attendu(ligne, (S or {}).get("tarif"))
+    mods = (S or {}).get("modules") or []
+    if not mods:
+        if (ligne.get("paiement_recu_le") or "").strip() or du <= 0:
+            return None
+        texte = ("%d" % du) if du == int(du) else ("%.2f" % du)
+        return {"titre": "Ton r&egrave;glement ne nous est pas encore parvenu.",
+                "phrase": "Merci de le finaliser avant la formation (%s &euro;, "
+                          "d&eacute;jeuners inclus)." % texte,
+                "carte": True}
+    reste = _suivi.solde(ligne, (S or {}).get("tarif"))
+    if reste <= 0:
+        return None
+    import convention as _cv
+    import jours as _J
+    jours_dernier = (mods[-1] or {}).get("jours") or []
+    d = _J._d(jours_dernier[0]) if jours_dernier else None
+    quand = (" (%s)" % _J._jour(d)) if d else ""
+    return {"titre": "Ton r&egrave;glement n'est pas encore sold&eacute;.",
+            "phrase": "Il reste <strong>%s &euro;</strong> &agrave; r&eacute;gler, &agrave; "
+                      "solder avant le d&eacute;but du dernier module%s."
+                      % (_cv._euros(reste), quand),
+            "carte": _suivi.total_verse(ligne) <= 0}
+
+
 def _tarif_de(ligne, S):
     """Le montant du par CETTE personne, en texte, pour la balise {{tarif}}.
 

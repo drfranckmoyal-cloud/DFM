@@ -1866,6 +1866,43 @@ def tests_date_limite_a_l_ecran():
         A.SESSIONS.clear(); A.SESSIONS.update(garde[3])
 
 
+def tests_rappel_reglement_cycle():
+    """LE RAPPEL AVANT LA FORMATION, ET LE REGLEMENT D'UN CYCLE — 14/11/2026.
+    Esthetique 360 se solde avant le dernier module : le rappel du premier
+    module ne doit ni dire « avant la formation » ni reclamer la somme entiere
+    a qui a deja verse une partie."""
+    print("\n  LE REGLEMENT DANS LE RAPPEL, FORMATION COURTE ET CYCLE")
+    import convention as _cv
+    import mails as M
+    import suivi as SV
+    E = M.encadre_reglement_rappel
+    court = {"tarif": "975"}
+    r = E(court, {"montant_du": "975", "paiement_recu_le": ""})
+    verifier("formation courte : le texte d'avant, mot pour mot", r is not None
+             and r["titre"] == "Ton r&egrave;glement ne nous est pas encore parvenu."
+             and r["phrase"] == "Merci de le finaliser avant la formation (975 &euro;, d&eacute;jeuners inclus)."
+             and r["carte"], r)
+    verifier("formation courte reglee : pas d'encadre",
+             E(court, {"montant_du": "975", "paiement_recu_le": "01/11/2026"}) is None)
+    cycle = {"tarif": "6000", "modules": [
+        {"numero": 1, "jours": ["2027-01-06", "2027-01-07", "2027-01-08"]},
+        {"numero": 5, "jours": ["2027-12-01", "2027-12-02", "2027-12-03"]}]}
+    v = lambda *m: SV.versements_texte([{"le": "01/11/2026", "montant": x, "mode": "virement",
+                                         "reference": "", "recu": ""} for x in m])
+    r = E(cycle, {"montant_du": "6000", "paiement_recu_le": "", "versements": ""})
+    verifier("cycle sans versement : le tout, avant le dernier module", r is not None
+             and _cv._euros(6000) in r["phrase"] and "dernier module" in r["phrase"]
+             and "1er décembre 2027" in r["phrase"] and "avant la formation" not in r["phrase"]
+             and r["carte"], r)
+    r = E(cycle, {"montant_du": "6000", "paiement_recu_le": "", "versements": v("1500")})
+    verifier("cycle en partie regle : le reste seulement, sans bouton carte", r is not None
+             and _cv._euros(4500) in r["phrase"] and not r["carte"], r)
+    verifier("cycle solde : pas d'encadre",
+             E(cycle, {"montant_du": "6000", "paiement_recu_le": "", "versements": v("3000", "3000")}) is None)
+    verifier("cycle a prix convenu : son prix, pas le tarif",
+             _cv._euros(4000) in (E(cycle, {"montant_du": "4000", "paiement_recu_le": ""}) or {}).get("phrase", ""))
+
+
 def tests_accuse_selon_situation():
     """L'ACCUSE ANNONCE LA BONNE SUITE — 08/11/2026 (Guillaume DUCHENE, liste
     d'attente, a qui l'on avait promis une convention)."""
@@ -2772,7 +2809,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes, tests_date_limite_a_l_ecran,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes, tests_date_limite_a_l_ecran, tests_rappel_reglement_cycle,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:
