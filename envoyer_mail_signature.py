@@ -15,6 +15,14 @@ S = session(CODE)
 # Palier 3 : cette etape ne concerne que les sessions individuelles.
 import sessions as _sessions
 _sessions.refuser_si_client(CODE, "seul le representant legal signe, il ne recoit pas ce mail.")
+# PAS DE CONVENTION A SIGNER UNE FOIS LA FORMATION FAITE — 15/11/2026.
+# Un inscrit ajoute apres coup la recevrait sinon pour une formation deja
+# suivie : voir jours.terminee. Sa regularisation est un geste du
+# responsable, pas un envoi automatique.
+import jours as _jours_fin
+if _jours_fin.terminee(S):
+    print("-> Formation terminee : aucune convention a signer n'est plus envoyee.")
+    raise SystemExit(0)
 # LA LIGNE « drive = service_drive() » A ETE RETIREE LE 18/08/2026. Elle
 # ouvrait une session Google au demarrage du script SANS QUE LA VARIABLE SOIT
 # JAMAIS RELUE — meme reliquat que la connexion Gmail retiree avant elle.

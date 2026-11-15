@@ -10526,8 +10526,9 @@ def page_comptabilite():
     ne = _co.Counter(e["statut"] for e in enc)
     nf = _co.Counter(f["statut"] for f in fac)
     return render_template("comptabilite.html", enc=enc, fac=fac, resume=_C.resume(org), nb_enc=ne, nb_fac=nf,
-                           filtres_enc=[[s, ne[s]] for s in ("Justifié",) + _C.A_TRAITER_ENC if ne[s]],
-                           filtres_fac=[[s, nf[s]] for s in ("Encaissée",) + _C.A_TRAITER_FAC if nf[s]],
+                           filtres_enc=[[s, ne[s]] for s in _C.JUSTIFIE + _C.A_TRAITER_ENC if ne[s]],
+                           filtres_fac=[[s, nf[s]] for s in _C.ENCAISSEE + _C.A_TRAITER_FAC if nf[s]],
+                           stripe_detail=d.get("stripe_detail") or {},
                            perimetre=d.get("perimetre") or "", releves=d.get("releves_jusquau") or "",
                            stripe=d.get("stripe") or {})
 

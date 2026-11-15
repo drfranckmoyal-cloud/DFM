@@ -35,6 +35,14 @@ S = session(CODE)
 # Palier 3 : cette etape ne concerne que les sessions individuelles.
 import sessions as _sessions
 _sessions.refuser_si_client(CODE, "la convention est unique et etablie au nom du client.")
+# PAS DE CONVENTION A SIGNER UNE FOIS LA FORMATION FAITE — 15/11/2026.
+# Un inscrit ajoute apres coup la recevrait sinon pour une formation deja
+# suivie : voir jours.terminee. Sa regularisation est un geste du
+# responsable, pas un envoi automatique.
+import jours as _jours_fin
+if _jours_fin.terminee(S):
+    print("-> Formation terminee : aucune convention a signer n'est plus envoyee.")
+    raise SystemExit(0)
 print(f"-> Session : {S['nom_formation']} ({S['code']})")
 
 def nom_pdf(nom_prenom):

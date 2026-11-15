@@ -392,3 +392,28 @@ def resume(fiche):
             "blocs": [[x.isoformat() for x in b] for b in blocs(liste)],
             "modules": mods,
             "modules_texte": texte_modules(mods) if mods else ""}
+
+
+def terminee(fiche, aujourdhui=None):
+    """Vrai quand la derniere journee de la session est passee — 15/11/2026.
+
+    POURQUOI. Un inscrit ajoute APRES COUP (oublie de la liste, regularise une
+    fois la formation faite) arrive sans « mail1_envoye_le » : le passage du
+    matin lui aurait envoye une convention A SIGNER pour une formation deja
+    suivie. Une convention se signe avant ; apres, c'est un document antidate.
+    Cas reel : Cosme Etievant, masterclass d'octobre 2026, ajoute le 15/11.
+
+    Le dernier jour lui-meme ne compte pas comme passe : la journee est encore
+    en cours. Une session sans journee connue n'est jamais « terminee » — dans
+    le doute, on laisse faire ce qui se faisait.
+    """
+    from datetime import date
+    fin = resume(fiche or {}).get("date_fin")
+    if not fin:
+        return False
+    if not isinstance(fin, date):
+        try:
+            fin = date.fromisoformat(str(fin)[:10])
+        except Exception:
+            return False
+    return fin < (aujourdhui or date.today())

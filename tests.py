@@ -3203,6 +3203,28 @@ def tests_courriel_de_validation():
     verifier("et son champ est nomme", _d.PIECES.get("prerequis") == "prerequis_id")
 
 
+def tests_ajout_apres_coup():
+    """L'INSCRIT AJOUTE APRES COUP — 15/11/2026. Une fois la formation faite,
+    les deux etapes de la convention a signer s'arretent d'elles-memes."""
+    print("\n  L'INSCRIT AJOUTE APRES COUP")
+    import datetime as _dtm
+    import jours as J
+    f = {"date_debut": "2026-10-28", "date_fin": "2026-10-29"}
+    verifier("formation passee : terminee", J.terminee(f, _dtm.date(2026, 11, 15)))
+    verifier("le dernier jour n'est pas encore passe", not J.terminee(f, _dtm.date(2026, 10, 29)))
+    verifier("avant la formation : pas terminee", not J.terminee(f, _dtm.date(2026, 10, 1)))
+    verifier("session sans journees : jamais terminee", not J.terminee({}, _dtm.date(2030, 1, 1)))
+    verifier("journees dispersees : c'est la derniere qui compte",
+             not J.terminee({"jours": ["2026-01-10", "2027-06-10"]}, _dtm.date(2026, 11, 15)))
+    ici = os.path.dirname(os.path.abspath(__file__))
+    for nom in ("generer_convention_apercu.py", "envoyer_mail_signature.py"):
+        texte = io.open(os.path.join(ici, nom), encoding="utf-8").read()
+        garde = texte.find("_jours_fin.terminee(S)")
+        lecture = texte.find("suivi.lire_lignes_de(CODE)")
+        verifier("%s s'arrete sur une formation terminee, avant de lire le suivi" % nom,
+                 garde > 0 and lecture > 0 and garde < lecture, "garde %d, lecture %d" % (garde, lecture))
+
+
 def main():
     print()
     print("  LES TESTS DE DFM")
@@ -3218,7 +3240,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes, tests_date_limite_a_l_ecran, tests_rappel_reglement_cycle, tests_bilan_pedagogique, tests_reglements_sans_demandes, tests_mentions_et_presences, tests_sauvegarde_externe, tests_pre_dfm, tests_comptabilite,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes, tests_date_limite_a_l_ecran, tests_rappel_reglement_cycle, tests_bilan_pedagogique, tests_reglements_sans_demandes, tests_mentions_et_presences, tests_sauvegarde_externe, tests_pre_dfm, tests_comptabilite, tests_ajout_apres_coup,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:

@@ -30,11 +30,14 @@ DOSSIER = os.path.dirname(os.path.abspath(__file__))
 FICHIER = os.path.join(DOSSIER, "compta.json")
 
 # Les statuts qui demandent un geste, dans l'ordre ou on les traite.
-A_TRAITER_ENC = ("Non rattaché", "Sans facture", "Justifié — montant différent",
-                 "Versement Stripe — relevé à joindre", "Sous-traitance — facture à joindre",
-                 "Hors formation — justificatif à joindre")
+JUSTIFIE = ("Justifié", "Justifié (versement Stripe détaillé)")
+A_TRAITER_ENC = ("Non rattaché", "Sans facture", "Versement Stripe — paiement sans facture",
+                 "Justifié — montant différent", "Versement Stripe — relevé à joindre",
+                 "Sous-traitance — facture à joindre", "Hors formation — justificatif à joindre")
+ENCAISSEE = ("Encaissée", "Encaissée (carte)")
 A_TRAITER_FAC = ("Payée selon DFM, virement non retrouvé", "Non encaissée", "Facture d'essai",
-                 "Inscription annulée", "Encaissée — montant différent", "Payée par carte")
+                 "Inscription annulée", "Encaissée — montant différent", "Payée par carte",
+                 "Payée par carte, versement après le dernier relevé", "Payée par carte, versement Stripe à venir")
 
 
 def donnees(organisme=None):
@@ -63,7 +66,7 @@ def resume(organisme):
     d = donnees(organisme)
     enc = d.get("encaissements") or []
     fac = d.get("factures") or []
-    just = [e for e in enc if e["statut"] == "Justifié"]
+    just = [e for e in enc if e["statut"] in JUSTIFIE]
     return {
         "nb_enc": len(enc), "total_enc": round(sum(e["montant"] for e in enc), 2),
         "nb_just": len(just), "total_just": round(sum(e["montant"] for e in just), 2),

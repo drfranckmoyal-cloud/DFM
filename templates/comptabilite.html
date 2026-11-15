@@ -51,19 +51,19 @@ html[data-sombre] .cp-num{background:#1d2b55;color:#a9c0ff}
 </header>
 
 <div class="ap-afaire" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
-  {% set n_sans = (nb_enc['Sans facture'] or 0) + (nb_enc['Non rattaché'] or 0) %}
+  {% set n_sans = (nb_enc['Sans facture'] or 0) + (nb_enc['Non rattaché'] or 0) + (nb_enc['Versement Stripe — paiement sans facture'] or 0) %}
   <div class="ap-af ap-af-rouge"><b>{{ n_sans }}</b><div>
     <span class="ap-af-t">encaissements sans facture</span>
     <span class="ap-af-s">Une somme reçue doit avoir sa facture : à émettre, ou à retrouver.</span>
-    <button type="button" class="btn ap-btn-noir" onclick="cpVoir('enc','Sans facture|Non rattaché')">Voir</button></div></div>
+    <button type="button" class="btn ap-btn-noir" onclick="cpVoir('enc','Sans facture|Non rattaché|Versement Stripe — paiement sans facture')">Voir</button></div></div>
   <div class="ap-af ap-af-orange"><b>{{ nb_fac['Payée selon DFM, virement non retrouvé'] or 0 }}</b><div>
     <span class="ap-af-t">factures « payées » sans virement retrouvé</span>
     <span class="ap-af-s">DFM note un virement que les relevés ne montrent pas : souvent un paiement par carte noté « Virement ».</span>
     <button type="button" class="btn ap-btn-noir" onclick="cpVoir('fac','Payée selon DFM, virement non retrouvé')">Voir</button></div></div>
-  <div class="ap-af ap-af-violet"><b>{{ nb_enc['Versement Stripe — relevé à joindre'] or 0 }}</b><div>
-    <span class="ap-af-t">versements Stripe à détailler</span>
-    <span class="ap-af-s">Chaque versement regroupe plusieurs paiements par carte, moins les frais : le relevé Stripe en est la pièce.</span>
-    <button type="button" class="btn ap-btn-noir" onclick="cpVoir('enc','Versement Stripe — relevé à joindre')">Voir</button></div></div>
+  <div class="ap-af ap-af-violet"><b>{{ (stripe_detail.factures_stripe or [])|length }}</b><div>
+    <span class="ap-af-t">ventes facturées deux fois</span>
+    <span class="ap-af-s">Stripe a émis ses propres factures ({{ (stripe_detail.factures_stripe or [''])[0] }}…) pour des ventes que DFM a aussi facturées.</span>
+    <a class="btn ap-btn-noir" href="#stripe">Voir le détail Stripe</a></div></div>
   <div class="ap-af ap-af-bleu"><b>{{ (nb_fac["Facture d'essai"] or 0) + (nb_fac['Inscription annulée'] or 0) }}</b><div>
     <span class="ap-af-t">factures à annuler par un avoir</span>
     <span class="ap-af-s">Factures d'essai émises sur de vrais numéros, inscriptions annulées.</span>
@@ -84,7 +84,7 @@ html[data-sombre] .cp-num{background:#1d2b55;color:#a9c0ff}
   <thead><tr><th style="width:92px">Date</th><th style="width:110px;text-align:right">Montant</th><th>Payeur</th><th style="width:250px">Rattaché à</th><th style="width:190px">Pièce</th><th style="width:220px">Statut</th></tr></thead>
   <tbody>
   {% for e in enc %}
-  {% set cls = 'st-ok' if e.statut == 'Justifié' else ('st-ko' if e.statut in ('Sans facture', 'Non rattaché') else ('st-at' if 'différent' in e.statut else ('st-vi' if 'Stripe' in e.statut else 'st-gr'))) %}
+  {% set cls = 'st-ok' if e.statut.startswith('Justifié (') or e.statut == 'Justifié' else ('st-ko' if e.statut in ('Sans facture', 'Non rattaché', 'Versement Stripe — paiement sans facture') else ('st-at' if 'différent' in e.statut else ('st-vi' if 'Stripe' in e.statut else 'st-gr'))) %}
   <tr data-statut="{{ e.statut }}" data-q="{{ (e.payeur ~ ' ' ~ (e.rattachement.nom if e.rattachement else '') ~ ' ' ~ (e.pieces|map(attribute='numero')|join(' ')))|lower }}">
     <td style="font-size:12px">{{ e.date[8:10] }}/{{ e.date[5:7] }}/{{ e.date[:4] }}<span class="cp-sm">{{ e.id }}</span></td>
     <td class="cp-m">{{ "{:,.2f}".format(e.montant).replace(",", " ").replace(".", ",") }} €</td>
@@ -103,7 +103,7 @@ html[data-sombre] .cp-num{background:#1d2b55;color:#a9c0ff}
   <thead><tr><th style="width:140px">Facture</th><th style="width:92px">Date</th><th>Client</th><th style="width:220px">Session</th><th style="width:100px;text-align:right">Montant</th><th style="width:100px;text-align:right">Encaissé</th><th style="width:260px">Statut</th></tr></thead>
   <tbody>
   {% for f in fac %}
-  {% set cls = 'st-ok' if f.statut == 'Encaissée' else ('st-at' if f.statut in ('Payée selon DFM, virement non retrouvé', 'Encaissée — montant différent') else ('st-vi' if f.statut == 'Payée par carte' else ('st-bl' if f.statut in ("Facture d'essai", 'Inscription annulée') else 'st-ko'))) %}
+  {% set cls = 'st-ok' if f.statut in ('Encaissée', 'Encaissée (carte)') else ('st-at' if f.statut in ('Payée selon DFM, virement non retrouvé', 'Encaissée — montant différent') else ('st-vi' if f.statut.startswith('Payée par carte') else ('st-bl' if f.statut in ("Facture d'essai", 'Inscription annulée') else 'st-ko'))) %}
   <tr data-statut="{{ f.statut }}" data-q="{{ (f.numero ~ ' ' ~ f.client)|lower }}">
     <td>{% if f.chemin %}<a class="cp-num" href="/comptabilite/piece?chemin={{ f.chemin|urlencode }}" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i>{{ f.numero }}</a>{% else %}<span class="cp-num vide" title="PDF introuvable">{{ f.numero }}</span>{% endif %}<span class="cp-sm">{{ f.origine }}</span></td>
     <td style="font-size:12px">{{ f.date[8:10] }}/{{ f.date[5:7] }}/{{ f.date[:4] }}</td>
@@ -117,6 +117,30 @@ html[data-sombre] .cp-num{background:#1d2b55;color:#a9c0ff}
   </tbody>
 </table>
 </div></div>
+
+{% if stripe_detail.versements %}
+<section class="ap-carte" id="stripe" style="margin-top:16px">
+  <div class="ap-carte-t"><span>Versements Stripe : ce que contient chacun</span></div>
+  <div class="table-scroll">
+  <table class="ap-table" style="min-width:900px">
+    <thead><tr><th style="width:96px">Versement</th><th style="width:110px;text-align:right">Reçu</th><th style="width:100px;text-align:right">Frais</th><th>Paiements par carte</th></tr></thead>
+    <tbody>
+    {% for v in stripe_detail.versements %}
+      <tr><td style="font-size:12px">{{ v.date[8:10] }}/{{ v.date[5:7] }}/{{ v.date[:4] }}</td>
+        <td class="cp-m">{{ "{:,.2f}".format(v.montant).replace(",", " ").replace(".", ",") }} €</td>
+        <td class="cp-m" style="color:var(--muted)">{{ "{:,.2f}".format(v.frais).replace(",", " ").replace(".", ",") }} €</td>
+        <td style="font-size:12px">{% for x in v.paiements %}<div>{{ x.date[8:10] }}/{{ x.date[5:7] }} · <b>{{ x.nom }}</b> · 975 €
+          {% if x.facture_dfm %}<span class="cp-num" style="height:20px">{{ x.facture_dfm }}</span>{% else %}<span class="cp-pill st-ko">sans facture DFM</span>{% endif %}
+          {% if x.facture_stripe %}<span class="cp-pill st-vi" title="Facture emise par Stripe pour la meme vente">+ Stripe {{ x.facture_stripe }}</span>{% endif %}</div>{% endfor %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="cp-note">{% if stripe_detail.en_attente %}Paiement{{ 's' if stripe_detail.en_attente|length > 1 }} pas encore versé{{ 's' if stripe_detail.en_attente|length > 1 }} : {% for x in stripe_detail.en_attente %}{{ x.nom }} ({{ x.date[8:10] }}/{{ x.date[5:7] }}){{ ', ' if not loop.last }}{% endfor %}. {% endif %}
+  {% if stripe_detail.sans_inscription %}Payé par carte sans inscription dans DFM : {{ stripe_detail.sans_inscription|join(', ') }}. {% endif %}
+  Stripe envoie une facture après chaque paiement passé par certains liens (« Post Payment Invoices ») : ces ventes ont donc deux factures, l'une de DFM, l'autre de Stripe. À trancher avec l'expert-comptable, puis à désactiver dans Stripe. Source : {{ stripe_detail.source }}.</div>
+</section>
+{% endif %}
 
 <div class="cp-note">{{ perimetre }}. Les virements arrivés après le {{ releves[8:10] }}/{{ releves[5:7] }}/{{ releves[:4] }} n'y figurent pas encore : ils viendront avec les relevés suivants. Stripe a versé {{ "{:,.2f}".format(stripe.total or 0).replace(",", " ").replace(".", ",") }} € en {{ stripe.versements or 0 }} virements ; chaque versement regroupe plusieurs paiements par carte, moins les frais.</div>
 
