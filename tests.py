@@ -2030,6 +2030,41 @@ def tests_bilan_pedagogique():
         acces.protege = garde_a
 
 
+def tests_reglements_sans_demandes():
+    """UNE DEMANDE A VALIDER N'EST PAS UN REGLEMENT ATTENDU — 15/11/2026.
+    Quatorze demandes Esthetique 360 gonflaient la page de 84 000 €."""
+    print("\n  LA PAGE REGLEMENTS NE COMPTE QUE LES INSCRITS")
+    import app as A
+    import acces
+    import sessions as _s
+    import suivi as SV
+    def rangee(**kv):
+        r = [""] * (max(SV.COL.values()) + 1)
+        for k, v in kv.items():
+            r[SV.COL[k]] = v
+        return r
+    grille = [["entete"],
+              rangee(mail="a@exemple.invalid", nom="DEMANDE", prenom="A", horodateur="01/11/2026",
+                     a_valider_le="10/11/2026"),
+              rangee(mail="b@exemple.invalid", nom="INSCRIT", prenom="B", horodateur="01/11/2026",
+                     signe_le="02/11/2026")]
+    garde = (A._grilles_suivi, A.fiche_session, _s.visibles, _s.mode, acces.protege)
+    try:
+        A._grilles_suivi = lambda codes: {"essai-rg": grille}
+        A.fiche_session = lambda code: {"tarif": "1000", "nom_formation": "Essai",
+                                         "date_debut": "2027-03-01", "date_texte": "1er mars 2027"}
+        _s.visibles = lambda *a, **k: ["essai-rg"]
+        _s.mode = lambda c=None: "individuel"
+        acces.protege = lambda *a, **k: False
+        html = A.app.test_client().get("/reglements").get_data(as_text=True)
+        import re as _re
+        verifier("seul l'inscrit est attendu : 1 000 €", bool(_re.search(r'id="k_attendu">1\D000 €', html)),
+                 html[html.find('id="k_attendu"'):html.find('id="k_attendu"') + 40])
+        verifier("la demande a valider n'est pas listee", "DEMANDE" not in html and "INSCRIT" in html)
+    finally:
+        A._grilles_suivi, A.fiche_session, _s.visibles, _s.mode, acces.protege = garde
+
+
 def tests_accuse_selon_situation():
     """L'ACCUSE ANNONCE LA BONNE SUITE — 08/11/2026 (Guillaume DUCHENE, liste
     d'attente, a qui l'on avait promis une convention)."""
@@ -2936,7 +2971,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes, tests_date_limite_a_l_ecran, tests_rappel_reglement_cycle, tests_bilan_pedagogique,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes, tests_date_limite_a_l_ecran, tests_rappel_reglement_cycle, tests_bilan_pedagogique, tests_reglements_sans_demandes,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:

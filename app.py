@@ -4545,6 +4545,7 @@ def page_reglements():
     lignes = []
     for i, code in enumerate(_sessions.visibles()):
         S = fiches[code]
+        _mode = _sessions.mode(code)
         couleur = PALETTE[i % len(PALETTE)]
         nomf = S.get("nom_formation") or ""
         formations.setdefault(nomf, 0)
@@ -4566,6 +4567,13 @@ def page_reglements():
             if "recontact" in (d.get("demande") or "").lower():
                 continue
             if d.get("file_attente_le") and not d.get("promu_le"):
+                continue
+            # UNE DEMANDE NON VALIDEE N'EST PAS UN REGLEMENT ATTENDU — 15/11/2026.
+            # Les quatorze demandes Esthetique 360 « a valider » comptaient
+            # chacune pour 6 000 € : 84 000 € attendus de personnes qui ne sont
+            # pas inscrites, et Franck a vu que le total ne tenait pas. La regle
+            # commune est suivi.PAS_ENCORE_INSCRIT, comme au tableau de bord.
+            if _suivi.calculer_statut(d, _mode) in _suivi.PAS_ENCORE_INSCRIT:
                 continue
             # UN INVITE NE DOIT RIEN, et un montant vide vaut le tarif.
             # La regle est dans suivi.montant_attendu, et nulle part ailleurs.
@@ -6000,10 +6008,17 @@ def _qd_operationnel(code):
         if l.get("file_attente_le") and not l.get("promu_le"):
             attente.append({"nom": nom, "depuis": (l.get("file_attente_le") or "")[:10]})
             continue
+        # Une demande pas encore validee n'est pas un participant : ni dans la
+        # liste, ni dans le chiffre d'affaires attendu (15/11/2026, voir la
+        # page Reglements).
+        if _sui.calculer_statut(l, _sui._mode_de(l, code)) in _sui.PAS_ENCORE_INSCRIT:
+            continue
         # Meme regle qu'ailleurs : un invite ne doit rien, un montant vide
         # vaut le tarif de la session. Voir suivi.montant_attendu.
         du = _sui.montant_attendu(l, S.get("tarif"))
-        recu = nb(l.get("montant_recu"))
+        # Encaisse, ACOMPTES COMPRIS, comme sur la page Reglements : le seul
+        # « montant recu » ignorait les versements d'un cycle.
+        recu = _sui.total_verse(l)
         participants.append({
             "nom": nom, "mail": (l.get("mail") or "").strip(),
             "ville": l.get("ville") or "",
