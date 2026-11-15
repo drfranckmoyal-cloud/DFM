@@ -139,6 +139,14 @@ html[data-sombre] .db-f-g{color:#8fb0ff}
     <span class="ap-af-t">en file d'attente</span>
     <span class="ap-af-s">{{ gens(g.alertes.qui_attente, g.alertes.attente) }}</span></div></div>
   {% endif %}
+  {# LE BILAN PEDAGOGIQUE, des qu'il approche (quatre mois) ou qu'il est en
+     retard. Plus tot, le compteur du menu suffit. #}
+  {% if bpf_resume and bpf_resume.etat not in ('depose', 'historique') and (bpf_resume.jours <= 120 or bpf_resume.etat in ('retard', 'ouverte')) %}
+  <div class="ap-af {{ 'ap-af-rouge' if bpf_resume.etat == 'retard' or bpf_resume.jours <= 15 else 'ap-af-orange' }}"><b>{{ ('J+%d' % (-bpf_resume.jours)) if bpf_resume.jours < 0 else ('J-%d' % bpf_resume.jours) }}</b><div>
+    <span class="ap-af-t">bilan pédagogique et financier</span>
+    <span class="ap-af-s">{{ bpf_resume.libelle }} : {{ 'devait être déposé' if bpf_resume.jours < 0 else 'à déposer' }} avant le {{ bpf_resume.limite_texte }}.</span>
+    <a class="btn ap-btn-noir" href="/bilan-pedagogique">Préparer le bilan</a></div></div>
+  {% endif %}
   {% if not total_alertes and not g.conv_attente %}
   <div class="ap-af ap-af-vert"><b><i class="ti ti-circle-check"></i></b><div>
     <span class="ap-af-t">Rien à traiter</span>

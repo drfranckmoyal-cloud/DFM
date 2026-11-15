@@ -51,6 +51,11 @@ SAUVEGARDE_HEURE = (19, 30)
 # tout : le disque s'est sature, et les sauvegardes se sont arretees.
 SAUVEGARDES_GARDEES = 7
 
+# LES RAPPELS DU BILAN PEDAGOGIQUE, une fois par jour (15/11/2026). Ils ne
+# partent que du serveur : voir bpf.envoyer_rappels.
+RAPPELS_BPF_HEURE = (9, 0)
+_dernier_bpf = None
+
 # La chaine client, dans son ordre reel : la facture precede la contresignature
 # parce qu'elle voyage en piece jointe de son mail.
 CHAINE_CLIENT = ("relever_signature_client.py", "generer_facture_client.py",
@@ -311,7 +316,26 @@ def _boucle():
         except Exception as e:
             _noter("Sauvegarde en echec : %s" % str(e)[:180])
 
+        try:
+            _rappels_bpf(datetime.datetime.now())
+        except Exception as e:
+            _noter("Rappels du bilan pedagogique en echec : %s" % str(e)[:180])
+
         _arret.wait(GUETTEUR_SECONDES)
+
+
+def _rappels_bpf(maintenant):
+    """Une fois par jour, au creneau de RAPPELS_BPF_HEURE."""
+    global _dernier_bpf
+    creneau = _creneau(maintenant, RAPPELS_BPF_HEURE[0], RAPPELS_BPF_HEURE[1])
+    if not creneau or creneau == _dernier_bpf:
+        return
+    _dernier_bpf = creneau
+    import bpf
+    partis = bpf.envoyer_rappels()
+    for p in partis:
+        _noter("Rappel du bilan pedagogique (%s, %s) envoye a %s."
+               % (p["organisme"], p["palier"], p["vers"]))
 
 
 _fil = None

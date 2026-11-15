@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block titre %}Bilan pédagogique{% endblock %}
+{% block entete %}Documents de suivi{% endblock %}
+{% block sous_entete %}{% endblock %}
+{% block actions %}{% endblock %}
+{% block corps %}
+<link rel="stylesheet" href="{{ statique('a-plus.css') }}">
+<style>
+.bp-sel{height:36px;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);color:#fff;
+  padding:0 10px;font:500 12.5px Inter,sans-serif;max-width:330px}
+.bp-sel option{color:#1a1d2e}
+.bp-grille{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:1100px){.bp-grille{grid-template-columns:1fr}}
+.bp-corps{padding:4px 18px 16px}
+.bp-note{font-size:12px;color:var(--muted);line-height:1.6;margin:8px 0 0}
+.bp-cad{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:22px;padding:0 7px;border-radius:6px;
+  background:#e3eaff;color:#2448b8;font:600 11px ui-monospace,Menlo,monospace}
+html[data-sombre] .bp-cad{background:#1d2b55;color:#a9c0ff}
+.bp-v{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap;text-align:right}
+.bp-l{font-size:12.5px}
+.bp-s{display:block;font-size:11px;color:var(--muted);margin-top:2px;line-height:1.45}
+.bp-etape{display:flex;gap:11px;padding:10px 0;border-bottom:1px solid var(--border);font-size:12.5px;line-height:1.55}
+.bp-etape:last-child{border-bottom:0}
+.bp-num{flex:none;width:24px;height:24px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font:600 11.5px Inter,sans-serif}
+.bp-champ{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.bp-champ input{height:34px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);padding:0 10px;font:13px inherit}
+.bp-champ input[type=text]{flex:1;min-width:160px}
+.bp-r{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12.5px}
+.bp-r:last-child{border-bottom:0}
+.bp-r .bp-rd{width:118px;flex:none;color:var(--muted);font-variant-numeric:tabular-nums}
+.bp-r .bp-rp{width:78px;flex:none;font:600 11.5px ui-monospace,Menlo,monospace}
+.bp-r .bp-re{margin-left:auto}
+.bp-depose{background:#eafaf3;border:1px solid #9fe1cb;color:#0f6e56;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.6}
+html[data-sombre] .bp-depose{background:#0f2e25;border-color:#1d5c49;color:#8fe0c2}
+.bp-voile{position:fixed;inset:0;background:rgba(16,18,30,.6);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
+.bp-voile.on{display:flex}
+.bp-mod{background:var(--carte);border-radius:20px;padding:24px 26px;max-width:460px;width:100%}
+.bp-mod h3{font-size:16px;font-weight:500;margin:0 0 4px}
+.bp-mod label{display:block;font-size:10.5px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:12px 0 5px}
+.bp-mod input{width:100%;height:36px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);padding:0 10px;font:13px inherit}
+.bp-pied{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+details.bp-det summary{cursor:pointer;font-size:12.5px;color:var(--accent);padding:10px 18px}
+.bp-msg{font-size:12px;margin-top:8px;color:var(--danger)}
+</style>
+
+{% if not e %}
+<header class="ap-hero"><div class="ap-haut"><div class="ap-ident">
+  <h1 class="ap-titre">Bilan pédagogique et financier</h1>
+  <p class="ap-intro">Aucun exercice à suivre pour cet organisme.</p></div></div></header>
+{% else %}
+{% set marque = fiche.marque or fiche.organisme or org %}
+{% set nda = (fiche.numero_declaration or '')|trim %}
+{% set nda_ok = nda and nda|lower not in ('en constitution', 'en cours') %}
+{% set j = e.jours %}
+{% set d0 = e.exercice[0] %}
+{% set total = (e.limite - d0).days or 1 %}
+{% set ecoule = (aujourdhui - d0).days %}
+{% set pct = [[(ecoule * 100 / total)|round|int, 0]|max, 100]|min %}
+<header class="ap-hero">
+  <div class="ap-haut">
+    <div class="ap-ident">
+      <div class="ap-tags">
+        <span class="ap-tag">{{ marque }}</span>
+        {% if fiche.organisme and fiche.organisme != marque %}<span class="ap-tag">{{ fiche.organisme }}</span>{% endif %}
+        <span class="ap-tag">{{ ('Déclaration n° ' ~ nda) if nda_ok else 'Déclaration d\'activité en cours d\'enregistrement' }}</span>
+      </div>
+      <h1 class="ap-titre">Bilan pédagogique et financier</h1>
+      <p class="ap-intro">{{ e.libelle }} — à déposer sur Mon Activité Formation avant le <b>{{ e.limite_texte }}</b>{% if not e.campagne_connue %} (date réglementaire){% endif %}.</p>
+    </div>
+    <div class="ap-actions">
+      <select class="bp-sel" id="bp_ex" onchange="bpExercice(this.value)" title="Exercice affiche">
+        {% for x in exercices %}<option value="{{ x.cle }}"{{ ' selected' if x.cle == e.cle }}>{{ x.libelle }} — avant le {{ x.echeance }}</option>{% endfor %}
+      </select>
+      <a class="btn ap-btn-verre" href="/bilan-pedagogique/export.csv?exercice={{ e.cle }}" title="Les chiffres et le detail, au format CSV"><i class="ti ti-file-spreadsheet"></i>Exporter</a>
+      <a class="btn ap-btn-verre" href="https://www.monactiviteformation.emploi.gouv.fr/mon-activite-formation/" target="_blank" rel="noopener" title="Le site ou se depose le bilan"><i class="ti ti-external-link"></i>Mon Activité Formation</a>
+    </div>
+  </div>
+  <div class="ap-score">
+    <div class="ap-s" style="--pt:{{ '#2fc28b' if e.etat == 'depose' else ('#ff6b6b' if j <= 15 else ('#ffb547' if j <= 90 else '#4f7ef8')) }}">
+      <div class="ap-s-l">{{ 'Bilan déposé' if e.etat == 'depose' else ('En retard' if j < 0 else 'Temps restant') }}</div>
+      <div class="ap-gros">{% if e.etat == 'depose' %}<i class="ti ti-circle-check"></i>{% elif j < 0 %}{{ -j }} j{% else %}{{ j }} j{% endif %}</div>
+      <div class="ap-sous">{% if e.etat == 'depose' %}le {{ e.depot.le[8:10] }}/{{ e.depot.le[5:7] }}/{{ e.depot.le[:4] }}{% else %}{{ 'depuis' if j < 0 else 'avant' }} le {{ e.limite_texte }}{% endif %}</div></div>
+    <div class="ap-s" style="--pt:#7c5bf7"><div class="ap-s-l">Stagiaires formés</div><div class="ap-gros">{{ c.stagiaires }}</div><div class="ap-sous">{{ c.sessions|length }} session{{ 's' if c.sessions|length > 1 }} dans l'exercice</div></div>
+    <div class="ap-s" style="--pt:#0e7490"><div class="ap-s-l">Heures-stagiaires</div><div class="ap-gros">{{ '%g'|format(c.heures_stagiaires) }}</div><div class="ap-sous">heures × stagiaires présents</div></div>
+    <div class="ap-s" style="--pt:#2fc28b"><div class="ap-s-l">Facturé sur l'exercice</div><div class="ap-gros">{{ "{:,}".format(c.produits.total|round|int).replace(",", " ") }} €</div><div class="ap-sous">{{ c.factures|length }} facture{{ 's' if c.factures|length > 1 }} dans DFM</div></div>
+  </div>
+  <div>
+    <div class="ap-jauge"><div style="height:100%;width:{{ pct }}%;background:{{ '#2fc28b' if e.etat == 'depose' else ('#ff6b6b' if j <= 15 else '#ffb547' if j <= 90 else '#4f7ef8') }};border-radius:inherit"></div></div>
+    <div class="ap-legende"><span>Début de l'exercice : {{ d0.strftime('%d/%m/%Y') }}</span><span>Clôture : {{ e.exercice[1].strftime('%d/%m/%Y') }}</span><span>Dépôt avant le {{ e.limite.strftime('%d/%m/%Y') }}</span></div>
+  </div>
+</header>
+
+<div class="ap-afaire" style="grid-template-columns:repeat(auto-fit,minmax(250px,1fr))">
+  {% if e.etat == 'depose' %}
+  <div class="ap-af ap-af-vert"><b><i class="ti ti-circle-check"></i></b><div>
+    <span class="ap-af-t">Bilan déposé</span>
+    <span class="ap-af-s">Le {{ e.depot.le[8:10] }}/{{ e.depot.le[5:7] }}/{{ e.depot.le[:4] }}{% if e.depot.note %} — {{ e.depot.note }}{% endif %}. Les rappels sont arrêtés.</span></div></div>
+  {% elif e.etat == 'retard' %}
+  <div class="ap-af ap-af-rouge"><b>J+{{ -j }}</b><div>
+    <span class="ap-af-t">Bilan en retard</span>
+    <span class="ap-af-s">Sans dépôt, le numéro de déclaration devient caduc. Déposez-le au plus vite, puis marquez-le comme déposé ici.</span></div></div>
+  {% elif e.etat == 'ouverte' %}
+  <div class="ap-af ap-af-orange"><b>J-{{ j }}</b><div>
+    <span class="ap-af-t">La campagne de dépôt est ouverte</span>
+    <span class="ap-af-s">Les chiffres ci-dessous sont prêts à recopier sur Mon Activité Formation.</span></div></div>
+  {% elif e.etat == 'exercice_en_cours' %}
+  <div class="ap-af ap-af-bleu"><b>J-{{ j }}</b><div>
+    <span class="ap-af-t">Exercice en cours</span>
+    <span class="ap-af-s">Il se clôt le {{ e.exercice[1].strftime('%d/%m/%Y') }}. Les chiffres se complètent au fil des sessions ; le dépôt ouvrira vers le {{ e.ouverture_texte }}.</span></div></div>
+  {% else %}
+  <div class="ap-af ap-af-orange"><b>J-{{ j }}</b><div>
+    <span class="ap-af-t">Exercice clos : bilan à préparer</span>
+    <span class="ap-af-s">Demandez à l'expert-comptable les chiffres définitifs ; le dépôt ouvrira vers le {{ e.ouverture_texte }}.</span></div></div>
+  {% endif %}
+  {% if e.cloture_supposee %}
+  <div class="ap-af ap-af-orange"><b><i class="ti ti-alert-triangle"></i></b><div>
+    <span class="ap-af-t">Clôture supposée au 31 décembre</span>
+    <span class="ap-af-s">La date de clôture de l'exercice n'est pas renseignée pour {{ marque }}. Elle figure au Kbis.</span>
+    <a class="btn ap-btn-noir" href="/profils">Renseigner dans Profils</a></div></div>
+  {% endif %}
+  {% if not e.campagne_connue and e.etat != 'depose' %}
+  <div class="ap-af ap-af-violet"><b><i class="ti ti-calendar"></i></b><div>
+    <span class="ap-af-t">Dates de la campagne {{ e.limite.year }}</span>
+    <span class="ap-af-s">Le ministère les annonce au printemps (en 2026 : du 1er avril au 31 mai). D'ici là, DFM compte jusqu'au 30 avril.</span>
+    <button type="button" class="btn ap-btn-noir" onclick="bpOuvrir()">Saisir les dates</button></div></div>
+  {% endif %}
+  {% if c.alertes %}
+  <div class="ap-af ap-af-rouge"><b>{{ c.alertes|length }}</b><div>
+    <span class="ap-af-t">présence{{ 's' if c.alertes|length > 1 }} à vérifier</span>
+    <span class="ap-af-s">{{ c.alertes|join(' ') }}</span></div></div>
+  {% endif %}
+</div>
+
+<div class="bp-grille">
+<div>
+  <section class="ap-carte">
+    <div class="ap-carte-t"><span>Les chiffres de DFM pour le formulaire</span></div>
+    <div class="table-scroll">
+    <table class="ap-table">
+      <thead><tr><th style="width:56px">Cadre</th><th>Ce que demande le formulaire</th><th style="width:150px;text-align:right">Ce que DFM a compté</th></tr></thead>
+      <tbody>
+        <tr><td><span class="bp-cad">C</span></td><td class="bp-l">Produits — contrats avec des praticiens à titre individuel<span class="bp-s">Inscriptions individuelles facturées sur l'exercice.</span></td><td class="bp-v">{{ "{:,.2f}".format(c.produits.individuel).replace(",", " ").replace(".", ",") }} €</td></tr>
+        <tr><td><span class="bp-cad">C</span></td><td class="bp-l">Produits — entreprises pour la formation de leurs salariés<span class="bp-s">Conventions passées avec un client (cabinet, centre, association).</span></td><td class="bp-v">{{ "{:,.2f}".format(c.produits.client).replace(",", " ").replace(".", ",") }} €</td></tr>
+        <tr><td><span class="bp-cad">C</span></td><td class="bp-l"><b>Total des produits de la formation</b><span class="bp-s">Le montant à déclarer est celui de la comptabilité, hors taxes : faites-le confirmer par l'expert-comptable.</span></td><td class="bp-v">{{ "{:,.2f}".format(c.produits.total).replace(",", " ").replace(".", ",") }} €</td></tr>
+        <tr><td><span class="bp-cad">D</span></td><td class="bp-l">Charges de l'organisme<span class="bp-s">DFM ne les connaît pas : elles viennent des comptes.</span></td><td class="bp-v" style="color:var(--muted)">expert-comptable</td></tr>
+        <tr><td><span class="bp-cad">E</span></td><td class="bp-l">Personnes ayant dispensé des heures de formation<span class="bp-s">{% for f in c.formateurs %}{{ f.nom }} : {{ '%g'|format(f.heures) }} h{{ ', ' if not loop.last }}{% else %}Aucune session dans l'exercice.{% endfor %}</span></td><td class="bp-v">{{ c.formateurs|length }} · {{ '%g'|format(c.heures_formateurs) }} h</td></tr>
+        <tr><td><span class="bp-cad">F-1</span></td><td class="bp-l">Stagiaires inscrits à titre individuel<span class="bp-s">Le formulaire classe les stagiaires par statut. Choisissez la ligne selon qui a payé et le statut des praticiens ; en cas de doute, l'expert-comptable tranche.</span></td><td class="bp-v">{{ c.par_mode.individuel.stagiaires }} · {{ '%g'|format(c.par_mode.individuel.heures) }} h</td></tr>
+        <tr><td><span class="bp-cad">F-1</span></td><td class="bp-l">Stagiaires envoyés par une entreprise</td><td class="bp-v">{{ c.par_mode.client.stagiaires }} · {{ '%g'|format(c.par_mode.client.heures) }} h</td></tr>
+        <tr><td><span class="bp-cad">F-3</span></td><td class="bp-l">Objectif : autres formations professionnelles<span class="bp-s">Aucune formation ne prépare à un diplôme ou une certification enregistrée.</span></td><td class="bp-v">{{ c.stagiaires }} · {{ '%g'|format(c.heures_stagiaires) }} h</td></tr>
+        <tr><td><span class="bp-cad">F-4</span></td><td class="bp-l">Spécialité {{ c.specialite }}</td><td class="bp-v">{{ c.stagiaires }} · {{ '%g'|format(c.heures_stagiaires) }} h</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="bp-corps">
+      {% if c.fonctions %}<p class="bp-note">Répartition des stagiaires : {% for f, n in c.fonctions %}{{ f }} : {{ n }}{{ ' · ' if not loop.last }}{% endfor %}.</p>{% endif %}
+      <p class="bp-note">« Stagiaires » compte les personnes dont la présence est notée ou qui ont reçu leur attestation. « h » est le nombre d'heures-stagiaires : durée de la session dans l'exercice × stagiaires présents. DFM ne connaît que les sessions saisies dans DFM : une formation tenue avant, ou ailleurs, est à ajouter à la main.</p>
+    </div>
+  </section>
+
+  <section class="ap-carte">
+    <div class="ap-carte-t"><span>Sessions comptées</span></div>
+    <div class="table-scroll">
+    <table class="ap-table" style="min-width:640px">
+      <thead><tr><th>Session</th><th style="width:76px;text-align:right">Heures</th><th style="width:86px;text-align:right">Présents</th><th style="width:96px;text-align:right">À vérifier</th><th style="width:110px;text-align:right">Heures-stag.</th></tr></thead>
+      <tbody>
+      {% for s in c.sessions %}
+        <tr><td><a href="/session/{{ s.code }}" style="font-weight:600;font-size:12.5px;color:inherit;text-decoration:none">{{ s.titre }}</a><span class="bp-s">{{ s.dates }}{% if s.jours != s.jours_total %} — {{ s.jours }} jour{{ 's' if s.jours > 1 }} sur {{ s.jours_total }} dans l'exercice{% endif %} · {{ s.formateur }} · {{ 'client' if s.mode == 'client' else 'individuel' }}{% if s.prevus %} · {{ s.prevus }} inscrit{{ 's' if s.prevus > 1 }} à venir{% endif %}</span></td>
+          <td class="bp-v">{{ '%g'|format(s.heures) }}</td><td class="bp-v">{{ s.confirmes }}</td>
+          <td class="bp-v" style="{{ 'color:var(--danger)' if s.a_confirmer else 'color:var(--muted)' }}">{{ s.a_confirmer or '—' }}</td>
+          <td class="bp-v">{{ '%g'|format(s.heures_stagiaires) }}</td></tr>
+      {% else %}
+        <tr><td colspan="5" style="padding:26px;text-align:center;color:var(--muted)">Aucune session de DFM dans cet exercice.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% if c.factures %}
+    <details class="bp-det"><summary>Voir les {{ c.factures|length }} factures de l'exercice</summary>
+    <div class="table-scroll">
+    <table class="ap-table" style="min-width:560px">
+      <thead><tr><th style="width:110px">Facture</th><th style="width:96px">Date</th><th>Client</th><th style="width:90px">Type</th><th style="width:100px;text-align:right">Montant</th></tr></thead>
+      <tbody>
+      {% for f in c.factures %}
+        <tr><td style="font:600 11.5px ui-monospace,Menlo,monospace">{{ f.numero }}</td><td style="font-size:12px">{{ f.date.strftime('%d/%m/%Y') }}</td>
+          <td style="font-size:12.5px">{{ f.client }}<span class="bp-s">{{ f.session }}</span></td><td style="font-size:12px">{{ f.type }}</td>
+          <td class="bp-v">{{ "{:,.2f}".format(f.total).replace(",", " ").replace(".", ",") }} €</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    </details>
+    {% endif %}
+  </section>
+</div>
+
+<div>
+  <section class="ap-carte">
+    <div class="ap-carte-t"><span>Déposer le bilan</span></div>
+    <div class="bp-corps">
+      {% if e.etat == 'depose' %}
+      <div class="bp-depose"><b>Déposé le {{ e.depot.le[8:10] }}/{{ e.depot.le[5:7] }}/{{ e.depot.le[:4] }}.</b>{% if e.depot.note %}<br>{{ e.depot.note }}{% endif %}<br>Les rappels de cet exercice sont arrêtés.</div>
+      <p class="bp-note"><a href="#" onclick="bpAnnuler();return false" style="color:var(--muted)">Annuler ce dépôt (marqué par erreur)</a></p>
+      {% else %}
+      <div class="bp-etape"><span class="bp-num">1</span><div>Demander à l'expert-comptable le total des produits et des charges de l'exercice, hors taxes.</div></div>
+      <div class="bp-etape"><span class="bp-num">2</span><div>Ouvrir <a href="https://www.monactiviteformation.emploi.gouv.fr/mon-activite-formation/" target="_blank" rel="noopener">Mon Activité Formation</a> avec le compte de {{ marque }}, rubrique « Bilan pédagogique et financier », et recopier les chiffres de gauche.</div></div>
+      <div class="bp-etape"><span class="bp-num">3</span><div>Une fois le bilan transmis, le marquer ici : les rappels s'arrêtent et le dépôt entre au journal.
+        <div class="bp-champ"><input type="date" id="bp_le" value="{{ aujourdhui.isoformat() }}" max="{{ aujourdhui.isoformat() }}" title="Date du depot">
+          <input type="text" id="bp_note" placeholder="Note facultative (n° de récépissé…)"></div>
+        <div class="bp-champ"><button type="button" class="btn btn-primary" onclick="bpDeposer(this)"><i class="ti ti-check"></i>Marquer comme déposé</button></div>
+        <div class="bp-msg" id="bp_msg"></div></div></div>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="ap-carte">
+    <div class="ap-carte-t"><span>Rappels</span></div>
+    <div class="bp-corps">
+      {% for r in e.rappels %}
+      <div class="bp-r"><span class="bp-rd">{{ r.date.strftime('%d/%m/%Y') }}</span>
+        <span class="bp-rp">{{ 'Ouverture' if r.palier == 'ouverture' else ('Retard' if r.palier.startswith('retard') else r.palier) }}</span>
+        <span class="bp-re">
+          {% if r.etat == 'envoye' %}<span class="c c-ok" title="{{ r.le }}">Envoyé</span>
+          {% elif r.etat == 'saute' %}<span class="c c-pt" title="{{ r.le }}">Regroupé</span>
+          {% elif e.etat == 'depose' %}<span class="c c-pt">Inutile</span>
+          {% elif r.etat == 'passe' %}<span class="c c-att">En attente d'envoi</span>
+          {% else %}<span class="c c-bleu">À venir</span>{% endif %}
+        </span></div>
+      {% endfor %}
+      <p class="bp-note">Chaque rappel part par mail à {{ fiche.mail_contact or "l'adresse de contact de l'organisme" }}, une fois, vers 9 h, depuis DFM en ligne. Ils s'arrêtent dès que le bilan est marqué déposé. Les bilans dont l'échéance précède le {{ suivi_depuis }} ne sont pas suivis.</p>
+    </div>
+  </section>
+
+  <section class="ap-carte">
+    <div class="ap-carte-t"><span>Ce qu'il faut savoir</span></div>
+    <div class="bp-corps">
+      <p class="bp-note" style="margin-top:0">Le bilan porte sur le <b>dernier exercice comptable clos</b> et se dépose chaque année, <b>même sans activité</b>. Un bilan non déposé, ou qui ne montre aucune formation, rend le numéro de déclaration caduc : il faut alors tout redéclarer.</p>
+      <p class="bp-note">Campagne {{ e.limite.year }} : {% if e.campagne_connue %}du {{ e.ouverture_texte }} au {{ e.limite_texte }}{% else %}dates pas encore publiées, 30 avril retenu{% endif %}. <a href="#" onclick="bpOuvrir();return false">Modifier</a>.</p>
+      <p class="bp-note">Ses chiffres doivent concorder avec les comptes annuels. Le formulaire papier (cerfa 10443) ne sert qu'en cas d'impossibilité de le faire en ligne.</p>
+      <p class="bp-note">Exercice de {{ marque }} : clôture au {{ fiche.exercice_cloture or '31/12 (supposé)' }}{% if fiche.premier_exercice_debut %}, premier exercice du {{ fiche.premier_exercice_debut }} au {{ fiche.premier_exercice_fin }}{% endif %}. <a href="/profils">Modifier dans Profils</a>.</p>
+    </div>
+  </section>
+</div>
+</div>
+
+<div class="bp-voile" id="bp_voile" onclick="if(event.target===this)bpFermer()">
+  <div class="bp-mod">
+    <h3>Campagne {{ e.limite.year }}</h3>
+    <div class="bp-s" style="font-size:12.5px">Les dates publiées par le ministère pour le dépôt des bilans. Elles valent pour tous les organismes.</div>
+    <label for="bp_ouv">Ouverture</label><input type="date" id="bp_ouv" value="{{ e.ouverture.isoformat() }}">
+    <label for="bp_lim">Date limite</label><input type="date" id="bp_lim" value="{{ e.limite.isoformat() }}">
+    <div class="bp-msg" id="bp_cmsg"></div>
+    <div class="bp-pied"><button type="button" class="btn btn-ghost" onclick="bpFermer()">Annuler</button>
+      <button type="button" class="btn btn-primary" onclick="bpCampagne(this)">Enregistrer</button></div>
+  </div>
+</div>
+
+<script>
+function bpExercice(v){ location.href = '/bilan-pedagogique?exercice=' + encodeURIComponent(v); }
+function bpPoster(url, corps){
+  return fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(corps)})
+    .then(function(r){ return r.json(); });
+}
+function bpDeposer(b){
+  var le = document.getElementById('bp_le').value, m = document.getElementById('bp_msg');
+  if(!le){ m.textContent = 'Indiquez la date du dépôt.'; return; }
+  b.disabled = true;
+  bpPoster('/bilan-pedagogique/depot', {cle:'{{ e.cle }}', le:le, note:document.getElementById('bp_note').value})
+    .then(function(d){ if(d.ok){ location.reload(); } else { m.textContent = d.message || 'Échec.'; b.disabled = false; } })
+    .catch(function(){ m.textContent = 'DFM ne répond pas.'; b.disabled = false; });
+}
+function bpAnnuler(){
+  if(!confirm('Annuler le dépôt marqué pour cet exercice ? Les rappels reprendront.')) return;
+  bpPoster('/bilan-pedagogique/depot', {cle:'{{ e.cle }}', annuler:true}).then(function(){ location.reload(); });
+}
+function bpOuvrir(){ document.getElementById('bp_voile').classList.add('on'); }
+function bpFermer(){ document.getElementById('bp_voile').classList.remove('on'); }
+function bpCampagne(b){
+  var m = document.getElementById('bp_cmsg');
+  b.disabled = true;
+  bpPoster('/bilan-pedagogique/campagne', {annee:{{ e.limite.year }}, ouverture:document.getElementById('bp_ouv').value,
+                                           limite:document.getElementById('bp_lim').value})
+    .then(function(d){ if(d.ok){ location.reload(); } else { m.textContent = d.message || 'Échec.'; b.disabled = false; } })
+    .catch(function(){ m.textContent = 'DFM ne répond pas.'; b.disabled = false; });
+}
+</script>
+{% endif %}
+{% endblock %}

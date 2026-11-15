@@ -73,7 +73,7 @@ def deja_envoyee(cle, signature, heures=HEURES_PAR_DEFAUT):
 
 
 def prevenir(cle, objet, paragraphes, organisme="mon-organisme",
-            heures=HEURES_PAR_DEFAUT, quoi_faire="", signature=None):
+            heures=HEURES_PAR_DEFAUT, quoi_faire="", signature=None, pied=None):
     """Ecrit a l'organisme. Rend l'adresse touchee, ou "".
 
     `cle` identifie le genre d'alerte (« base-illisible »), pour ne pas
@@ -84,6 +84,9 @@ def prevenir(cle, objet, paragraphes, organisme="mon-organisme",
     a chaque passage, ne ressemble jamais au precedent, et « au plus une fois
     toutes les 24 heures » devient un mail toutes les dix minutes. Constate le
     30/10/2026 : 146 mails en une journee et demie.
+
+    `pied` remplace la phrase de bas de mail, pour un message qui n'est pas une
+    alerte de panne (les rappels du bilan pedagogique, 15/11/2026).
     """
     signature = signature or "|".join(paragraphes)
     if deja_envoyee(cle, signature, heures):
@@ -103,9 +106,9 @@ def prevenir(cle, objet, paragraphes, organisme="mon-organisme",
                  + (('<p style="background:#fdf6ec;border:1px solid #f5dda6;'
                      'border-radius:9px;padding:12px 14px"><b>Ce qu\'il y a à '
                      'faire&nbsp;:</b><br>%s</p>' % quoi_faire) if quoi_faire else "")
-                 + '<p style="color:#6b7280;font-size:12.5px">Message automatique de '
-                   'DFM. Il ne part qu\'en cas de souci, et au plus une fois toutes '
-                   'les %d heures.</p></div>' % heures)
+                 + '<p style="color:#6b7280;font-size:12.5px">%s</p></div>' % (
+                     pied or ("Message automatique de DFM. Il ne part qu'en cas de "
+                              "souci, et au plus une fois toutes les %d heures." % heures)))
         message = MIMEMultipart("alternative")
         message["To"] = vers
         message["Subject"] = objet

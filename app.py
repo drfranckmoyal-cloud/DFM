@@ -148,7 +148,24 @@ def commun():
         # numero de l'indicateur et sa couleur dit s'il tient debout : c'est le
         # seul endroit de DFM ou l'on voit ces quatre-la sans les chercher.
         "nav_veilles": _nav_veilles(),
+        # LE COMPTE A REBOURS DU BILAN PEDAGOGIQUE, de l'organisme actif : dans
+        # le menu sur toutes les pages, et en carte sur le tableau de bord.
+        "bpf_resume": _bpf_resume(),
     }
+def _bpf_resume():
+    """L'echeance du bilan de l'organisme actif. Ne doit JAMAIS faire echouer
+    un rendu : un souci ici rend None, et le menu s'affiche sans compteur."""
+    try:
+        import bpf as _B
+        import profil as _pr
+        org = _pr.actif()
+        e = _B.etat(org)
+        if not e:
+            return None
+        return {"etat": e["etat"], "jours": e["jours"], "libelle": e["libelle"],
+                "limite_texte": e["limite_texte"], "pastille": _B.pastille(org)}
+    except Exception:
+        return None
 def _nav_veilles():
     """Le sous-menu des veilles. Ne doit JAMAIS faire echouer un rendu : il
     s'affiche sur toutes les pages, y compris celles qui n'ont rien a voir."""
@@ -10456,6 +10473,103 @@ def supprimer_compte():
 def deconnexion():
     _session.clear()
     return redirect("/connexion")
+
+
+# ---------------------------------------------------------------------------
+# LE BILAN PEDAGOGIQUE ET FINANCIER — 15/11/2026. Voir bpf.py.
+#
+# UNE PAGE PAR ORGANISME, celui qui est actif : deux entites, deux bilans, deux
+# echeances, et un auditeur de l'une n'a pas a voir l'autre.
+# ---------------------------------------------------------------------------
+def _bpf_page_donnees(exercice_cle=None):
+    import bpf as _B
+    import profil as _pr
+    org = _pr.actif()
+    fiche = _pr.charger(org) or {}
+    choix = _B.depuis_cle(exercice_cle) if exercice_cle else None
+    e = _B.etat(org, exercice=choix) if choix else _B.etat(org)
+    aujourd = date.today()
+    liste = []
+    for x in reversed(_B.exercices(fiche, aujourd)):
+        if x[0] > aujourd:
+            continue
+        liste.append({"cle": _B.cle(x), "libelle": _B.libelle(x),
+                      "echeance": _B.texte(_B.echeance(x))})
+    c = _B.chiffres(org, e["exercice"]) if e else None
+    return org, fiche, e, c, liste
+
+
+@app.route("/bilan-pedagogique")
+def bilan_pedagogique():
+    import bpf as _B
+    org, fiche, e, c, liste = _bpf_page_donnees(request.args.get("exercice") or "")
+    return render_template("bpf.html", org=org, fiche=fiche, e=e, c=c, exercices=liste,
+                           paliers=_B.PALIERS, suivi_depuis=_B.texte(_B.SUIVI_DEPUIS))
+
+
+@app.route("/bilan-pedagogique/export.csv")
+def bilan_pedagogique_csv():
+    import csv as _csv
+    import io as _io
+    from flask import Response
+    import bpf as _B
+    org, fiche, e, c, liste = _bpf_page_donnees(request.args.get("exercice") or "")
+    if not e:
+        return Response("Aucun exercice", mimetype="text/plain")
+    tampon = _io.StringIO()
+    plume = _csv.writer(tampon, delimiter=";", quoting=_csv.QUOTE_MINIMAL)
+    for ligne in _B.csv_lignes(org, e["exercice"]):
+        plume.writerow(ligne)
+    nom = "bilan-pedagogique-%s-%s.csv" % (org, e["cle"])
+    return Response("﻿" + tampon.getvalue(), mimetype="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": "attachment; filename=%s" % nom})
+
+
+@app.route("/bilan-pedagogique/depot", methods=["POST"])
+def bilan_pedagogique_depot():
+    import bpf as _B
+    import profil as _pr
+    d = request.get_json(silent=True) or {}
+    org = _pr.actif()
+    ex = _B.depuis_cle(d.get("cle") or "")
+    if not ex or not ex[0] or not ex[1]:
+        return jsonify({"ok": False, "message": "Exercice introuvable."})
+    if d.get("annuler"):
+        _B.annuler_depot(org, _B.cle(ex))
+        journal.ecrire("Bilan pédagogique : dépôt annulé", "",
+                       detail="%s — %s" % ((_pr.charger(org) or {}).get("marque") or org, _B.libelle(ex)))
+        return jsonify({"ok": True})
+    le = _B._date(d.get("le")) or date.today()
+    if le > date.today():
+        return jsonify({"ok": False, "message": "La date de dépôt ne peut pas être dans le futur."})
+    _B.marquer_depose(org, _B.cle(ex), le, d.get("note") or "")
+    journal.ecrire("Bilan pédagogique déposé", "",
+                   detail="%s — %s, déposé le %s" % ((_pr.charger(org) or {}).get("marque") or org,
+                                                     _B.libelle(ex), le.strftime("%d/%m/%Y")),
+                   details=(d.get("note") or "").strip())
+    return jsonify({"ok": True})
+
+
+@app.route("/bilan-pedagogique/campagne", methods=["POST"])
+def bilan_pedagogique_campagne():
+    """Les dates de la campagne nationale de l'annee, quand le ministere les
+    publie. Elles valent pour les deux organismes."""
+    import bpf as _B
+    d = request.get_json(silent=True) or {}
+    try:
+        annee = int(d.get("annee"))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "message": "Année manquante."})
+    o, l = _B._date(d.get("ouverture")), _B._date(d.get("limite"))
+    if not l:
+        return jsonify({"ok": False, "message": "Indiquez au moins la date limite."})
+    if o and o > l:
+        return jsonify({"ok": False, "message": "L'ouverture doit précéder la date limite."})
+    _B.fixer_campagne(annee, o, l)
+    journal.ecrire("Bilan pédagogique : campagne %d" % annee, "",
+                   detail="Dépôt %s jusqu'au %s" % (("du %s" % _B.texte(o)) if o else "",
+                                                     _B.texte(l)))
+    return jsonify({"ok": True})
 
 
 if __name__ == "__main__":

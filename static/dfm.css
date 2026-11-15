@@ -534,3 +534,11 @@ html[data-sombre] .sy-b:hover,
 html[data-sombre] .tk,
 html[data-sombre] .vd-l{background:#2f1d1f}
 @media print{html[data-sombre]{--bg:#fff;--text:#1a1d2e}html[data-sombre] body{background:#fff;color:#1a1d2e}}
+/* LE COMPTE A REBOURS DU BILAN PEDAGOGIQUE, dans le menu (15/11/2026). Gris
+   tant que l'echeance est loin, orange a trois mois, rouge a quinze jours et
+   en retard, vert une fois le bilan depose. */
+.nav-item .bpf-j{margin-left:auto;font-size:10px;font-weight:600;padding:1px 7px;border-radius:20px;white-space:nowrap}
+.nav-item .bj-calme{background:rgba(138,146,168,.18);color:#aab1c4}
+.nav-item .bj-att{background:rgba(212,137,10,.22);color:#f5c87a}
+.nav-item .bj-ko{background:rgba(214,69,69,.22);color:#ff9b9b}
+.nav-item .bj-ok{background:rgba(15,158,106,.22);color:#6ee7b7}

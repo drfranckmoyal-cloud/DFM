@@ -82,6 +82,23 @@ SCHEMA = [
      "libelle": "Enregistré auprès de",
      "aide": "La région qui a enregistré votre déclaration.",
      "exemple": "la préfecture de région d'Île-de-France"},
+    # L'EXERCICE COMPTABLE, pour le bilan pedagogique et financier (15/11/2026).
+    # Le bilan porte sur le dernier exercice clos : sans ces dates, DFM suppose
+    # une cloture au 31 decembre et le dit sur la page du bilan.
+    {"cle": "exercice_cloture", "section": "legal", "type": "texte", "defaut": "",
+     "libelle": "Clôture de l'exercice comptable",
+     "aide": "Jour et mois, tels qu'au Kbis. Sert au calendrier du bilan pédagogique et financier.",
+     "exemple": "31/12"},
+    {"cle": "premier_exercice_debut", "section": "legal", "type": "texte", "defaut": "",
+     "libelle": "Début du premier exercice",
+     "aide": "Seulement si le premier exercice est plus long ou plus court qu'un an.",
+     "exemple": "30/06/2025"},
+    {"cle": "premier_exercice_fin", "section": "legal", "type": "texte", "defaut": "",
+     "libelle": "Fin du premier exercice",
+     "aide": "Avec le champ précédent.", "exemple": "31/12/2026"},
+    {"cle": "specialite_nsf", "section": "legal", "type": "texte", "defaut": "",
+     "libelle": "Spécialité de formation (code NSF)",
+     "aide": "Reprise dans le bilan pédagogique et financier.", "exemple": "331 — Santé"},
     {"cle": "tva_franchise", "section": "legal", "type": "booleen", "defaut": True,
      "libelle": "Franchise en base de TVA",
      "aide": "Si vous êtes en franchise, vos factures portent la mention de l'article 293 B et aucune TVA n'est facturée. Décochez si vous êtes assujetti : c'est une décision fiscale, pas un choix d'affichage."},

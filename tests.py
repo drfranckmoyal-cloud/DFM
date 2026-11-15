@@ -1903,6 +1903,133 @@ def tests_rappel_reglement_cycle():
              _cv._euros(4000) in (E(cycle, {"montant_du": "4000", "paiement_recu_le": ""}) or {}).get("phrase", ""))
 
 
+def tests_bilan_pedagogique():
+    """LE BILAN PEDAGOGIQUE ET FINANCIER — 15/11/2026. Exercice, echeance,
+    rappels et chiffres, par organisme. Rien ne part : l'envoi est remplace."""
+    print("\n  LE BILAN PEDAGOGIQUE ET FINANCIER")
+    import datetime as _dt
+    import bpf as B
+    D = _dt.date
+    lbs = {"exercice_cloture": "31/12", "premier_exercice_debut": "30/06/2025",
+           "premier_exercice_fin": "31/12/2026", "marque": "Smileclub Formations",
+           "mail_contact": "essai@exemple.invalid"}
+    ex = B.exercices(lbs, D(2026, 11, 15))
+    verifier("premier exercice irregulier de dix-huit mois", ex[0] == (D(2025, 6, 30), D(2026, 12, 31)), ex[:2])
+    verifier("puis l'annee civile", ex[1] == (D(2027, 1, 1), D(2027, 12, 31)), ex[:2])
+    verifier("depot au 30 avril qui suit la cloture", B.echeance(ex[0], {}) == D(2027, 4, 30))
+    aout = B.exercices({"exercice_cloture": "31/08"}, D(2026, 11, 15))
+    e_aout = [x for x in aout if x[0] <= D(2026, 11, 15) <= x[1]][0]
+    verifier("cloture au 31 aout : exercice a cheval", e_aout == (D(2026, 9, 1), D(2027, 8, 31)), e_aout)
+    verifier("cloture au 31 aout : depot au 30 avril suivant", B.echeance(e_aout, {}) == D(2028, 4, 30))
+    verifier("sans cloture renseignee : 31 decembre suppose", B._cloture({}) == ((31, 12), True))
+    reg = {"campagnes": {"2027": {"ouverture": "2027-04-01", "limite": "2027-05-31"}}}
+    verifier("campagne prolongee : la date du ministere prime", B.echeance(ex[0], reg) == D(2027, 5, 31))
+
+    garde = (B._profil, B.FICHIER, os.environ.get("DFM_PROXY"))
+    try:
+        B._profil = lambda o: dict(lbs)
+        B.FICHIER = os.path.join(tempfile.mkdtemp(prefix="dfm-bpf-"), "bpf.json")
+        os.environ.pop("DFM_PROXY", None)
+        aujourd = D(2026, 11, 15)
+        e = B.etat("mon-organisme", aujourd, registre={})
+        verifier("LBS : le bilan suivi est celui du premier exercice", e and e["exercice"] == ex[0], e and e["exercice"])
+        verifier("LBS : 166 jours le 15/11/2026, exercice en cours",
+                 e["jours"] == 166 and e["etat"] == "exercice_en_cours", (e["jours"], e["etat"]))
+        verifier("pastille du menu : J-166, calme", B.pastille("mon-organisme", aujourd) ==
+                 {"texte": "J-166", "classe": "bj-calme",
+                  "titre": "Bilan pédagogique et financier à déposer avant le 30 avril 2027"})
+        verifier("un bilan d'avant la mise en service n'est pas suivi",
+                 B.cible({"exercice_cloture": "31/12"}, "dsf", aujourd, {})[0] == D(2026, 1, 1))
+        verifier("rien a envoyer a 166 jours", B.rappels_dus("mon-organisme", aujourd, {})[0] is None)
+        p, sautes, _ = B.rappels_dus("mon-organisme", D(2027, 4, 10), {})
+        verifier("a J-20 : un seul rappel, le plus recent (l'ouverture du 1er avril)", p and p["palier"] == "ouverture", p)
+        verifier("les plus anciens sont regroupes", [s["palier"] for s in sautes] == ["J-90", "J-60", "J-30"], sautes)
+        import profil as _pr
+        garde_l = _pr.lister
+        _pr.lister = lambda: [{"id": "mon-organisme"}]
+        try:
+            verifier("hors serveur et sans envoi remplace : rien ne part",
+                     B.envoyer_rappels(D(2027, 4, 10)) == [])
+            boite = []
+            envoi = lambda org, objet, paras, quoi: boite.append((org, objet)) or "essai@exemple.invalid"
+            partis = B.envoyer_rappels(D(2027, 4, 10), envoyer=envoi)
+            verifier("a J-20 : un mail, a l'organisme", len(boite) == 1 and boite[0][0] == "mon-organisme"
+                     and "campagne est ouverte" in boite[0][1], boite)
+            verifier("le lendemain : rien de plus", B.envoyer_rappels(D(2027, 4, 11), envoyer=envoi) == []
+                     and len(boite) == 1, boite)
+            B.marquer_depose("mon-organisme", B.cle(ex[0]), D(2027, 4, 12))
+            verifier("une fois depose : plus de rappel", B.envoyer_rappels(D(2027, 4, 24), envoyer=envoi) == [])
+            e2 = B.etat("mon-organisme", D(2027, 4, 24), exercice=ex[0])
+            verifier("l'exercice depose s'affiche comme tel", e2["etat"] == "depose", e2["etat"])
+            verifier("le suivi passe a l'exercice suivant", B.cible(lbs, "mon-organisme", D(2027, 4, 24))[0] == D(2027, 1, 1))
+            B.annuler_depot("mon-organisme", B.cle(ex[0]))
+            verifier("depot annule : les rappels reprennent",
+                     B.envoyer_rappels(D(2027, 5, 1), envoyer=envoi) and "retard" in boite[-1][1].lower(), boite[-1:])
+        finally:
+            _pr.lister = garde_l
+    finally:
+        B._profil, B.FICHIER = garde[0], garde[1]
+        if garde[2] is not None:
+            os.environ["DFM_PROXY"] = garde[2]
+
+    # LES CHIFFRES : une session de deux jours a cheval sur la cloture, trois
+    # inscrits dont un annule, un present note, un atteste, et une facture.
+    import sessions as _s
+    import suivi as SV
+    import factures as F
+    S = dict(FICHE, code="essai-bpf", organisme="essai-org", duree_heures="14 heures",
+             date_debut="2026-12-31", date_fin="2027-01-01", formateur="Dr Franck Moyal",
+             jours=["2026-12-31", "2027-01-01"])
+    garde_c = (dict(_s.SESSIONS), SV.lire_lignes_de, F.tout, _s.organisme_de, _s.session)
+    try:
+        # D'autres essais ont remplace ces deux fonctions pour toute la suite :
+        # on remet ici leur comportement reel, le temps de compter.
+        _s.organisme_de = lambda c=None: ((_s.SESSIONS.get(c) or {}).get("organisme") or "").strip()
+        _s.session = lambda c=None: dict(_s.SESSIONS.get(c) or {})
+        _s.SESSIONS["essai-bpf"] = S
+        SV.lire_lignes_de = lambda code=None: [
+            {"present": "oui", "fonction": "Chirurgien-dentiste", "annule_le": ""},
+            {"attestation_le": "02/01/2027", "fonction": "Assistant(e) dentaire", "annule_le": ""},
+            {"present": "oui", "annule_le": "20/12/2026"}]
+        F.tout = lambda: {"F2026-900": {"numero": "F2026-900", "organisme": "essai-org", "date": "15/12/2026",
+                                        "total": 975, "type": "individuel", "client": "X", "session": "essai-bpf"},
+                          "essai-org/F2026-900": {"numero": "F2026-900", "organisme": "essai-org", "date": "15/12/2026",
+                                                  "total": 975, "type": "individuel"},
+                          "F2027-001": {"numero": "F2027-001", "organisme": "essai-org", "date": "03/01/2027",
+                                        "total": 500, "type": "client"}}
+        c = B.chiffres("essai-org", (D(2026, 1, 1), D(2026, 12, 31)), D(2027, 2, 1))
+        verifier("une seule session, pour la moitie de ses jours",
+                 len(c["sessions"]) == 1 and c["sessions"][0]["heures"] == 7.0, c["sessions"])
+        verifier("deux stagiaires : presence notee ou attestation, l'annule ecarte", c["stagiaires"] == 2, c["stagiaires"])
+        verifier("heures-stagiaires : 7 h x 2", c["heures_stagiaires"] == 14.0, c["heures_stagiaires"])
+        verifier("une facture comptee une fois, dans son exercice",
+                 c["produits"] == {"individuel": 975.0, "client": 0.0, "total": 975.0}, c["produits"])
+        verifier("le formateur et ses heures", c["formateurs"] and c["formateurs"][0]["heures"] == 7.0, c["formateurs"])
+        verifier("specialite par defaut : 331 Sante", c["specialite"] == B.SPECIALITE_DEFAUT)
+        lignes = B.csv_lignes("essai-org", (D(2026, 1, 1), D(2026, 12, 31)), D(2027, 2, 1))
+        verifier("l'export porte les rubriques du formulaire", any(l[:1] == ["F-1"] for l in lignes))
+    finally:
+        _s.SESSIONS.clear()
+        _s.SESSIONS.update(garde_c[0])
+        SV.lire_lignes_de, F.tout, _s.organisme_de, _s.session = garde_c[1:]
+
+    import app as A
+    import acces
+    garde_a = acces.protege
+    try:
+        acces.protege = lambda *a, **k: False
+        r = A.app.test_client().get("/bilan-pedagogique")
+        html = r.get_data(as_text=True)
+        verifier("la page s'affiche", r.status_code == 200 and "Bilan pédagogique et financier" in html,
+                 r.status_code)
+        verifier("le menu porte l'entree et son compte a rebours",
+                 'href="/bilan-pedagogique"' in html and "bpf-j" in html)
+        r = A.app.test_client().get("/bilan-pedagogique/export.csv")
+        verifier("l'export se telecharge", r.status_code == 200 and "Rubrique" in r.get_data(as_text=True))
+    finally:
+        acces.protege = garde_a
+
+
 def tests_accuse_selon_situation():
     """L'ACCUSE ANNONCE LA BONNE SUITE — 08/11/2026 (Guillaume DUCHENE, liste
     d'attente, a qui l'on avait promis une convention)."""
@@ -2809,7 +2936,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes, tests_date_limite_a_l_ecran, tests_rappel_reglement_cycle,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes, tests_date_limite_a_l_ecran, tests_rappel_reglement_cycle, tests_bilan_pedagogique,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:
