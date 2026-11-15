@@ -244,7 +244,7 @@ function rgFiltrer(){
   var q = (document.getElementById("rg_q").value || "").toLowerCase().trim();
   var bornes = rgBornes();
   var lignes = rgLignes();
-  var n = 0, du = 0, recu = 0, nbp = 0, retard = 0, nbret = 0, horsPeriode = 0;
+  var n = 0, du = 0, recu = 0, nbp = 0, nbi = 0, retard = 0, nbret = 0, horsPeriode = 0;
   for(var i = 0; i < lignes.length; i++){
     var tr = lignes[i], ok = true;
     var j = parseInt(tr.dataset.jours || -1, 10);
@@ -268,6 +268,7 @@ function rgFiltrer(){
     du += parseFloat(tr.dataset.du || 0);
     recu += parseFloat(tr.dataset.recu || 0);
     if(tr.dataset.paye === "oui") nbp++;
+    if(tr.dataset.paye === "invite") nbi++;
     if(enRetard){ retard += parseFloat(tr.dataset.du || 0); nbret++; }
   }
   var reste = du - recu;
@@ -277,7 +278,9 @@ function rgFiltrer(){
   document.getElementById("k_encaisse").textContent = rgE(recu);
   document.getElementById("k_encaisse_s").textContent = nbp + " règlement(s) reçu(s)";
   document.getElementById("k_restant").textContent = rgE(reste);
-  document.getElementById("k_restant_s").textContent = (n - nbp) + " règlement(s) attendu(s)";
+  // Un invite ne doit rien : il n'est pas un reglement attendu (15/11/2026, le
+  // bandeau en annoncait 37 quand la carte d'en dessous en comptait 27).
+  document.getElementById("k_restant_s").textContent = (n - nbp - nbi) + " règlement(s) attendu(s)";
   document.getElementById("k_retard").textContent = rgE(retard);
   document.getElementById("k_retard_s").textContent = nbret + " règlement(s) sans réponse depuis 30 j";
   document.getElementById("bar_ok").style.width = pct + "%";
