@@ -380,7 +380,12 @@
     <div class="sign-c">
       <div class="q">Pour l'organisme de formation</div>
       <b>{{ c.formateur }}</b>
-      {{ c.marque }}
+      {# LA SOCIETE, PAS LA MARQUE. Sous la signature de l'organisme figure
+         celui qui s'engage : la personne morale (SAS LBS FORMATION), et non
+         son nom commercial (Smileclub Formations). Demande de Franck le
+         15/11/2026, pour la declaration d'activite. Identique pour DSF, dont
+         la raison sociale est la marque. #}
+      {{ c.organisme or c.marque }}
       {# Le tampon derriere, la signature devant : c'est ainsi qu'on signe un
          papier — on tamponne, puis on signe par-dessus. #}
       <div class="sign-e sign-fm">
