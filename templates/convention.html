@@ -139,7 +139,9 @@
 <body>
 
 <div class="entete">
-  <div class="g"><b>{{ c.marque }}</b>
+  {# L'EN-TETE NOMME LA SOCIETE, comme le cartouche de signature : demande de
+     Franck le 15/11/2026. Le pied de page garde le nom commercial. #}
+  <div class="g"><b>{{ c.organisme or c.marque }}</b>
     {{ c.adresse_organisme }}<br>
     {{ c.mail_contact }}</div>
   <div class="d">Siret {{ c.siret }}<br>Établie le {{ c.date_du_jour }}</div>
