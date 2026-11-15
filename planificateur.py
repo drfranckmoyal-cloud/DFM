@@ -266,6 +266,14 @@ def _sauvegarder():
     import sauvegarde_locale as _sl
     cible, n = _sl.fabriquer()
     _noter("Sauvegarde : %s (%d fichiers)." % (os.path.basename(cible), n))
+    # LA COPIE CHIFFREE HORS DU SERVEUR — 15/11/2026. Voir sauvegarde_externe :
+    # elle ne part que du serveur, et seulement si le stockage est configure.
+    try:
+        import sauvegarde_externe as _se
+        for ligne in _se.passage_du_soir(cible):
+            _noter(ligne)
+    except Exception as e:
+        _noter("Copie externe en echec : %s" % str(e)[:180])
     # ON GARDE TRENTE JOURS. Sans menage, une archive quotidienne de 4,6 Mo
     # remplit un disque en quelques annees — et personne ne s'en apercoit avant
     # que l'ecriture echoue, c'est-a-dire le jour ou la sauvegarde compte.

@@ -19,6 +19,7 @@ Supabase, ni un seul mail. Base temporaire, portes reseau bouchees. Un test
 qui ecrirait dans les vraies donnees serait pire que pas de test.
 """
 import io
+import json
 import os
 import sys
 import tempfile
@@ -1989,7 +1990,9 @@ def tests_bilan_pedagogique():
         _s.SESSIONS["essai-bpf"] = S
         SV.lire_lignes_de = lambda code=None: [
             {"present": "oui", "fonction": "Chirurgien-dentiste", "annule_le": ""},
-            {"attestation_le": "02/01/2027", "fonction": "Assistant(e) dentaire", "annule_le": ""},
+            {"attestation_le": "02/01/2027", "attestation_envoyee_le": "02/01/2027",
+             "fonction": "Assistant(e) dentaire", "annule_le": ""},
+            {"attestation_le": "02/01/2027", "fonction": "Chirurgien-dentiste", "annule_le": ""},
             {"present": "oui", "annule_le": "20/12/2026"}]
         F.tout = lambda: {"F2026-900": {"numero": "F2026-900", "organisme": "essai-org", "date": "15/12/2026",
                                         "total": 975, "type": "individuel", "client": "X", "session": "essai-bpf"},
@@ -2000,7 +2003,8 @@ def tests_bilan_pedagogique():
         c = B.chiffres("essai-org", (D(2026, 1, 1), D(2026, 12, 31)), D(2027, 2, 1))
         verifier("une seule session, pour la moitie de ses jours",
                  len(c["sessions"]) == 1 and c["sessions"][0]["heures"] == 7.0, c["sessions"])
-        verifier("deux stagiaires : presence notee ou attestation, l'annule ecarte", c["stagiaires"] == 2, c["stagiaires"])
+        verifier("deux stagiaires : presence notee ou attestation envoyee ; ni l'annule, ni l'attestation seulement generee",
+                 c["stagiaires"] == 2, c["stagiaires"])
         verifier("heures-stagiaires : 7 h x 2", c["heures_stagiaires"] == 14.0, c["heures_stagiaires"])
         verifier("une facture comptee une fois, dans son exercice",
                  c["produits"] == {"individuel": 975.0, "client": 0.0, "total": 975.0}, c["produits"])
@@ -2063,6 +2067,124 @@ def tests_reglements_sans_demandes():
         verifier("la demande a valider n'est pas listee", "DEMANDE" not in html and "INSCRIT" in html)
     finally:
         A._grilles_suivi, A.fiche_session, _s.visibles, _s.mode, acces.protege = garde
+
+
+def tests_mentions_et_presences():
+    """15/11/2026 : l'autorite d'enregistrement bien ecrite, la delegation sous
+    la signature, et la presence cochee quand l'attestation part."""
+    print("\n  MENTIONS LEGALES ET PRESENCES")
+    import profil as PR
+    import sessions as _s
+    import suivi as SV
+    verifier("préfet : auprès du préfet", PR.aupres("préfet de la région Île-de-France")
+             == "auprès du préfet de la région Île-de-France")
+    verifier("la préfecture : plus de « de la la »", PR.aupres("la préfecture de région d'Île-de-France")
+             == "auprès de la préfecture de région d'Île-de-France")
+    verifier("ancien libelle : inchange", PR.aupres("Direction Régionale (DIRECCTE)")
+             == "auprès de la Direction Régionale (DIRECCTE)")
+    verifier("vide : rien", PR.aupres("") == "")
+    b = _s.balises_identite({"numero_declaration": "11756577975",
+                             "prefecture_declaration": "préfet de la région Île-de-France",
+                             "signataire_qualite": "Responsable pédagogique, par délégation du Président"})
+    verifier("la convention dit « auprès du préfet »",
+             b["{{mention_declaration_longue}}"] == "Déclaration d'activité : 11756577975 auprès du préfet de la région Île-de-France",
+             b["{{mention_declaration_longue}}"])
+    verifier("la qualite du signataire est une balise", b["{{signataire_qualite}}"].endswith("par délégation du Président"))
+    garde_q = _s.COMMUN.get("signataire_qualite")
+    try:
+        _s.COMMUN["signataire_qualite"] = "Responsable pédagogique, par délégation du Président"
+        verifier("un autre organisme sans qualite ne prend pas celle de l'organisme affiche",
+                 _s.balises_identite({"numero_declaration": "1", "signataire_qualite": ""})["{{signataire_qualite}}"] == "")
+    finally:
+        if garde_q is None:
+            _s.COMMUN.pop("signataire_qualite", None)
+        else:
+            _s.COMMUN["signataire_qualite"] = garde_q
+    gab = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "convention.html"),
+                  encoding="utf-8").read()
+    verifier("et la convention l'affiche sous le nom", "c.signataire_qualite" in gab)
+    verifier("elle suit l'organisme de la session", "signataire_qualite" in _s._CLES_PROFIL
+             and "prefecture_declaration" in _s._CLES_PROFIL)
+    ecrit = []
+    garde = SV.ecrire
+    try:
+        SV.ecrire = lambda n, champ, valeur, code=None: ecrit.append((n, champ, valeur))
+        l = {"_numero": 7, "present": ""}
+        verifier("attestation envoyee : present coche", SV.cocher_present_atteste(l, "x") and ecrit == [(7, "present", "oui")], ecrit)
+        verifier("presence deja notee : rien ne change", not SV.cocher_present_atteste({"_numero": 8, "present": "oui"}, "x")
+                 and len(ecrit) == 1)
+    finally:
+        SV.ecrire = garde
+    for f in ("envoyer_attestation.py", "envoyer_certificats.py"):
+        src = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), f), encoding="utf-8").read()
+        verifier("%s coche la presence a l'envoi" % f, "cocher_present_atteste" in src)
+
+
+def tests_sauvegarde_externe():
+    """LA COPIE CHIFFREE HORS DU SERVEUR — 15/11/2026. Le chiffrement est
+    reel ; le stockage est simule, rien ne sort."""
+    print("\n  LA SAUVEGARDE EXTERNE")
+    import datetime as _dt
+    import zipfile as _zf
+    import sauvegarde_externe as SE
+    tmp = tempfile.mkdtemp(prefix="dfm-se-test-")
+    garde = (SE.CONFIG, SE.ETAT, SE._curl, os.environ.get("DFM_PROXY"))
+    try:
+        SE.CONFIG = os.path.join(tmp, "stockage_externe.json")
+        SE.ETAT = os.path.join(tmp, "etat.json")
+        verifier("sans configuration : rien", not SE.configuree() and SE.envoyer() is None)
+        io.open(SE.CONFIG, "w", encoding="utf-8").write(json.dumps(
+            {"bucket": "essai", "cle_acces": "SCWESSAI", "cle_secrete": "secret-essai", "phrase": "phrase-d-essai-tres-longue"}))
+        verifier("configuree", SE.configuree() and SE.config()["point"] == "https://s3.fr-par.scw.cloud")
+        archive = os.path.join(tmp, "DFM-local-2026-11-15-1930.zip")
+        with _zf.ZipFile(archive, "w") as z:
+            z.writestr("dfm.db", "base")
+            z.writestr("documents/a.pdf", "pdf")
+        stock = {}
+        def faux_curl(c, methode, cle="", entree=None, sortie=None, requete="", tete=False):
+            if methode == "PUT":
+                stock[cle] = io.open(entree, "rb").read()
+                return ""
+            if tete:
+                return "HTTP/1.1 200 OK\r\ncontent-length: %d\r\n" % len(stock[cle])
+            if methode == "GET" and requete:
+                return ('<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">'
+                        + "".join('<Contents><Key>%s</Key><LastModified>2026-11-15T19:31:00.000Z</LastModified>'
+                                  '<Size>%d</Size></Contents>' % (k, len(v)) for k, v in stock.items())
+                        + "<IsTruncated>false</IsTruncated></ListBucketResult>")
+            if methode == "GET":
+                io.open(sortie, "wb").write(stock[cle])
+                return ""
+            if methode == "DELETE":
+                stock.pop(cle, None)
+                return ""
+        SE._curl = faux_curl
+        r = SE.envoyer(archive)
+        verifier("envoyee chiffree, sous dfm/", r and r["cle"] == "dfm/DFM-local-2026-11-15-1930.zip.enc"
+                 and not stock[r["cle"]].startswith(b"PK"), r)
+        verifier("rien de clair ne reste sur le disque", not os.path.exists(archive + ".enc"))
+        t = SE.essai_restauration()
+        verifier("la copie se dechiffre et s'ouvre, base comprise", t and t["fichiers"] == 2 and t["documents"] == 1, t)
+        verifier("hors serveur : le passage du soir ne fait rien", (os.environ.pop("DFM_PROXY", None) or True)
+                 and SE.passage_du_soir(archive) == [])
+        stock["dfm/DFM-local-2026-10-01-1930.zip.enc"] = b"x"
+        def vieux(c=None):
+            return [("dfm/DFM-local-2026-10-01-1930.zip.enc", _dt.datetime(2026, 10, 1, 19, 31), 1),
+                    (r["cle"], _dt.datetime(2026, 11, 15, 19, 31), 1)]
+        garde_l = SE.lister
+        SE.lister = vieux
+        try:
+            verifier("plus de 30 jours : retiree, la recente gardee",
+                     SE.purger(_dt.datetime(2026, 11, 16)) == 1 and r["cle"] in stock
+                     and "dfm/DFM-local-2026-10-01-1930.zip.enc" not in stock, list(stock))
+        finally:
+            SE.lister = garde_l
+        src = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "rapatrier.sh"), encoding="utf-8").read()
+        verifier("les cles ne descendent pas sur le Mac", "--exclude=stockage_externe.json" in src)
+    finally:
+        SE.CONFIG, SE.ETAT, SE._curl = garde[0], garde[1], garde[2]
+        if garde[3] is not None:
+            os.environ["DFM_PROXY"] = garde[3]
 
 
 def tests_accuse_selon_situation():
@@ -2971,7 +3093,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes, tests_date_limite_a_l_ecran, tests_rappel_reglement_cycle, tests_bilan_pedagogique, tests_reglements_sans_demandes,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes, tests_date_limite_a_l_ecran, tests_rappel_reglement_cycle, tests_bilan_pedagogique, tests_reglements_sans_demandes, tests_mentions_et_presences, tests_sauvegarde_externe,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:

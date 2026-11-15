@@ -26,6 +26,7 @@ cd "$(dirname "$0")" || exit 1
 REGLES=(
   --exclude=acces.json --exclude=credentials.json --exclude=scellement.json
   --exclude=smtp.json --exclude=token.json --exclude=config.py
+  --exclude=stockage_externe.json
   --exclude=*.verrou --exclude=dfm.db --exclude=dfm.db-wal --exclude=dfm.db-shm
   --include=documents/ --include=documents/**
   --include=identite/  --include=identite/**
