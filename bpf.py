@@ -436,8 +436,8 @@ def _formateur_cle(nom):
 def chiffres(organisme, exercice, aujourdhui=None):
     """Ce que DFM sait de l'exercice : sessions, stagiaires, heures, factures.
 
-    UN STAGIAIRE EST COMPTE quand sa presence est notee ou qu'une attestation
-    lui a ete delivree. Une session passee dont personne n'est confirme est
+    UN STAGIAIRE EST COMPTE quand sa presence est notee ou que son attestation
+    lui a ete envoyee. Une session passee dont personne n'est confirme est
     signalee, pas devinee : le bilan doit compter ceux qui ont ete formes,
     pas ceux qui etaient inscrits.
     """
@@ -481,8 +481,10 @@ def chiffres(organisme, exercice, aujourdhui=None):
         for l in lignes:
             if (l.get("annule_le") or "").strip():
                 continue
-            present = _vrai(l.get("present")) or bool(
-                (l.get("attestation_le") or l.get("attestation_envoyee_le") or "").strip())
+            # PRESENT : pointe, ou attestation ENVOYEE. Pas seulement generee :
+            # DFM fabrique l'attestation de chaque inscrit, absents compris, et
+            # n'envoie qu'aux presents (voir suivi.cocher_present_atteste).
+            present = _vrai(l.get("present")) or bool((l.get("attestation_envoyee_le") or "").strip())
             if present:
                 conf += 1
                 f = (l.get("fonction") or "Non précisée").strip() or "Non précisée"

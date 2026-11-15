@@ -216,6 +216,7 @@ def pour(code_session, signature_client="", ligne=None):
         "mail_contact": b("mail_contact"),
         "mention_declaration_longue": b("mention_declaration_longue"),
         "formateur": b("formateur"),
+        "signataire_qualite": b("signataire_qualite"),
         # La clause « Entre les soussignes », seconde partie. Balise unique
         # depuis le 04/08/2026 pour que le meme modele serve aux sessions
         # individuelles : un praticien n'a ni SIRET ni representant, et les
@@ -307,6 +308,7 @@ def _commun(S):
         "mail_contact": b("mail_contact"),
         "mention_declaration_longue": b("mention_declaration_longue"),
         "formateur": b("formateur"),
+        "signataire_qualite": b("signataire_qualite"),
         "titre_formation": S.get("titre_complet") or S.get("nom_formation") or "",
         "objectifs": _liste(S.get("objectifs")),
         "categorie": categorie(S),

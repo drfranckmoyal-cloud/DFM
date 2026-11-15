@@ -80,8 +80,8 @@ SCHEMA = [
      "exemple": "11750000075"},
     {"cle": "prefecture_declaration", "section": "legal", "type": "texte", "defaut": "",
      "libelle": "Enregistré auprès de",
-     "aide": "La région qui a enregistré votre déclaration.",
-     "exemple": "la préfecture de région d'Île-de-France"},
+     "aide": "L'autorité qui a enregistré votre déclaration (la DIRECCTE n'existe plus depuis 2021).",
+     "exemple": "préfet de la région Île-de-France"},
     # L'EXERCICE COMPTABLE, pour le bilan pedagogique et financier (15/11/2026).
     # Le bilan porte sur le dernier exercice clos : sans ces dates, DFM suppose
     # une cloture au 31 decembre et le dit sur la page du bilan.
@@ -126,6 +126,12 @@ SCHEMA = [
     {"cle": "logo_fichier", "section": "logo", "type": "image", "defaut": "",
      "libelle": "Logo",
      "aide": "En-tête de vos mails et de vos documents. Remplace le logo du Drive."},
+    # LA QUALITE DU SIGNATAIRE — 15/11/2026. Chez LBS FORMATION, Franck signe
+    # les conventions par delegation du President : la convention doit le dire.
+    {"cle": "signataire_qualite", "section": "signature", "type": "texte", "defaut": "",
+     "libelle": "Qualité du signataire",
+     "aide": "Écrite sous le nom de celui qui signe les conventions. Facultatif.",
+     "exemple": "Responsable pédagogique, par délégation du Président"},
     {"cle": "tampon_fichier", "section": "signature", "type": "image", "defaut": "",
      "libelle": "Tampon de l'organisme", "obligatoire": True,
      "aide": "Apposé à côté de la signature sur les conventions."},
@@ -447,6 +453,28 @@ def mention_tva(donnees=None, repli=True):
     if numero:
         bout += " — numéro " + str(numero)
     return bout + "."
+def aupres(autorite):
+    """« auprès du préfet de la région Île-de-France », quel que soit le libellé.
+
+    TROIS ENDROITS ECRIVAIENT CETTE FORMULE, chacun a sa facon (« auprès de la »,
+    « auprès de »), et l'exemple du profil lui-meme (« la préfecture de région… »)
+    aurait donne « auprès de la la préfecture ». Depuis le 15/11/2026 l'autorite
+    s'ecrit « préfet de la région Île-de-France » — l'ancienne DIRECCTE n'existe
+    plus depuis 2021 — et l'article se decide ici, une fois.
+    """
+    a = str(autorite or "").strip()
+    if not a:
+        return ""
+    b = a.lower()
+    for avant, apres in (("le ", "du "), ("les ", "des "), ("la ", "de la "),
+                         ("l'", "de l'"), ("l’", "de l’")):
+        if b.startswith(avant):
+            return "auprès " + apres + a[len(avant):]
+    if b.startswith(("préfet ", "prefet ")):
+        return "auprès du " + a
+    return "auprès de la " + a
+
+
 def pied_legal(donnees=None, repli=True):
     valeur = _lecteur(donnees, repli)
     bouts = [str(valeur("organisme") or "")]
@@ -459,7 +487,7 @@ def pied_legal(donnees=None, repli=True):
         d = "Déclaration d'activité n° " + str(valeur("numero_declaration"))
         p = valeur("prefecture_declaration")
         if p:
-            d += " auprès de " + str(p)
+            d += " " + aupres(p)
         bouts.append(d)
     return " — ".join([b for b in bouts if b.strip()])
 
@@ -587,8 +615,11 @@ def clause_parties(praticien=None, donnees=None, repli=True):
         debut += ", déclarée en tant qu'organisme de formation sous le numéro " + nda
         pref = str(valeur("prefecture_declaration") or "").strip()
         if pref:
-            debut += " auprès de " + pref
-    debut += ", représentée par " + str(valeur("formateur") or "") + ", ci-après dénommée « l'organisme de formation »,"
+            debut += " " + aupres(pref)
+    qualite = str(valeur("signataire_qualite") or "").strip()
+    debut += (", représentée par " + str(valeur("formateur") or "")
+              + ((", " + qualite) if qualite else "")
+              + ", ci-après dénommée « l'organisme de formation »,")
     bouts.append(debut)
     nom = (str(p.get("prenom") or "") + " " + str(p.get("nom") or "")).strip()
     seconde = "et " + (nom if nom else "le praticien")

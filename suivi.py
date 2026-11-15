@@ -463,6 +463,25 @@ def ajouter_plusieurs(lignes, code=None):
         print("   (copie du suivi non mise en file, inscrits bien enregistres : %s)"
               % str(e)[:80])
     return numeros
+def cocher_present_atteste(ligne, code=None):
+    """PRESENT, PUISQU'ATTESTE — 15/11/2026, decision de Franck.
+
+    L'attestation de fin de formation n'est ENVOYEE qu'aux presents : la
+    fenetre d'envoi sert justement a ecarter les absents. Celui qui la recoit
+    etait donc la, et la case « present » se coche au moment de l'envoi,
+    sans attendre un pointage a part. Avant cette regle, les usures de
+    novembre 2026 avaient dix-sept attestations parties et aucune presence
+    notee — un bilan pedagogique ou un auditeur n'y aurait vu personne.
+
+    Ne touche pas une presence deja renseignee. Rend vrai si la case a change.
+    """
+    if not ligne or str(ligne.get("present") or "").strip():
+        return False
+    ecrire(ligne["_numero"], "present", "oui", code)
+    ligne["present"] = "oui"
+    return True
+
+
 def marquer(ligne, champ, valeur=None, code=None, detail=""):
     """detail : texte joint a l'entree de journal — destinataire d'un mail,
     lien d'un document. Sans lui, le journal dit qu'un document est parti sans

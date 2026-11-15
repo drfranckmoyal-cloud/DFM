@@ -353,7 +353,11 @@ _CLES_PROFIL = ("organisme", "marque", "formateur", "signature_mail",
                 # partirait avec le reglement interieur de Smileclub — ou avec
                 # aucun. Meme famille que le cloisonnement corrige le 04/08.
                 "reglement_interieur_id", "referent_handicap",
-                "referent_handicap_contact", "reclamations_contact")
+                "referent_handicap_contact", "reclamations_contact",
+                # L'autorite d'enregistrement et la qualite du signataire
+                # suivent aussi l'organisme de la session (15/11/2026) : une
+                # convention DSF ne doit pas porter la delegation de LBS.
+                "prefecture_declaration", "signataire_qualite")
 # Le STOCKAGE appartient a l'organisme, pas aux Parametres. Deux entites
 # juridiques ne partagent ni leur classeur de suivi, ni leurs dossiers de
 # conventions, ni leur RIB — et la numerotation des factures se separe d'elle
@@ -452,7 +456,11 @@ def balises_identite(fiche=None):
             except Exception:
                 pref = ""
         if pref:
-            longue += " auprès de la " + pref
+            try:
+                import profil as _p
+                longue += " " + _p.aupres(pref)
+            except Exception:
+                longue += " auprès de la " + pref
     return {
         "{{organisme}}": v("organisme"),
         "{{marque}}": v("marque"),
@@ -462,6 +470,14 @@ def balises_identite(fiche=None):
         "{{mention_declaration}}": ("Déclaration d'activité : " + num) if num else "",
         "{{mention_declaration_longue}}": longue,
         "{{formateur}}": v("formateur"),
+        # Sous le nom du signataire des conventions (15/11/2026). LU SANS
+        # REPLI : un organisme qui n'en a pas ne doit pas prendre celle de
+        # l'organisme affiche. Constate le jour meme : une session DSF portait
+        # « par délégation du Président » de LBS, parce que la fiche DSF avait
+        # la cle, vide, et que v() se rabattait alors sur COMMUN.
+        "{{signataire_qualite}}": (str((source or {}).get("signataire_qualite") or "").strip()
+                                   if source is not None and "signataire_qualite" in source
+                                   else str(COMMUN.get("signataire_qualite") or "").strip()),
         "{{mail_contact}}": v("mail_contact"),
         "{{telephone}}": v("telephone_contact"),
         "{{iban}}": v("iban"),

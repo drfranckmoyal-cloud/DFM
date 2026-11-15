@@ -184,6 +184,11 @@ for ligne in lignes:
         rates.append(nom_prenom)
         continue
     suivi.ecrire(ligne["_numero"], "attestation_envoyee_le", suivi.aujourdhui(), S["code"])
+    # Attestation envoyee, donc present : voir suivi.cocher_present_atteste.
+    try:
+        suivi.cocher_present_atteste(ligne, S["code"])
+    except Exception:
+        pass
     try:
         journal.ecrire("Certificat envoyé" if cert else "Attestation envoyée",
                        (ligne["prenom"].strip() + " " + ligne["nom"].strip().upper()).strip(),

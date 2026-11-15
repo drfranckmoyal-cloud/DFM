@@ -96,6 +96,11 @@ for ligne in a_envoyer:
     # deux adresses, et un mail parti sous la mauvaise identite ne se rattrape pas.
     courrier.envoyer(message, __import__('sessions').organisme_de(CODE))
     suivi.ecrire(ligne["_numero"], "attestation_envoyee_le", suivi.aujourdhui(), CODE)
+    # Attestation envoyee, donc present : voir suivi.cocher_present_atteste.
+    try:
+        suivi.cocher_present_atteste(ligne, CODE)
+    except Exception:
+        pass
     try:
         qui = (ligne["prenom"] or "").strip() + " " + (ligne["nom"] or "").strip().upper()
         journal.ecrire("Attestation envoyée", qui.strip(),
