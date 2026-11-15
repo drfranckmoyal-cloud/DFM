@@ -1,11 +1,16 @@
 # -*- coding: utf-8 -*-
 """Les formations d'AVANT DFM — reprises le 15/11/2026.
 
-POURQUOI. De septembre 2025 a juin 2026, LBS FORMATION (Smileclub) a tenu cinq
-sessions hors de DFM : leurs inscrits vivaient dans des tableaux Numbers, leurs
-conventions, factures et attestations dans les dossiers « FM FORMATION ». Le
-premier bilan pedagogique et financier de LBS couvre pourtant tout son premier
-exercice (30/06/2025 - 31/12/2026) : sans ces sessions, il serait faux.
+POURQUOI. Avant DFM, LBS FORMATION (Smileclub) a tenu ses sessions hors de DFM :
+leurs inscrits vivaient dans des tableaux Numbers, leurs conventions, factures et
+attestations dans les dossiers « FM FORMATION ». Sans elles, le premier bilan
+pedagogique et financier de LBS serait faux.
+
+LE PERIMETRE EST L'ACTIVITE DE 2026 — decision de Franck, 15/11/2026 : les
+usures de janvier, la masterclass et les usures de juin. Les sessions de 2025
+(stratification d'octobre, usures de novembre) ne sont pas reprises ici, alors
+que le premier exercice de LBS commence le 30/06/2025 : si elles doivent figurer
+au bilan, c'est a ajouter a la main.
 
 D'OU VIENNENT LES DONNEES. Un rapprochement fait le 15/11/2026 entre les releves
 Banque Populaire du compte de LBS (septembre 2025 a octobre 2026) et, pour chaque
