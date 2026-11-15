@@ -154,7 +154,17 @@ def commun():
         # Les formations d'avant DFM : l'entree du menu n'apparait que pour
         # l'organisme qui en a (LBS / Smileclub).
         "nb_pre_dfm": _nb_pre_dfm(),
+        # Le volet comptable n'apparait que pour l'organisme qui a un
+        # rapprochement bancaire charge.
+        "compta_ok": _compta_ok(),
     }
+def _compta_ok():
+    try:
+        import comptabilite as _C
+        import profil as _pr
+        return bool(_C.donnees(_pr.actif()))
+    except Exception:
+        return False
 def _nb_pre_dfm():
     try:
         import pre_dfm as _P
@@ -10498,6 +10508,80 @@ def supprimer_compte():
 def deconnexion():
     _session.clear()
     return redirect("/connexion")
+
+
+# ---------------------------------------------------------------------------
+# LA COMPTABILITE — 15/11/2026. Voir comptabilite.py. Chaque encaissement avec
+# sa piece, chaque facture avec son reglement ; organisme actif seulement.
+# ---------------------------------------------------------------------------
+@app.route("/comptabilite")
+def page_comptabilite():
+    import collections as _co
+    import comptabilite as _C
+    import profil as _pr
+    org = _pr.actif()
+    d = _C.donnees(org)
+    enc = d.get("encaissements") or []
+    fac = d.get("factures") or []
+    ne = _co.Counter(e["statut"] for e in enc)
+    nf = _co.Counter(f["statut"] for f in fac)
+    return render_template("comptabilite.html", enc=enc, fac=fac, resume=_C.resume(org), nb_enc=ne, nb_fac=nf,
+                           filtres_enc=[[s, ne[s]] for s in ("Justifié",) + _C.A_TRAITER_ENC if ne[s]],
+                           filtres_fac=[[s, nf[s]] for s in ("Encaissée",) + _C.A_TRAITER_FAC if nf[s]],
+                           perimetre=d.get("perimetre") or "", releves=d.get("releves_jusquau") or "",
+                           stripe=d.get("stripe") or {})
+
+
+@app.route("/comptabilite/piece")
+def comptabilite_piece():
+    from flask import send_file, abort
+    import comptabilite as _C
+    import profil as _pr
+    p = _C.chemin_piece(_pr.actif(), request.args.get("chemin") or "")
+    if not p:
+        abort(404)
+    return send_file(p, mimetype="application/pdf", download_name=os.path.basename(p))
+
+
+def _cp_csv(lignes, nom):
+    import csv as _csv
+    import io as _io
+    from flask import Response
+    tampon = _io.StringIO()
+    plume = _csv.writer(tampon, delimiter=";", quoting=_csv.QUOTE_MINIMAL)
+    for l in lignes:
+        plume.writerow(l)
+    return Response("\ufeff" + tampon.getvalue(), mimetype="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": "attachment; filename=%s" % nom})
+
+
+@app.route("/comptabilite/encaissements.csv")
+def comptabilite_enc_csv():
+    import comptabilite as _C
+    import profil as _pr
+    return _cp_csv(_C.csv_encaissements(_pr.actif()), "encaissements.csv")
+
+
+@app.route("/comptabilite/factures.csv")
+def comptabilite_fac_csv():
+    import comptabilite as _C
+    import profil as _pr
+    return _cp_csv(_C.csv_factures(_pr.actif()), "factures.csv")
+
+
+@app.route("/comptabilite/dossier.zip")
+def comptabilite_zip():
+    from flask import Response
+    import comptabilite as _C
+    import profil as _pr
+    org = _pr.actif()
+    nom = "dossier-comptable-%s-%s.zip" % (org, date.today().isoformat())
+    try:
+        journal.ecrire("Dossier comptable exporté", "", "Encaissements, factures et pièces justificatives (%s)" % org)
+    except Exception:
+        pass
+    return Response(_C.dossier_zip(org), mimetype="application/zip",
+                    headers={"Content-Disposition": "attachment; filename=%s" % nom})
 
 
 # ---------------------------------------------------------------------------

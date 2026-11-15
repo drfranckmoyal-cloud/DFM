@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block titre %}Comptabilité{% endblock %}
+{% block entete %}Comptabilité{% endblock %}
+{% block sous_entete %}{% endblock %}
+{% block actions %}{% endblock %}
+{% block corps %}
+<link rel="stylesheet" href="{{ statique('a-plus.css') }}">
+<style>
+.cp-pill{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font:600 11px Inter,sans-serif;white-space:nowrap}
+.st-ok{background:#ddf4e7;color:#0f6e56}.st-ko{background:#fbd9d9;color:#a12a2a}.st-at{background:#fde9c8;color:#8a4d00}
+.st-gr{background:var(--bg);color:var(--muted)}.st-bl{background:#e3eaff;color:#2448b8}.st-vi{background:#ece6ff;color:#5b3fc4}
+html[data-sombre] .st-ok{background:#0f2e25;color:#8fe0c2}html[data-sombre] .st-ko{background:#3e1717;color:#ff9b9b}
+html[data-sombre] .st-at{background:#3d2c10;color:#f5c87a}html[data-sombre] .st-bl{background:#1d2b55;color:#a9c0ff}
+.cp-m{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;font-weight:600}
+.cp-sm{display:block;font-size:11px;color:var(--muted);margin-top:2px;line-height:1.45}
+.cp-num{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:7px;background:#e3eaff;color:#2448b8;
+  font:600 11.5px ui-monospace,Menlo,monospace;text-decoration:none;white-space:nowrap;margin:1px 0}
+.cp-num:hover{background:#d3defd}
+.cp-num.vide{background:var(--bg);color:var(--muted)}
+html[data-sombre] .cp-num{background:#1d2b55;color:#a9c0ff}
+.cp-cache{display:none}
+.cp-note{font-size:12px;color:var(--muted);line-height:1.6;padding:12px 18px}
+.cp-onglets{display:flex;gap:8px;margin:0 0 12px}
+</style>
+
+{% if not enc and not fac %}
+<header class="ap-hero"><div class="ap-haut"><div class="ap-ident">
+  <h1 class="ap-titre">Comptabilité</h1>
+  <p class="ap-intro">Aucun rapprochement bancaire n'est encore chargé pour cet organisme.</p></div></div></header>
+{% else %}
+{% set R = resume %}
+<header class="ap-hero">
+  <div class="ap-haut">
+    <div class="ap-ident">
+      <div class="ap-tags"><span class="ap-tag">{{ perimetre }}</span><span class="ap-tag">Relevés jusqu'au {{ releves[8:10] }}/{{ releves[5:7] }}/{{ releves[:4] }}</span></div>
+      <h1 class="ap-titre">Encaissements et pièces</h1>
+      <p class="ap-intro">Chaque somme reçue avec la facture qui la justifie, chaque facture avec le règlement qui la solde.</p>
+    </div>
+    <div class="ap-actions">
+      <a class="btn ap-btn-verre" href="/comptabilite/dossier.zip" title="Les deux tableaux et toutes les factures disponibles, rangees par mois"><i class="ti ti-download"></i>Dossier pour l'expert-comptable</a>
+      <a class="btn ap-btn-verre" href="/comptabilite/encaissements.csv"><i class="ti ti-file-spreadsheet"></i>Encaissements</a>
+      <a class="btn ap-btn-verre" href="/comptabilite/factures.csv"><i class="ti ti-file-spreadsheet"></i>Factures</a>
+    </div>
+  </div>
+  <div class="ap-score">
+    <div class="ap-s" style="--pt:#4f7ef8"><div class="ap-s-l">Encaissé</div><div class="ap-gros">{{ "{:,}".format(R.total_enc|round|int).replace(",", " ") }} €</div><div class="ap-sous">{{ R.nb_enc }} entrées sur le compte</div></div>
+    <div class="ap-s" style="--pt:#2fc28b"><div class="ap-s-l">Justifié par une facture</div><div class="ap-gros">{{ "{:,}".format(R.total_just|round|int).replace(",", " ") }} €</div><div class="ap-sous">{{ R.nb_just }} encaissements, facture du même montant</div></div>
+    <div class="ap-s" style="--pt:#7c5bf7"><div class="ap-s-l">Facturé</div><div class="ap-gros">{{ "{:,}".format(R.total_fac|round|int).replace(",", " ") }} €</div><div class="ap-sous">{{ R.nb_fac }} factures</div></div>
+    <div class="ap-s" style="--pt:#ffb547"><div class="ap-s-l">Factures encaissées</div><div class="ap-gros">{{ "{:,}".format(R.fac_enc|round|int).replace(",", " ") }} €</div><div class="ap-sous">rapprochées d'un virement</div></div>
+  </div>
+</header>
+
+<div class="ap-afaire" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
+  {% set n_sans = (nb_enc['Sans facture'] or 0) + (nb_enc['Non rattaché'] or 0) %}
+  <div class="ap-af ap-af-rouge"><b>{{ n_sans }}</b><div>
+    <span class="ap-af-t">encaissements sans facture</span>
+    <span class="ap-af-s">Une somme reçue doit avoir sa facture : à émettre, ou à retrouver.</span>
+    <button type="button" class="btn ap-btn-noir" onclick="cpVoir('enc','Sans facture|Non rattaché')">Voir</button></div></div>
+  <div class="ap-af ap-af-orange"><b>{{ nb_fac['Payée selon DFM, virement non retrouvé'] or 0 }}</b><div>
+    <span class="ap-af-t">factures « payées » sans virement retrouvé</span>
+    <span class="ap-af-s">DFM note un virement que les relevés ne montrent pas : souvent un paiement par carte noté « Virement ».</span>
+    <button type="button" class="btn ap-btn-noir" onclick="cpVoir('fac','Payée selon DFM, virement non retrouvé')">Voir</button></div></div>
+  <div class="ap-af ap-af-violet"><b>{{ nb_enc['Versement Stripe — relevé à joindre'] or 0 }}</b><div>
+    <span class="ap-af-t">versements Stripe à détailler</span>
+    <span class="ap-af-s">Chaque versement regroupe plusieurs paiements par carte, moins les frais : le relevé Stripe en est la pièce.</span>
+    <button type="button" class="btn ap-btn-noir" onclick="cpVoir('enc','Versement Stripe — relevé à joindre')">Voir</button></div></div>
+  <div class="ap-af ap-af-bleu"><b>{{ (nb_fac["Facture d'essai"] or 0) + (nb_fac['Inscription annulée'] or 0) }}</b><div>
+    <span class="ap-af-t">factures à annuler par un avoir</span>
+    <span class="ap-af-s">Factures d'essai émises sur de vrais numéros, inscriptions annulées.</span>
+    <button type="button" class="btn ap-btn-noir" onclick="cpVoir('fac',&quot;Facture d'essai|Inscription annulée&quot;)">Voir</button></div></div>
+</div>
+
+<div class="ap-outils">
+  <div class="ap-pilules" id="cp_ong">
+    <button class="on" data-o="enc" onclick="cpOnglet('enc')">Encaissements ({{ enc|length }})</button>
+    <button data-o="fac" onclick="cpOnglet('fac')">Factures ({{ fac|length }})</button>
+  </div>
+  <div class="ap-pilules" id="cp_fil"></div>
+  <div class="ap-recherche"><i class="ti ti-search" style="font-size:14px;color:var(--muted)"></i><input type="text" id="cp_q" placeholder="Rechercher un nom, un numéro…" oninput="cpAppliquer()"></div>
+</div>
+
+<div class="table-wrap" id="t_enc"><div class="table-scroll">
+<table class="ap-table" style="min-width:1050px">
+  <thead><tr><th style="width:92px">Date</th><th style="width:110px;text-align:right">Montant</th><th>Payeur</th><th style="width:250px">Rattaché à</th><th style="width:190px">Pièce</th><th style="width:220px">Statut</th></tr></thead>
+  <tbody>
+  {% for e in enc %}
+  {% set cls = 'st-ok' if e.statut == 'Justifié' else ('st-ko' if e.statut in ('Sans facture', 'Non rattaché') else ('st-at' if 'différent' in e.statut else ('st-vi' if 'Stripe' in e.statut else 'st-gr'))) %}
+  <tr data-statut="{{ e.statut }}" data-q="{{ (e.payeur ~ ' ' ~ (e.rattachement.nom if e.rattachement else '') ~ ' ' ~ (e.pieces|map(attribute='numero')|join(' ')))|lower }}">
+    <td style="font-size:12px">{{ e.date[8:10] }}/{{ e.date[5:7] }}/{{ e.date[:4] }}<span class="cp-sm">{{ e.id }}</span></td>
+    <td class="cp-m">{{ "{:,.2f}".format(e.montant).replace(",", " ").replace(".", ",") }} €</td>
+    <td style="font-size:12px">{{ e.payeur }}<span class="cp-sm">{{ e.libelle[:90] }}</span></td>
+    <td style="font-size:12px">{% if e.rattachement %}<b>{{ e.rattachement.nom }}</b><span class="cp-sm">{{ e.rattachement.session_libelle }}{{ ' · avant DFM' if e.rattachement.genre == 'pre' }}</span>{% else %}<span style="color:var(--muted)">—</span>{% endif %}</td>
+    <td>{% for p in e.pieces %}{% if p.chemin %}<a class="cp-num" href="/comptabilite/piece?chemin={{ p.chemin|urlencode }}" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i>{{ p.numero }}</a>{% else %}<span class="cp-num vide">{{ p.numero }}</span>{% endif %}<span class="cp-sm">{{ "{:,.0f}".format(p.montant).replace(",", " ") }} € · {{ p.origine }}</span>{% else %}<span style="color:var(--muted)">—</span>{% endfor %}</td>
+    <td><span class="cp-pill {{ cls }}">{{ e.statut }}</span>{% if e.ecart %}<span class="cp-sm">{{ e.ecart }}</span>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+
+<div class="table-wrap cp-cache" id="t_fac"><div class="table-scroll">
+<table class="ap-table" style="min-width:1050px">
+  <thead><tr><th style="width:140px">Facture</th><th style="width:92px">Date</th><th>Client</th><th style="width:220px">Session</th><th style="width:100px;text-align:right">Montant</th><th style="width:100px;text-align:right">Encaissé</th><th style="width:260px">Statut</th></tr></thead>
+  <tbody>
+  {% for f in fac %}
+  {% set cls = 'st-ok' if f.statut == 'Encaissée' else ('st-at' if f.statut in ('Payée selon DFM, virement non retrouvé', 'Encaissée — montant différent') else ('st-vi' if f.statut == 'Payée par carte' else ('st-bl' if f.statut in ("Facture d'essai", 'Inscription annulée') else 'st-ko'))) %}
+  <tr data-statut="{{ f.statut }}" data-q="{{ (f.numero ~ ' ' ~ f.client)|lower }}">
+    <td>{% if f.chemin %}<a class="cp-num" href="/comptabilite/piece?chemin={{ f.chemin|urlencode }}" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i>{{ f.numero }}</a>{% else %}<span class="cp-num vide" title="PDF introuvable">{{ f.numero }}</span>{% endif %}<span class="cp-sm">{{ f.origine }}</span></td>
+    <td style="font-size:12px">{{ f.date[8:10] }}/{{ f.date[5:7] }}/{{ f.date[:4] }}</td>
+    <td style="font-size:12.5px"><b>{{ f.client }}</b></td>
+    <td style="font-size:12px">{{ f.session_libelle }}</td>
+    <td class="cp-m">{{ "{:,.2f}".format(f.montant).replace(",", " ").replace(".", ",") }} €</td>
+    <td class="cp-m" style="{{ 'color:var(--muted)' if not f.encaisse }}">{{ ("{:,.2f}".format(f.encaisse).replace(",", " ").replace(".", ",") ~ " €") if f.encaisse else "—" }}</td>
+    <td><span class="cp-pill {{ cls }}">{{ f.statut }}</span>{% if f.note %}<span class="cp-sm">{{ f.note }}</span>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+
+<div class="cp-note">{{ perimetre }}. Les virements arrivés après le {{ releves[8:10] }}/{{ releves[5:7] }}/{{ releves[:4] }} n'y figurent pas encore : ils viendront avec les relevés suivants. Stripe a versé {{ "{:,.2f}".format(stripe.total or 0).replace(",", " ").replace(".", ",") }} € en {{ stripe.versements or 0 }} virements ; chaque versement regroupe plusieurs paiements par carte, moins les frais.</div>
+
+<script>
+var CP_O = 'enc', CP_F = '';
+var FILTRES = {enc: {{ filtres_enc|tojson }}, fac: {{ filtres_fac|tojson }}};
+function cpPilules(){
+  var h = '<button class="' + (CP_F === '' ? 'on' : '') + '" onclick="cpFiltre(\'\')">Tous</button>';
+  FILTRES[CP_O].forEach(function(x){ h += '<button class="' + (CP_F === x[0] ? 'on' : '') + '" onclick="cpFiltre(' + JSON.stringify(x[0]).replace(/"/g, '&quot;') + ')">' + x[0] + ' (' + x[1] + ')</button>'; });
+  document.getElementById('cp_fil').innerHTML = h;
+}
+function cpOnglet(o){ CP_O = o; CP_F = ''; document.querySelectorAll('#cp_ong button').forEach(function(b){ b.classList.toggle('on', b.dataset.o === o); });
+  document.getElementById('t_enc').classList.toggle('cp-cache', o !== 'enc'); document.getElementById('t_fac').classList.toggle('cp-cache', o !== 'fac');
+  cpPilules(); cpAppliquer(); }
+function cpFiltre(f){ CP_F = f; cpPilules(); cpAppliquer(); }
+function cpVoir(o, f){ cpOnglet(o); CP_F = f; cpPilules(); cpAppliquer(); document.getElementById('cp_ong').scrollIntoView({behavior:'smooth'}); }
+function cpAppliquer(){
+  var q = (document.getElementById('cp_q').value || '').toLowerCase().trim();
+  var voulus = CP_F ? CP_F.split('|') : null;
+  document.querySelectorAll('#t_' + CP_O + ' tbody tr').forEach(function(tr){
+    var ok = (!voulus || voulus.indexOf(tr.dataset.statut) >= 0) && (!q || tr.dataset.q.indexOf(q) >= 0);
+    tr.classList.toggle('cp-cache', !ok);
+  });
+}
+cpPilules();
+</script>
+{% endif %}
+{% endblock %}

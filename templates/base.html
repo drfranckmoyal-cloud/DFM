@@ -56,6 +56,8 @@
   <a class="nav-item {% if request.path.startswith('/templates') %}active{% endif %}" href="/templates" title="Bibliotheque de modeles de questionnaires et de mails"><i class="ti ti-file-pencil"></i>Modèles</a>
   <a class="nav-item {% if request.path.startswith('/reclamations') %}active{% endif %}" href="/reclamations" title="Registre des reclamations et de leur traitement"><i class="ti ti-message-report"></i>Réclamations</a>
   <a class="nav-item {% if request.path.startswith('/bilan-pedagogique') %}active{% endif %}" href="/bilan-pedagogique" title="{{ bpf_resume.pastille.titre if bpf_resume and bpf_resume.pastille else 'Le bilan pedagogique et financier annuel' }}"><i class="ti ti-calendar-stats"></i>Bilan pédagogique{% if bpf_resume and bpf_resume.pastille %}<span class="bpf-j {{ bpf_resume.pastille.classe }}">{{ bpf_resume.pastille.texte }}</span>{% endif %}</a>
+  {% if compta_ok %}<div class="nav-section">Comptabilité</div>
+  <a class="nav-item {% if request.path.startswith('/comptabilite') %}active{% endif %}" href="/comptabilite" title="Chaque encaissement avec sa piece, chaque facture avec son reglement"><i class="ti ti-file-euro"></i>Encaissements et pièces</a>{% endif %}
   <div class="nav-section">Qualiopi</div>
   <a class="nav-item {% if request.path.startswith('/audit') %}active{% endif %}" href="/audit" title="Le referentiel Qualiopi, critere par critere, avec vos preuves"><i class="ti ti-checkup-list"></i>Audit</a>
   <a class="nav-item {% if request.path == '/veilles' %}active{% endif %}" href="/veilles" title="Critere 6 : les veilles et votre formation continue"><i class="ti ti-radar"></i>Veilles</a>

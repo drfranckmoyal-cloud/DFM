@@ -2259,6 +2259,59 @@ def tests_pre_dfm():
         P.FICHIER = garde
 
 
+def tests_comptabilite():
+    """LE VOLET COMPTABLE — 15/11/2026. Encaissements et pieces ; les pieces ne
+    sortent jamais des documents de l'organisme."""
+    print("\n  LA COMPTABILITE")
+    import zipfile as _zf
+    import comptabilite as C
+    racine = tempfile.mkdtemp(prefix="dfm-cp-")
+    os.makedirs(os.path.join(racine, "documents", "mon-organisme", "s", "facture"))
+    os.makedirs(os.path.join(racine, "documents", "dsf"))
+    io.open(os.path.join(racine, "documents", "mon-organisme", "s", "facture", "F1.pdf"), "wb").write(b"%PDF-1.4 essai")
+    io.open(os.path.join(racine, "documents", "dsf", "autre.pdf"), "wb").write(b"%PDF-1.4 dsf")
+    io.open(os.path.join(racine, "secret.pdf"), "wb").write(b"%PDF-1.4 hors")
+    io.open(os.path.join(racine, "compta.json"), "w", encoding="utf-8").write(json.dumps({
+        "organisme": "mon-organisme", "perimetre": "Activité 2026", "releves_jusquau": "2026-10-30",
+        "encaissements": [{"id": "B1", "date": "2026-05-17", "montant": 940.0, "payeur": "X", "nature": "formation",
+                           "rattachement": {"genre": "pre", "session": "s", "nom": "X", "session_libelle": "S"},
+                           "pieces": [{"numero": "F1", "date": "2026-05-17", "montant": 940.0,
+                                       "chemin": "documents/mon-organisme/s/facture/F1.pdf", "origine": "DFM"}],
+                           "statut": "Justifié", "ecart": "", "libelle": "VIR X"},
+                          {"id": "B2", "date": "2026-06-01", "montant": 500.0, "payeur": "Y", "nature": "formation",
+                           "rattachement": None, "pieces": [], "statut": "Non rattaché", "ecart": "", "libelle": "VIR Y"}],
+        "factures": [{"numero": "F1", "date": "2026-05-17", "client": "X", "session": "s", "session_libelle": "S", "montant": 940.0,
+                      "chemin": "documents/mon-organisme/s/facture/F1.pdf", "origine": "DFM", "encaissements": ["B1"],
+                      "encaisse": 940.0, "statut": "Encaissée", "note": ""}],
+        "stripe": {"total": 0, "versements": 0}}))
+    garde = (C.DOSSIER, C.FICHIER)
+    try:
+        C.DOSSIER, C.FICHIER = racine, os.path.join(racine, "compta.json")
+        verifier("un autre organisme ne voit rien", C.donnees("dsf") == {})
+        verifier("la piece de l'organisme se sert", C.chemin_piece("mon-organisme", "documents/mon-organisme/s/facture/F1.pdf"))
+        verifier("pas de sortie par « .. »", C.chemin_piece("mon-organisme", "documents/mon-organisme/../../secret.pdf") is None)
+        verifier("pas de piece d'un autre organisme", C.chemin_piece("mon-organisme", "documents/dsf/autre.pdf") is None)
+        r = C.resume("mon-organisme")
+        verifier("le resume", r["total_enc"] == 1440.0 and r["total_just"] == 940.0 and r["fac_enc"] == 940.0, r)
+        z = _zf.ZipFile(io.BytesIO(C.dossier_zip("mon-organisme")))
+        verifier("le dossier ZIP : deux tableaux et la facture", sorted(z.namelist()) ==
+                 ["encaissements.csv", "factures.csv", "factures/2026-05/F1.pdf"], z.namelist())
+        import app as A
+        import acces
+        garde_a = acces.protege
+        try:
+            acces.protege = lambda *x, **k: False
+            cl = A.app.test_client()
+            html = cl.get("/comptabilite").get_data(as_text=True)
+            verifier("la page s'affiche", "Encaissements et pièces" in html and "F1" in html)
+            verifier("la piece se telecharge", cl.get("/comptabilite/piece?chemin=documents/mon-organisme/s/facture/F1.pdf").data.startswith(b"%PDF"))
+            verifier("une adresse forgee est refusee", cl.get("/comptabilite/piece?chemin=documents/mon-organisme/../../secret.pdf").status_code == 404)
+        finally:
+            acces.protege = garde_a
+    finally:
+        C.DOSSIER, C.FICHIER = garde
+
+
 def tests_accuse_selon_situation():
     """L'ACCUSE ANNONCE LA BONNE SUITE — 08/11/2026 (Guillaume DUCHENE, liste
     d'attente, a qui l'on avait promis une convention)."""
@@ -3165,7 +3218,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes, tests_date_limite_a_l_ecran, tests_rappel_reglement_cycle, tests_bilan_pedagogique, tests_reglements_sans_demandes, tests_mentions_et_presences, tests_sauvegarde_externe, tests_pre_dfm,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes, tests_date_limite_a_l_ecran, tests_rappel_reglement_cycle, tests_bilan_pedagogique, tests_reglements_sans_demandes, tests_mentions_et_presences, tests_sauvegarde_externe, tests_pre_dfm, tests_comptabilite,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:
