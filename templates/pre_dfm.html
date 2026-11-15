@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block titre %}Formations pré-DFM{% endblock %}
+{% block entete %}Formations{% endblock %}
+{% block sous_entete %}{% endblock %}
+{% block actions %}{% endblock %}
+{% block corps %}
+<link rel="stylesheet" href="{{ statique('a-plus.css') }}">
+<style>
+.pd-sess{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:16px}
+.pd-s{background:var(--carte);border:1px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer}
+.pd-s:hover{border-color:var(--accent)}
+.pd-s.on{border-color:var(--accent);box-shadow:0 0 0 2px rgba(79,126,248,.18)}
+.pd-st{font:600 13.5px Inter,sans-serif}
+.pd-sd{font-size:11.5px;color:var(--muted);margin:2px 0 9px}
+.pd-sl{display:flex;justify-content:space-between;font-size:12px;padding:2px 0}
+.pd-sl b{font-variant-numeric:tabular-nums}
+.pd-pill{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font:600 11px Inter,sans-serif;white-space:nowrap}
+.st-ok{background:#ddf4e7;color:#0f6e56}.st-ko{background:#fbd9d9;color:#a12a2a}.st-at{background:#fde9c8;color:#8a4d00}
+.st-gr{background:var(--bg);color:var(--muted)}.st-bl{background:#e3eaff;color:#2448b8}
+html[data-sombre] .st-ok{background:#0f2e25;color:#8fe0c2}html[data-sombre] .st-ko{background:#3e1717;color:#ff9b9b}
+html[data-sombre] .st-at{background:#3d2c10;color:#f5c87a}html[data-sombre] .st-bl{background:#1d2b55;color:#a9c0ff}
+.pd-e{font-size:11.5px;color:var(--muted);line-height:1.5}
+.pd-e li{margin:0 0 2px 14px}
+.pd-m{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.pd-sm{display:block;font-size:11px;color:var(--muted);margin-top:2px;line-height:1.45}
+.pd-cache{display:none}
+.pd-note{font-size:12px;color:var(--muted);line-height:1.6;padding:12px 18px}
+</style>
+
+{% if not sessions %}
+<header class="ap-hero"><div class="ap-haut"><div class="ap-ident">
+  <h1 class="ap-titre">Formations pré-DFM</h1>
+  <p class="ap-intro">Aucune formation d'avant DFM n'est reprise pour cet organisme.</p></div></div></header>
+{% else %}
+{% set T = namespace(listes=0, presents=0, payants=0, fac=0, enc=0, ecarts=0) %}
+{% for c, s in sessions.items() %}{% set T.listes = T.listes + s.nb_listes %}{% set T.presents = T.presents + s.nb_presents %}{% set T.payants = T.payants + s.nb_payants %}{% set T.fac = T.fac + s.facture %}{% set T.enc = T.enc + s.encaisse %}{% set T.ecarts = T.ecarts + s.nb_ecarts %}{% endfor %}
+<header class="ap-hero">
+  <div class="ap-haut">
+    <div class="ap-ident">
+      <div class="ap-tags"><span class="ap-tag">Archive · lecture seule</span><span class="ap-tag">Rapprochement du {{ genere_le[8:10] }}/{{ genere_le[5:7] }}/{{ genere_le[:4] }}</span></div>
+      <h1 class="ap-titre">Formations pré-DFM</h1>
+      <p class="ap-intro">Les {{ sessions|length }} sessions tenues avant DFM, reprises des dossiers « FM FORMATION » et rapprochées des relevés bancaires du {{ banque[0][8:10] }}/{{ banque[0][5:7] }}/{{ banque[0][:4] }} au {{ banque[1][8:10] }}/{{ banque[1][5:7] }}/{{ banque[1][:4] }}.</p>
+    </div>
+    <div class="ap-actions">
+      <a class="btn ap-btn-verre" href="/pre-dfm/export.csv" title="Les participants et leurs ecarts, au format CSV"><i class="ti ti-file-spreadsheet"></i>Exporter</a>
+      <a class="btn ap-btn-verre" href="/bilan-pedagogique" title="Ces sessions comptent dans le premier bilan de LBS"><i class="ti ti-calendar-stats"></i>Bilan pédagogique</a>
+    </div>
+  </div>
+  <div class="ap-score">
+    <div class="ap-s" style="--pt:#4f7ef8"><div class="ap-s-l">Présents prouvés</div><div class="ap-gros">{{ T.presents }}</div><div class="ap-sous">attestation archivée · {{ T.listes }} personnes sur les listes</div></div>
+    <div class="ap-s" style="--pt:#7c5bf7"><div class="ap-s-l">Facturé</div><div class="ap-gros">{{ "{:,}".format(T.fac|round|int).replace(",", " ") }} €</div><div class="ap-sous">factures retrouvées dans les dossiers</div></div>
+    <div class="ap-s" style="--pt:#2fc28b"><div class="ap-s-l">Encaissé rattaché</div><div class="ap-gros">{{ "{:,}".format(T.enc|round|int).replace(",", " ") }} €</div><div class="ap-sous">{{ T.payants }} personnes, virements retrouvés</div></div>
+    <div class="ap-s" style="--pt:#ff6b6b"><div class="ap-s-l">Cas à vérifier</div><div class="ap-gros">{{ nb_verifier }}</div><div class="ap-sous">sans justificatif complet</div></div>
+  </div>
+</header>
+
+<div class="ap-afaire" style="grid-template-columns:repeat(auto-fit,minmax(250px,1fr))">
+  <div class="ap-af ap-af-rouge"><b>{{ nb_statut['Facturé, paiement non retrouvé'] or 0 }}</b><div>
+    <span class="ap-af-t">factures « acquittées » sans virement</span>
+    <span class="ap-af-s">Règlement antérieur à l'ouverture du compte (septembre 2025), par chèque, ou par un tiers ? À retrouver.</span>
+    <button type="button" class="btn ap-btn-noir" onclick="pdFiltre('Facturé, paiement non retrouvé')">Voir</button></div></div>
+  <div class="ap-af ap-af-orange"><b>{{ (nb_statut['Écart de montant'] or 0) + (nb_statut['Payé sans facture'] or 0) }}</b><div>
+    <span class="ap-af-t">écarts de montant ou paiements sans facture</span>
+    <span class="ap-af-s">Prix convenu, réduction, règlement partagé, ou facture jamais émise.</span>
+    <button type="button" class="btn ap-btn-noir" onclick="pdFiltre('ecart')">Voir</button></div></div>
+  <div class="ap-af ap-af-violet"><b>{{ nb_statut['Présent(e) sans facture ni paiement'] or 0 }}</b><div>
+    <span class="ap-af-t">présents sans facture ni paiement</span>
+    <span class="ap-af-s">Invitation non notée, ou règlement par un tiers (« OK (blendi) »).</span>
+    <button type="button" class="btn ap-btn-noir" onclick="pdFiltre('Présent(e) sans facture ni paiement')">Voir</button></div></div>
+  {% if non_rattaches %}
+  <div class="ap-af ap-af-bleu"><b>{{ non_rattaches|length }}</b><div>
+    <span class="ap-af-t">entrées d'argent à identifier</span>
+    <span class="ap-af-s">{% for c in non_rattaches %}{{ c.payeur }} ({{ "{:,.0f}".format(c.montant).replace(",", " ") }} €){{ ', ' if not loop.last }}{% endfor %}</span>
+    <a class="btn ap-btn-noir" href="#banque">Voir</a></div></div>
+  {% endif %}
+</div>
+
+<div class="pd-sess">
+  {% for c, s in sessions.items() %}
+  <div class="pd-s" id="{{ c }}" data-code="{{ c }}" onclick="pdSession(this)">
+    <div class="pd-st">{{ s.formation }}</div>
+    <div class="pd-sd">{{ dates[c] }} · {{ s.heures }} h</div>
+    <div class="pd-sl"><span>Présents prouvés</span><b>{{ s.nb_presents if s.presence_archivee else 'non archivé' }}</b></div>
+    <div class="pd-sl"><span>Facturé</span><b>{{ "{:,}".format(s.facture|round|int).replace(",", " ") }} €</b></div>
+    <div class="pd-sl"><span>Encaissé</span><b>{{ "{:,}".format(s.encaisse|round|int).replace(",", " ") }} €</b></div>
+    <div class="pd-sl"><span>À vérifier</span><b style="{{ 'color:var(--danger)' if verif_session[c] }}">{{ verif_session[c] or 0 }}</b></div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="ap-outils">
+  <div class="ap-pilules" id="pd_pil">
+    <button class="on" data-f="" onclick="pdFiltre('')">Tous ({{ personnes|length }})</button>
+    <button data-f="verifier" onclick="pdFiltre('verifier')">À vérifier ({{ nb_verifier }})</button>
+    <button data-f="Rapproché" onclick="pdFiltre('Rapproché')">Rapprochés ({{ nb_statut['Rapproché'] or 0 }})</button>
+    <button data-f="Invité(e)" onclick="pdFiltre('Invité(e)')">Invités ({{ nb_statut['Invité(e)'] or 0 }})</button>
+    <button data-f="prospect" onclick="pdFiltre('prospect')">Sans suite</button>
+  </div>
+  <div class="ap-recherche"><i class="ti ti-search" style="font-size:14px;color:var(--muted)"></i><input type="text" id="pd_q" placeholder="Rechercher un praticien…" oninput="pdAppliquer()"></div>
+</div>
+<div class="table-wrap"><div class="table-scroll">
+<table class="ap-table" style="min-width:1050px">
+  <thead><tr><th style="width:150px">Session</th><th>Praticien</th><th style="width:190px">Statut</th><th style="width:170px">Facture</th><th style="width:210px">Virement</th><th style="width:80px">Attestation</th><th style="width:280px">Écarts</th></tr></thead>
+  <tbody id="pd_corps">
+  {% for p in personnes %}
+  {% set cls = 'st-ok' if p.statut == 'Rapproché' else ('st-ko' if p.statut in ('Facturé, paiement non retrouvé', 'Présent(e) sans facture ni paiement') else ('st-at' if p.statut in ('Écart de montant', 'Payé sans facture') else ('st-bl' if p.statut == 'Invité(e)' else 'st-gr'))) %}
+  <tr data-session="{{ p.session }}" data-statut="{{ p.statut }}" data-q="{{ (p.nom ~ ' ' ~ (p.mail or ''))|lower }}">
+    <td style="font-size:12px">{{ sessions[p.session].formation }}<span class="pd-sm">{{ dates[p.session] }}</span></td>
+    <td><b style="font-size:12.5px">{{ p.nom }}</b><span class="pd-sm">{{ p.mail }}</span></td>
+    <td><span class="pd-pill {{ cls }}">{{ p.statut }}</span></td>
+    <td style="font-size:12px">{% for f in p.factures %}<span style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px">{{ f.numero or 'sans n°' }}</span> · {{ "{:,.0f}".format(f.total or 0).replace(",", " ") }} €<span class="pd-sm">{{ f.date }}{% if f.type == 'client' %} · à {{ f.adressee_a }}{% endif %}</span>{% else %}<span style="color:var(--muted)">—</span>{% endfor %}</td>
+    <td style="font-size:12px">{% for x in p.paiements %}{{ x.date[8:10] }}/{{ x.date[5:7] }}/{{ x.date[:4] }} · <b>{{ "{:,.2f}".format(x.montant).replace(",", " ").replace(".", ",") }} €</b><span class="pd-sm">{{ x.payeur }}</span>{% endfor %}{% for x in p.remboursements %}<span class="pd-sm" style="color:var(--danger)">remboursé {{ "{:,.0f}".format(-x.montant).replace(",", " ") }} € le {{ x.date[8:10] }}/{{ x.date[5:7] }}/{{ x.date[:4] }}</span>{% endfor %}{% if not p.paiements and not p.remboursements %}<span style="color:var(--muted)">—</span>{% endif %}</td>
+    <td style="font-size:12px">{{ 'oui' if p.present else ('non archivée' if not sessions[p.session].presence_archivee else '—') }}</td>
+    <td>{% if p.ecarts %}<ul class="pd-e">{% for e in p.ecarts %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+
+<section class="ap-carte" id="banque" style="margin-top:16px">
+  <div class="ap-carte-t"><span>Entrées d'argent hors participants d'avant DFM</span></div>
+  <div class="table-scroll">
+  <table class="ap-table" style="min-width:760px">
+    <thead><tr><th style="width:96px">Date</th><th style="width:120px;text-align:right">Montant</th><th>Payeur</th><th style="width:300px">Rattachement</th></tr></thead>
+    <tbody>
+    {% for c in autres_credits %}
+      <tr><td style="font-size:12px">{{ c.date[8:10] }}/{{ c.date[5:7] }}/{{ c.date[:4] }}</td><td class="pd-m">{{ "{:,.2f}".format(c.montant).replace(",", " ").replace(".", ",") }} €</td>
+        <td style="font-size:12px">{{ c.payeur }}<span class="pd-sm">{{ (c.libelle or '')[:110] }}</span></td>
+        <td style="font-size:12px">{{ c.rattache }}{% if c.note %}<span class="pd-sm">{{ c.note }}</span>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if stripe.versements %}<div class="pd-note">Stripe a versé {{ "{:,.2f}".format(stripe.total).replace(",", " ").replace(".", ",") }} € en {{ stripe.versements }} virements entre le {{ stripe.premier[8:10] }}/{{ stripe.premier[5:7] }} et le {{ stripe.dernier[8:10] }}/{{ stripe.dernier[5:7] }}/{{ stripe.dernier[:4] }} ; DFM note {{ stripe.dfm_paiements_carte }} paiements par carte ({{ "{:,.0f}".format(stripe.dfm_total).replace(",", " ") }} €). Le détail est à rapprocher depuis le tableau de bord Stripe.</div>{% endif %}
+</section>
+
+<section class="ap-carte" style="margin-top:16px">
+  <div class="ap-carte-t"><span>Anomalies des pièces</span></div>
+  <div class="pd-note">{% for a in anomalies %}<p style="margin:0 0 8px"><b>{{ a.type }}.</b> {{ a.detail }}</p>{% endfor %}
+  <p style="margin:0">Le classeur complet (synthèse, participants, points à vérifier, toutes les entrées bancaires) est sur le Mac : {{ classeur }}.</p></div>
+</section>
+
+<script>
+var PD_F = '', PD_S = '';
+var VERIF = {{ a_verifier|tojson }};
+function pdFiltre(f){ PD_F = f; document.querySelectorAll('#pd_pil button').forEach(function(b){ b.classList.toggle('on', b.dataset.f === f); }); pdAppliquer(); }
+function pdSession(el){ PD_S = (PD_S === el.dataset.code) ? '' : el.dataset.code;
+  document.querySelectorAll('.pd-s').forEach(function(x){ x.classList.toggle('on', x.dataset.code === PD_S); }); pdAppliquer(); }
+function pdAppliquer(){
+  var q = (document.getElementById('pd_q').value || '').toLowerCase().trim();
+  document.querySelectorAll('#pd_corps tr').forEach(function(tr){
+    var st = tr.dataset.statut, ok = true;
+    if(PD_S && tr.dataset.session !== PD_S) ok = false;
+    if(PD_F === 'verifier' && VERIF.indexOf(st) < 0) ok = false;
+    else if(PD_F === 'ecart' && st !== 'Écart de montant' && st !== 'Payé sans facture') ok = false;
+    else if(PD_F === 'prospect' && st.indexOf('sans suite') < 0) ok = false;
+    else if(PD_F && ['verifier','ecart','prospect'].indexOf(PD_F) < 0 && st !== PD_F) ok = false;
+    if(q && tr.dataset.q.indexOf(q) < 0) ok = false;
+    tr.classList.toggle('pd-cache', !ok);
+  });
+}
+(function(){ var h = location.hash.replace('#',''); var el = h && document.getElementById(h); if(el && el.classList.contains('pd-s')) pdSession(el); })();
+</script>
+{% endif %}
+{% endblock %}

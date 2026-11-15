@@ -2007,7 +2007,7 @@ def tests_bilan_pedagogique():
                  c["stagiaires"] == 2, c["stagiaires"])
         verifier("heures-stagiaires : 7 h x 2", c["heures_stagiaires"] == 14.0, c["heures_stagiaires"])
         verifier("une facture comptee une fois, dans son exercice",
-                 c["produits"] == {"individuel": 975.0, "client": 0.0, "total": 975.0}, c["produits"])
+                 c["produits"] == {"individuel": 975.0, "client": 0.0, "sous_traitance": 0, "total": 975.0}, c["produits"])
         verifier("le formateur et ses heures", c["formateurs"] and c["formateurs"][0]["heures"] == 7.0, c["formateurs"])
         verifier("specialite par defaut : 331 Sante", c["specialite"] == B.SPECIALITE_DEFAUT)
         lignes = B.csv_lignes("essai-org", (D(2026, 1, 1), D(2026, 12, 31)), D(2027, 2, 1))
@@ -2185,6 +2185,78 @@ def tests_sauvegarde_externe():
         SE.CONFIG, SE.ETAT, SE._curl = garde[0], garde[1], garde[2]
         if garde[3] is not None:
             os.environ["DFM_PROXY"] = garde[3]
+
+
+def tests_pre_dfm():
+    """LES FORMATIONS D'AVANT DFM — 15/11/2026. Archive en lecture seule ; elle
+    nourrit le premier bilan de LBS, sans compter ce qui n'est pas prouve."""
+    print("\n  LES FORMATIONS PRE-DFM")
+    import datetime as _dt
+    import pre_dfm as P
+    import bpf as B
+    tmp = os.path.join(tempfile.mkdtemp(prefix="dfm-pd-"), "pre_dfm.json")
+    io.open(tmp, "w", encoding="utf-8").write(json.dumps({
+        "genere_le": "2026-11-15 22:00", "periode_banque": ["2025-09-04", "2026-10-30"],
+        "sessions": {
+            "strat-essai": {"titre": "Strat", "formation": "Stratification", "jours": ["2025-10-20"], "heures": 7,
+                            "organisme": "mon-organisme", "presence_archivee": True, "nb_listes": 3, "nb_presents": 2,
+                            "nb_payants": 1, "facture": 900, "encaisse": 450, "rembourse": 0, "nb_ecarts": 1},
+            "usures-essai": {"titre": "Usures", "formation": "Usures", "jours": ["2026-01-26", "2026-01-27"], "heures": 14,
+                             "organisme": "mon-organisme", "presence_archivee": False, "nb_listes": 1, "nb_presents": 0,
+                             "nb_payants": 1, "facture": 945, "encaisse": 945, "rembourse": 0, "nb_ecarts": 0},
+            "autre-org": {"titre": "X", "formation": "X", "jours": ["2026-02-02"], "heures": 7, "organisme": "dsf",
+                          "presence_archivee": True}},
+        "personnes": [
+            {"session": "strat-essai", "nom": "A", "statut": "Rapproché", "present": True, "facture_total": 450, "paye_total": 450,
+             "factures": [{"numero": "S-1", "date": "20/10/2025", "total": 450, "type": "individuel"}], "paiements": [], "ecarts": []},
+            {"session": "strat-essai", "nom": "B", "statut": "Facturé, paiement non retrouvé", "present": True, "facture_total": 450,
+             "paye_total": 0, "factures": [{"numero": "S-2", "date": "20/10/2025", "total": 450, "type": "individuel"}],
+             "paiements": [], "ecarts": ["x"]},
+            {"session": "strat-essai", "nom": "C", "statut": "Prospect sans suite", "present": False, "factures": [], "paiements": []},
+            {"session": "usures-essai", "nom": "D", "statut": "Rapproché", "present": False, "facture_total": 945, "paye_total": 945,
+             "factures": [{"numero": "U-1", "date": "05/01/2026", "total": 945, "type": "individuel"}], "paiements": [], "ecarts": []}],
+        "credits": [{"id": "B1", "date": "2025-12-16", "montant": 1680.0, "payeur": "UP CARE", "nature": "sous-traitance"}],
+        "anomalies": [], "stripe": {}}))
+    garde = P.FICHIER
+    try:
+        P.FICHIER = tmp
+        verifier("un organisme ne voit que ses sessions", list(P.sessions("mon-organisme")) == ["strat-essai", "usures-essai"]
+                 and list(P.sessions("dsf")) == ["autre-org"])
+        l, f, a, h = P.pour_bilan("mon-organisme", _dt.date(2025, 6, 30), _dt.date(2026, 12, 31))
+        verifier("les presents prouves seulement : 2 a la strat", l[0]["confirmes"] == 2 and l[0]["heures_stagiaires"] == 14.0, l[0])
+        verifier("janvier sans attestation : zero compte, un a confirmer", l[1]["confirmes"] == 0 and l[1]["a_confirmer"] == 1, l[1])
+        verifier("et une alerte le dit", any("aucune attestation" in x for x in a), a)
+        verifier("les trois factures de l'exercice", sorted(x["numero"] for x in f) == ["S-1", "S-2", "U-1"])
+        verifier("heures du formateur : 7 + 14", h == 21.0, h)
+        l2, f2, _, _ = P.pour_bilan("mon-organisme", _dt.date(2027, 1, 1), _dt.date(2027, 12, 31))
+        verifier("hors exercice : rien", not l2 and not f2)
+        import sessions as _s
+        import factures as _F
+        garde_s, garde_f = dict(_s.SESSIONS), _F.tout
+        try:
+            _s.SESSIONS.clear()
+            _F.tout = lambda: {}
+            c = B.chiffres("mon-organisme", (_dt.date(2025, 6, 30), _dt.date(2026, 12, 31)), _dt.date(2026, 11, 15))
+            verifier("la sous-traitance a sa ligne, et une alerte pour le cadre F-2",
+                     c["produits"]["sous_traitance"] == 1680.0 and any("Sous-traitance" in x for x in c["alertes"]), c["produits"])
+            verifier("le bilan les compte", c["stagiaires"] == 2 and c["produits"]["total"] == 1845.0 + 1680.0
+                     and any(s.get("pre_dfm") for s in c["sessions"]), (c["stagiaires"], c["produits"]))
+        finally:
+            _s.SESSIONS.update(garde_s)
+            _F.tout = garde_f
+        import app as A
+        import acces
+        garde_a = acces.protege
+        try:
+            acces.protege = lambda *x, **k: False
+            r = A.app.test_client().get("/pre-dfm")
+            html = r.get_data(as_text=True)
+            verifier("la page s'affiche", r.status_code == 200 and "Formations pré-DFM" in html and "Stratification" in html, r.status_code)
+            verifier("l'export se telecharge", "Statut" in A.app.test_client().get("/pre-dfm/export.csv").get_data(as_text=True))
+        finally:
+            acces.protege = garde_a
+    finally:
+        P.FICHIER = garde
 
 
 def tests_accuse_selon_situation():
@@ -3093,7 +3165,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes, tests_date_limite_a_l_ecran, tests_rappel_reglement_cycle, tests_bilan_pedagogique, tests_reglements_sans_demandes, tests_mentions_et_presences, tests_sauvegarde_externe,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes, tests_date_limite_a_l_ecran, tests_rappel_reglement_cycle, tests_bilan_pedagogique, tests_reglements_sans_demandes, tests_mentions_et_presences, tests_sauvegarde_externe, tests_pre_dfm,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:

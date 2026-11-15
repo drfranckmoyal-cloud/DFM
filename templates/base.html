@@ -43,6 +43,7 @@
   <div class="nav-section">Formations</div>
   <a class="nav-item {% if request.path.startswith('/session') %}active{% endif %}" href="/sessions"><i class="ti ti-calendar-event"></i>Sessions de formations<span class="compte">{{ nb_sessions }}</span></a>
   <a class="nav-item {% if request.path.startswith('/formation') %}active{% endif %}" href="/formations"><i class="ti ti-books"></i>Bibliothèque formations<span class="compte">{{ nb_formations }}</span></a>
+  {% if nb_pre_dfm %}<a class="nav-item {% if request.path.startswith('/pre-dfm') %}active{% endif %}" href="/pre-dfm" title="Les sessions tenues avant DFM, reprises des dossiers et rapprochees de la banque"><i class="ti ti-history"></i>Formations pré-DFM<span class="compte">{{ nb_pre_dfm }}</span></a>{% endif %}
   <div class="nav-section">Data clients</div>
   <a class="nav-item {% if request.path.startswith('/contacts') or request.path.startswith('/inscrits') or request.path.startswith('/apprenant') %}active{% endif %}" href="/contacts" title="Apprenants et prospects, une seule liste"><i class="ti ti-database"></i>Bases de données</a>
   <a class="nav-item {% if request.path.startswith('/client') %}active{% endif %}" href="/clients" title="Les structures qui achetent une formation pour leurs employes"><i class="ti ti-address-book"></i>Base clients</a>

@@ -59,6 +59,9 @@ CONTENU = [
     # AJOUTE LE 15/11/2026 : les bilans pedagogiques marques deposes, et les
     # rappels deja partis. Sans lui, une restauration relancerait des rappels.
     "bpf.json",
+    # AJOUTE LE 15/11/2026 : les formations d'avant DFM, reprises des dossiers
+    # et rapprochees de la banque. Refaire ce travail prendrait une journee.
+    "pre_dfm.json",
     # LES DOCUMENTS PRODUITS ET DEPOSES. Conventions, factures, attestations,
     # emargements, CV et diplomes des formateurs, programmes et RIB.
     # 4,7 Mo — les caches en sont exclus, voir CACHES ci-dessous.

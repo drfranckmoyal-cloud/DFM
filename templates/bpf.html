@@ -141,6 +141,7 @@ details.bp-det summary{cursor:pointer;font-size:12.5px;color:var(--accent);paddi
       <tbody>
         <tr><td><span class="bp-cad">C</span></td><td class="bp-l">Produits — contrats avec des praticiens à titre individuel<span class="bp-s">Inscriptions individuelles facturées sur l'exercice.</span></td><td class="bp-v">{{ "{:,.2f}".format(c.produits.individuel).replace(",", " ").replace(".", ",") }} €</td></tr>
         <tr><td><span class="bp-cad">C</span></td><td class="bp-l">Produits — entreprises pour la formation de leurs salariés<span class="bp-s">Conventions passées avec un client (cabinet, centre, association).</span></td><td class="bp-v">{{ "{:,.2f}".format(c.produits.client).replace(",", " ").replace(".", ",") }} €</td></tr>
+        {% if c.produits.sous_traitance %}<tr><td><span class="bp-cad">C</span></td><td class="bp-l">Produits — contrats avec d'autres organismes de formation<span class="bp-s">Actions confiées à cet organisme par un autre OF (sous-traitance).</span></td><td class="bp-v">{{ "{:,.2f}".format(c.produits.sous_traitance).replace(",", " ").replace(".", ",") }} €</td></tr>{% endif %}
         <tr><td><span class="bp-cad">C</span></td><td class="bp-l"><b>Total des produits de la formation</b><span class="bp-s">Le montant à déclarer est celui de la comptabilité, hors taxes : faites-le confirmer par l'expert-comptable.</span></td><td class="bp-v">{{ "{:,.2f}".format(c.produits.total).replace(",", " ").replace(".", ",") }} €</td></tr>
         <tr><td><span class="bp-cad">D</span></td><td class="bp-l">Charges de l'organisme<span class="bp-s">DFM ne les connaît pas : elles viennent des comptes.</span></td><td class="bp-v" style="color:var(--muted)">expert-comptable</td></tr>
         <tr><td><span class="bp-cad">E</span></td><td class="bp-l">Personnes ayant dispensé des heures de formation<span class="bp-s">{% for f in c.formateurs %}{{ f.nom }} : {{ '%g'|format(f.heures) }} h{{ ', ' if not loop.last }}{% else %}Aucune session dans l'exercice.{% endfor %}</span></td><td class="bp-v">{{ c.formateurs|length }} · {{ '%g'|format(c.heures_formateurs) }} h</td></tr>
@@ -153,7 +154,7 @@ details.bp-det summary{cursor:pointer;font-size:12.5px;color:var(--accent);paddi
     </div>
     <div class="bp-corps">
       {% if c.fonctions %}<p class="bp-note">Répartition des stagiaires : {% for f, n in c.fonctions %}{{ f }} : {{ n }}{{ ' · ' if not loop.last }}{% endfor %}.</p>{% endif %}
-      <p class="bp-note">« Stagiaires » compte les personnes dont la présence est notée — elle l'est d'office quand l'attestation est envoyée. « h » est le nombre d'heures-stagiaires : durée de la session dans l'exercice × stagiaires présents. DFM ne connaît que les sessions saisies dans DFM : une formation tenue avant, ou ailleurs, est à ajouter à la main.</p>
+      <p class="bp-note">« Stagiaires » compte les personnes dont la présence est notée — elle l'est d'office quand l'attestation est envoyée. « h » est le nombre d'heures-stagiaires : durée de la session dans l'exercice × stagiaires présents. Les sessions d'avant DFM viennent de la rubrique « Formations pré-DFM » : elles ne comptent que leurs présents prouvés par une attestation.</p>
     </div>
   </section>
 
@@ -164,7 +165,7 @@ details.bp-det summary{cursor:pointer;font-size:12.5px;color:var(--accent);paddi
       <thead><tr><th>Session</th><th style="width:76px;text-align:right">Heures</th><th style="width:86px;text-align:right">Présents</th><th style="width:96px;text-align:right">À vérifier</th><th style="width:110px;text-align:right">Heures-stag.</th></tr></thead>
       <tbody>
       {% for s in c.sessions %}
-        <tr><td><a href="/session/{{ s.code }}" style="font-weight:600;font-size:12.5px;color:inherit;text-decoration:none">{{ s.titre }}</a><span class="bp-s">{{ s.dates }}{% if s.jours != s.jours_total %} — {{ s.jours }} jour{{ 's' if s.jours > 1 }} sur {{ s.jours_total }} dans l'exercice{% endif %} · {{ s.formateur }} · {{ 'client' if s.mode == 'client' else 'individuel' }}{% if s.prevus %} · {{ s.prevus }} inscrit{{ 's' if s.prevus > 1 }} à venir{% endif %}</span></td>
+        <tr><td><a href="{{ ('/pre-dfm#' ~ s.code) if s.pre_dfm else ('/session/' ~ s.code) }}" style="font-weight:600;font-size:12.5px;color:inherit;text-decoration:none">{{ s.titre }}</a><span class="bp-s">{{ s.dates }}{% if s.jours != s.jours_total %} — {{ s.jours }} jour{{ 's' if s.jours > 1 }} sur {{ s.jours_total }} dans l'exercice{% endif %} · {{ s.formateur }} · {{ 'client' if s.mode == 'client' else 'individuel' }}{% if s.prevus %} · {{ s.prevus }} inscrit{{ 's' if s.prevus > 1 }} à venir{% endif %}</span></td>
           <td class="bp-v">{{ '%g'|format(s.heures) }}</td><td class="bp-v">{{ s.confirmes }}</td>
           <td class="bp-v" style="{{ 'color:var(--danger)' if s.a_confirmer else 'color:var(--muted)' }}">{{ s.a_confirmer or '—' }}</td>
           <td class="bp-v">{{ '%g'|format(s.heures_stagiaires) }}</td></tr>
@@ -181,7 +182,7 @@ details.bp-det summary{cursor:pointer;font-size:12.5px;color:var(--accent);paddi
       <thead><tr><th style="width:110px">Facture</th><th style="width:96px">Date</th><th>Client</th><th style="width:90px">Type</th><th style="width:100px;text-align:right">Montant</th></tr></thead>
       <tbody>
       {% for f in c.factures %}
-        <tr><td style="font:600 11.5px ui-monospace,Menlo,monospace">{{ f.numero }}</td><td style="font-size:12px">{{ f.date.strftime('%d/%m/%Y') }}</td>
+        <tr><td style="font:600 11.5px ui-monospace,Menlo,monospace">{{ f.numero }}{% if f.pre_dfm %}<span class="bp-s">avant DFM</span>{% endif %}</td><td style="font-size:12px">{{ f.date.strftime('%d/%m/%Y') }}</td>
           <td style="font-size:12.5px">{{ f.client }}<span class="bp-s">{{ f.session }}</span></td><td style="font-size:12px">{{ f.type }}</td>
           <td class="bp-v">{{ "{:,.2f}".format(f.total).replace(",", " ").replace(".", ",") }} €</td></tr>
       {% endfor %}

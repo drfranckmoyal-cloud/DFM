@@ -536,10 +536,44 @@ def chiffres(organisme, exercice, aujourdhui=None):
                              "total": tot})
     except Exception:
         pass
+    # LES SESSIONS D'AVANT DFM (15/11/2026, voir pre_dfm.py) : le premier
+    # exercice de LBS commence en juin 2025, cinq sessions ont eu lieu hors de
+    # DFM. Leurs presents (attestation archivee), leurs heures et leurs factures
+    # comptent dans le bilan ; ce qui n'est pas prouve reste en alerte.
+    try:
+        import pre_dfm as _P
+        l2, f2, a2, h2 = _P.pour_bilan(organisme, debut, fin)
+    except Exception:
+        l2, f2, a2, h2 = [], [], [], 0.0
+    for s in l2:
+        lignes_s.append(s)
+        par_mode["individuel"]["stagiaires"] += s["confirmes"]
+        par_mode["individuel"]["heures"] += s["heures_stagiaires"]
+    if h2:
+        k = _formateur_cle("Dr Franck Moyal")
+        fo = formateurs.setdefault(k, {"nom": "Dr Franck Moyal", "heures": 0.0, "sessions": 0})
+        fo["heures"] += h2
+        fo["sessions"] += len(l2)
+    alertes += a2
+    factures += f2
     factures.sort(key=lambda x: (x["date"], x["numero"]))
     produits = {"individuel": sum(f["total"] for f in factures if f["type"] == "individuel"),
                 "client": sum(f["total"] for f in factures if f["type"] == "client")}
-    produits["total"] = produits["individuel"] + produits["client"]
+    # LA SOUS-TRAITANCE : un autre organisme de formation qui confie une action
+    # a celui-ci (UP CARE pour LBS). Ligne a part du formulaire, et ses
+    # stagiaires vont au cadre F-2 : DFM n'en connait pas le nombre.
+    try:
+        import pre_dfm as _P2
+        st = _P2.sous_traitance(organisme, debut, fin)
+    except Exception:
+        st = []
+    produits["sous_traitance"] = round(sum(x["montant"] for x in st), 2)
+    if st:
+        alertes.append("Sous-traitance : %d prestation%s pour %s (%s €) — le formulaire demande aussi le nombre de "
+                       "stagiaires et d'heures de ces actions (cadre F-2), que DFM ne connaît pas."
+                       % (len(st), "s" if len(st) > 1 else "", ", ".join(sorted({x["payeur"] for x in st})),
+                          ("%.0f" % produits["sous_traitance"])))
+    produits["total"] = produits["individuel"] + produits["client"] + produits["sous_traitance"]
     stag = sum(v["stagiaires"] for v in par_mode.values())
     heures_st = sum(v["heures"] for v in par_mode.values())
     fo = sorted(formateurs.values(), key=lambda x: -x["heures"])
@@ -565,7 +599,8 @@ def csv_lignes(organisme, exercice, aujourdhui=None):
     e = lambda x: ("%.2f" % x).replace(".", ",")
     out += [["C", "Produits — contrats individuels (praticiens à leurs frais)", e(c["produits"]["individuel"])],
             ["C", "Produits — entreprises (conventions client)", e(c["produits"]["client"])],
-            ["C", "Total facturé dans DFM sur l'exercice", e(c["produits"]["total"])],
+            ["C", "Produits — autres organismes de formation (sous-traitance)", e(c["produits"].get("sous_traitance", 0))],
+            ["C", "Total des produits connus de DFM sur l'exercice", e(c["produits"]["total"])],
             ["E", "Personnes ayant dispensé des heures de formation", str(len(c["formateurs"]))],
             ["E", "Heures de formation dispensées", e(c["heures_formateurs"])],
             ["F-1", "Stagiaires — inscription individuelle", str(c["par_mode"]["individuel"]["stagiaires"])],

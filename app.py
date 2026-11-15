@@ -151,7 +151,17 @@ def commun():
         # LE COMPTE A REBOURS DU BILAN PEDAGOGIQUE, de l'organisme actif : dans
         # le menu sur toutes les pages, et en carte sur le tableau de bord.
         "bpf_resume": _bpf_resume(),
+        # Les formations d'avant DFM : l'entree du menu n'apparait que pour
+        # l'organisme qui en a (LBS / Smileclub).
+        "nb_pre_dfm": _nb_pre_dfm(),
     }
+def _nb_pre_dfm():
+    try:
+        import pre_dfm as _P
+        import profil as _pr
+        return len(_P.sessions(_pr.actif()))
+    except Exception:
+        return 0
 def _bpf_resume():
     """L'echeance du bilan de l'organisme actif. Ne doit JAMAIS faire echouer
     un rendu : un souci ici rend None, et le menu s'affiche sans compteur."""
@@ -10488,6 +10498,78 @@ def supprimer_compte():
 def deconnexion():
     _session.clear()
     return redirect("/connexion")
+
+
+# ---------------------------------------------------------------------------
+# LES FORMATIONS D'AVANT DFM — 15/11/2026. Voir pre_dfm.py. Lecture seule.
+# ---------------------------------------------------------------------------
+_PD_MOIS = ["", "janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août",
+            "septembre", "octobre", "novembre", "décembre"]
+
+
+def _pd_dates(jours):
+    ds = [date.fromisoformat(j) for j in jours or []]
+    if not ds:
+        return ""
+    if len(ds) == 1:
+        return "%d %s %d" % (ds[0].day, _PD_MOIS[ds[0].month], ds[0].year)
+    return "%s et %d %s %d" % ("1er" if ds[0].day == 1 else ds[0].day, ds[-1].day, _PD_MOIS[ds[-1].month], ds[-1].year)
+
+
+@app.route("/pre-dfm")
+def page_pre_dfm():
+    import collections as _co
+    import pre_dfm as _P
+    import profil as _pr
+    org = _pr.actif()
+    sess = _P.sessions(org)
+    tout = _P.donnees()
+    rang = {s: i for i, s in enumerate(_P.STATUTS)}
+    ordre = {c: i for i, c in enumerate(sess)}
+    pers = sorted(_P.personnes(organisme=org),
+                  key=lambda p: (ordre.get(p["session"], 99), rang.get(p["statut"], 99), p["nom"].upper()))
+    credits = (tout.get("credits") or []) if sess else []
+    autres = []
+    NAT = {"stripe": "Stripe — paiements par carte (sessions DFM)",
+           "sous-traitance": "Sous-traitance : action confiée par UP CARE, organisme de formation",
+           "interne": "Virement de LBS à elle-même", "erreur": "Reçu par erreur, renvoyé le lendemain",
+           "fisc": "Remboursement d'impôt", "remboursement": "Remboursement fournisseur ou carte"}
+    for c in credits:
+        a = c.get("attribue_a") or {}
+        if a.get("genre") == "pre":
+            continue
+        if a.get("genre") == "dfm":
+            lib = "Session DFM « %s » — %s" % (a.get("session"), a.get("nom"))
+        elif c.get("nature") == "formation":
+            lib = "NON RATTACHÉ : aucune inscription de ce nom"
+        else:
+            lib = NAT.get(c.get("nature"), c.get("nature"))
+        autres.append(dict(c, rattache=lib))
+    non_rattaches = [c for c in credits if c.get("nature") == "formation" and not c.get("attribue_a")]
+    nb = _co.Counter(p["statut"] for p in pers)
+    verif = _co.Counter(p["session"] for p in pers if p["statut"] in _P.A_VERIFIER)
+    return render_template("pre_dfm.html", sessions=sess, personnes=pers, verif_session=verif,
+                           dates={c: _pd_dates(s.get("jours")) for c, s in sess.items()},
+                           nb_statut=nb, nb_verifier=sum(nb[s] for s in _P.A_VERIFIER),
+                           a_verifier=sorted(_P.A_VERIFIER), autres_credits=autres,
+                           non_rattaches=non_rattaches, stripe=tout.get("stripe") or {},
+                           anomalies=tout.get("anomalies") or [], classeur=tout.get("classeur") or "",
+                           genere_le=tout.get("genere_le") or "", banque=tout.get("periode_banque") or ["", ""])
+
+
+@app.route("/pre-dfm/export.csv")
+def pre_dfm_csv():
+    import csv as _csv
+    import io as _io
+    from flask import Response
+    import pre_dfm as _P
+    import profil as _pr
+    tampon = _io.StringIO()
+    plume = _csv.writer(tampon, delimiter=";", quoting=_csv.QUOTE_MINIMAL)
+    for ligne in _P.csv_lignes(_pr.actif()):
+        plume.writerow(ligne)
+    return Response("\ufeff" + tampon.getvalue(), mimetype="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": "attachment; filename=formations-pre-dfm.csv"})
 
 
 # ---------------------------------------------------------------------------
