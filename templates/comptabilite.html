@@ -21,12 +21,29 @@ html[data-sombre] .cp-num{background:#1d2b55;color:#a9c0ff}
 .cp-cache{display:none}
 .cp-note{font-size:12px;color:var(--muted);line-height:1.6;padding:12px 18px}
 .cp-onglets{display:flex;gap:8px;margin:0 0 12px}
+.cp-ex-f{padding:12px 18px 14px}
+.cp-ex-p{font-size:12.5px;color:var(--muted);line-height:1.55;margin:0 0 10px}
+.cp-ex-l{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+.cp-ex-l label{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.cp-ex-l input{padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--carte);color:var(--text);font:inherit}
 </style>
 
 {% if not enc and not fac %}
 <header class="ap-hero"><div class="ap-haut"><div class="ap-ident">
   <h1 class="ap-titre">Comptabilité</h1>
   <p class="ap-intro">Aucun rapprochement bancaire n'est encore chargé pour cet organisme.</p></div></div></header>
+<section class="ap-carte cp-export" style="margin:16px 0">
+  <div class="ap-carte-t"><span><i class="ti ti-file-zip"></i> Transmettre au comptable</span></div>
+  <form method="get" action="/comptabilite/ventes.zip" class="cp-ex-f">
+    <p class="cp-ex-p">Toutes les ventes — factures, factures rectificatives, avoirs — avec leur PDF rangé par mois, le journal des ventes et les encaissements rapprochés : un seul fichier à envoyer.</p>
+    <div class="cp-ex-l">
+      <label>Du <input type="date" name="du"></label>
+      <label>Au <input type="date" name="au"></label>
+      <button class="btn ap-btn-noir" type="submit"><i class="ti ti-download"></i>Exporter les ventes et leurs factures</button>
+    </div>
+    {% if ventes_resume %}<p class="cp-ex-p" style="margin-top:8px">Sans dates : les {{ ventes_resume.nb }} pièces ({{ ventes_resume.nb_factures }} factures, {{ ventes_resume.nb_avoirs }} avoirs), total net {{ "{:,.2f}".format(ventes_resume.total).replace(",", " ").replace(".", ",") }} €.{% if ventes_resume.sans_pdf %} Sans PDF dans DFM : {{ ventes_resume.sans_pdf|join(", ") }}.{% endif %}</p>{% endif %}
+  </form>
+</section>
 {% else %}
 {% set R = resume %}
 <header class="ap-hero">
@@ -37,7 +54,7 @@ html[data-sombre] .cp-num{background:#1d2b55;color:#a9c0ff}
       <p class="ap-intro">Chaque somme reçue avec la facture qui la justifie, chaque facture avec le règlement qui la solde.</p>
     </div>
     <div class="ap-actions">
-      <a class="btn ap-btn-verre" href="/comptabilite/dossier.zip" title="Les deux tableaux et toutes les factures disponibles, rangees par mois"><i class="ti ti-download"></i>Dossier pour l'expert-comptable</a>
+      <a class="btn ap-btn-verre" href="/comptabilite/ventes.zip" title="Toutes les ventes et leurs factures, en un seul fichier"><i class="ti ti-download"></i>Dossier pour l'expert-comptable</a>
       <a class="btn ap-btn-verre" href="/comptabilite/encaissements.csv"><i class="ti ti-file-spreadsheet"></i>Encaissements</a>
       <a class="btn ap-btn-verre" href="/comptabilite/factures.csv"><i class="ti ti-file-spreadsheet"></i>Factures</a>
     </div>
@@ -49,6 +66,19 @@ html[data-sombre] .cp-num{background:#1d2b55;color:#a9c0ff}
     <div class="ap-s" style="--pt:#ffb547"><div class="ap-s-l">Factures encaissées</div><div class="ap-gros">{{ "{:,}".format(R.fac_enc|round|int).replace(",", " ") }} €</div><div class="ap-sous">rapprochées d'un virement</div></div>
   </div>
 </header>
+
+<section class="ap-carte cp-export" style="margin:16px 0">
+  <div class="ap-carte-t"><span><i class="ti ti-file-zip"></i> Transmettre au comptable</span></div>
+  <form method="get" action="/comptabilite/ventes.zip" class="cp-ex-f">
+    <p class="cp-ex-p">Toutes les ventes — factures, factures rectificatives, avoirs — avec leur PDF rangé par mois, le journal des ventes et les encaissements rapprochés : un seul fichier à envoyer.</p>
+    <div class="cp-ex-l">
+      <label>Du <input type="date" name="du"></label>
+      <label>Au <input type="date" name="au"></label>
+      <button class="btn ap-btn-noir" type="submit"><i class="ti ti-download"></i>Exporter les ventes et leurs factures</button>
+    </div>
+    {% if ventes_resume %}<p class="cp-ex-p" style="margin-top:8px">Sans dates : les {{ ventes_resume.nb }} pièces ({{ ventes_resume.nb_factures }} factures, {{ ventes_resume.nb_avoirs }} avoirs), total net {{ "{:,.2f}".format(ventes_resume.total).replace(",", " ").replace(".", ",") }} €.{% if ventes_resume.sans_pdf %} Sans PDF dans DFM : {{ ventes_resume.sans_pdf|join(", ") }}.{% endif %}</p>{% endif %}
+  </form>
+</section>
 
 <div class="ap-afaire" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
   {% set n_sans = (nb_enc['Sans facture'] or 0) + (nb_enc['Non rattaché'] or 0) + (nb_enc['Versement Stripe — paiement sans facture'] or 0) %}
@@ -103,7 +133,7 @@ html[data-sombre] .cp-num{background:#1d2b55;color:#a9c0ff}
   <thead><tr><th style="width:140px">Facture</th><th style="width:92px">Date</th><th>Client</th><th style="width:220px">Session</th><th style="width:100px;text-align:right">Montant</th><th style="width:100px;text-align:right">Encaissé</th><th style="width:260px">Statut</th></tr></thead>
   <tbody>
   {% for f in fac %}
-  {% set cls = 'st-ok' if f.statut in ('Encaissée', 'Encaissée (carte)') else ('st-at' if f.statut in ('Payée selon DFM, virement non retrouvé', 'Encaissée — montant différent') else ('st-vi' if f.statut.startswith('Payée par carte') else ('st-bl' if f.statut in ("Facture d'essai", 'Inscription annulée') else 'st-ko'))) %}
+  {% set cls = 'st-ok' if f.statut in ('Encaissée', 'Encaissée (carte)') else ('st-at' if f.statut in ('Payée selon DFM, virement non retrouvé', 'Encaissée — montant différent') else ('st-vi' if f.statut.startswith('Payée par carte') else ('st-bl' if f.statut in ("Facture d'essai", 'Inscription annulée', 'Annulée et remplacée', 'Annulée par avoir', 'Avoir') else 'st-ko'))) %}
   <tr data-statut="{{ f.statut }}" data-q="{{ (f.numero ~ ' ' ~ f.client)|lower }}">
     <td>{% if f.chemin %}<a class="cp-num" href="/comptabilite/piece?chemin={{ f.chemin|urlencode }}" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i>{{ f.numero }}</a>{% else %}<span class="cp-num vide" title="PDF introuvable">{{ f.numero }}</span>{% endif %}<span class="cp-sm">{{ f.origine }}</span></td>
     <td style="font-size:12px">{{ f.date[8:10] }}/{{ f.date[5:7] }}/{{ f.date[:4] }}</td>

@@ -12,7 +12,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>Facture {{ f.numero }} — {{ f.destinataire }}</title>
+<title>{{ "Avoir" if f.avoir else "Facture" }} {{ f.numero }} — {{ f.destinataire }}</title>
 <style>
   /* Le meme bleu que la convention : les deux pieces partent ensemble au
      client, elles doivent se reconnaitre comme venant du meme organisme. */
@@ -74,9 +74,12 @@
     {% if f.mention_declaration %}<br>{{ f.mention_declaration }}{% endif %}
   </div>
   <div class="ref">
-    <h1>Facture</h1>
+    <h1>{{ "Avoir" if f.avoir else "Facture" }}</h1>
     <div class="num">{{ f.numero }}</div>
     <div class="d">Émise le {{ f.date_facture }}</div>
+    {% if f.rectifie %}<div class="d"><b>Facture rectificative</b> — annule et remplace
+      la facture n°&nbsp;{{ f.rectifie.numero }}{% if f.rectifie.date %} du {{ f.rectifie.date }}{% endif %}</div>{% endif %}
+    {% if f.avoir %}<div class="d"><b>Avoir sur la facture n°&nbsp;{{ f.avoir.facture }}</b>{% if f.avoir.date %} du {{ f.avoir.date }}{% endif %}</div>{% endif %}
   </div>
 </div>
 
@@ -98,22 +101,30 @@
         <ul class="jours">{% for j in f.jours_formation %}<li>{{ j }}</li>{% endfor %}</ul>
         {% endif %}</td></tr>
     <tr><td class="l">Durée</td><td class="v"><b>{{ f.duree }}</b></td></tr>
+    {% if f.avoir and f.avoir.motif %}<tr><td class="l">Motif de l'avoir</td><td class="v">{{ f.avoir.motif }}</td></tr>{% endif %}
   </tbody>
 </table>
 
 <table class="tot">
   {% if f.remise %}
   <tr><td>Prix public</td><td class="m">{{ f.remise.prix }} €</td></tr>
-  <tr><td>Remise accordée (code {{ f.remise.code }})</td>
+  <tr><td>Remise accordée{% if f.remise.code %} (code {{ f.remise.code }}){% endif %}</td>
     <td class="m">−&nbsp;{{ f.remise.montant }} €</td></tr>
   {% endif %}
   <tr><td>Montant unitaire</td>
     <td class="m">{{ f.unitaire }} € × {{ f.quantite }}</td></tr>
   <tr><td>TVA</td><td class="m">Non applicable</td></tr>
-  <tr class="g"><td>Total net de taxe</td><td class="m">{{ f.total }} €</td></tr>
+  <tr class="g"><td>{{ "Total de l'avoir, net de taxe" if f.avoir else "Total net de taxe" }}</td><td class="m">{{ f.total }} €</td></tr>
 </table>
 
-{% if f.paiement %}
+{% if f.avoir %}
+<div class="regl">
+  {% if f.avoir.rembourse %}<div class="t">Somme remboursée</div>
+  <div>Remboursée le {{ f.avoir.rembourse.le }} par {{ f.avoir.rembourse.mode }}.</div>
+  {% else %}<div class="t">Annulation sans remboursement</div>
+  <div>Aucune somme n'a été versée au titre de la facture n°&nbsp;{{ f.avoir.facture }} : cet avoir l'annule.</div>{% endif %}
+</div>
+{% elif f.paiement %}
 <div class="regl paye">
   <div class="t">Facture acquittée</div>
   <div>Réglée le {{ f.paiement.le }} par {{ f.paiement.mode }}{% if f.paiement.reference

@@ -150,6 +150,9 @@ if CIBLES:
     lignes = [l for l in lignes if (l["mail"] or "").strip().lower() in CIBLES]
 else:
     lignes = [l for l in lignes if not l["attestation_envoyee_le"]]
+    # Les envois retenus ne partent pas d'office (16/11/2026, retenues.py).
+    import retenues as _ret
+    lignes = _ret.filtrer(S["code"], lignes, "attestation")
 if not lignes:
     print("-> Personne a qui envoyer.")
     if not CIBLES:

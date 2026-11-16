@@ -25,6 +25,10 @@ if CIBLES:
     a_envoyer = [l for l in a_envoyer if (l["mail"] or "").strip().lower() in CIBLES]
 else:
     a_envoyer = [l for l in a_envoyer if not l["attestation_envoyee_le"]]
+    # Les envois retenus ne partent pas d'office (16/11/2026, retenues.py) ;
+    # une selection explicite, au-dessus, reste le choix du responsable.
+    import retenues as _ret
+    a_envoyer = _ret.filtrer(S["code"], a_envoyer, "attestation")
 if not a_envoyer:
     print("-> Aucune attestation a envoyer.")
     exit()

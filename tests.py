@@ -3225,6 +3225,153 @@ def tests_ajout_apres_coup():
                  garde > 0 and lecture > 0 and garde < lecture, "garde %d, lecture %d" % (garde, lecture))
 
 
+def tests_envois_retenus_et_rectificatives():
+    """ENVOIS RETENUS ET FACTURES RECTIFICATIVES — 16/11/2026."""
+    print("\n  ENVOIS RETENUS, FACTURES RECTIFICATIVES")
+    import retenues as R
+    import factures as F
+    import facture as FA
+    import comptabilite as C
+    rep = tempfile.mkdtemp(prefix="dfm-ret-")
+    ancien_r, ancien_f = R.FICHIER, F._FICHIER
+    R.FICHIER = os.path.join(rep, "retenues.json")
+    F._FICHIER = os.path.join(rep, "factures.json")
+    try:
+        verifier("rien n'est retenu au depart", not R.retenu("s1", "a@b.fr", "facture"))
+        R.retenir("s1", " A@B.fr ", "facture", "ajout apres coup")
+        verifier("la retenue se lit, adresse en minuscules", R.retenu("s1", "a@b.fr", "facture"))
+        verifier("elle ne vaut que pour son envoi", not R.retenu("s1", "a@b.fr", "attestation"))
+        verifier("ni pour une autre session", not R.retenu("s2", "a@b.fr", "facture"))
+        lignes = [{"mail": "a@b.fr", "nom": "X", "prenom": "Y"}, {"mail": "c@d.fr", "nom": "Z", "prenom": "W"}]
+        verifier("le filtre ecarte la ligne retenue", [l["mail"] for l in R.filtrer("s1", lignes, "facture")] == ["c@d.fr"])
+        verifier("lacher la retenue rend True", R.lacher("s1", "a@b.fr", "facture"))
+        verifier("puis elle ne retient plus rien", not R.retenu("s1", "a@b.fr", "facture"))
+        verifier("le fichier est vide apres coup", R.tout() == {})
+        try:
+            R.retenir("s1", "a@b.fr", "convention", "x")
+            verifier("un envoi inconnu est refuse", False)
+        except ValueError:
+            verifier("un envoi inconnu est refuse", True)
+
+        F.enregistrer("F2026-032", "mon-organisme", "", "Q", "s", "f", 975.0, lien="", type_facture="individuel")
+        F.enregistrer("F2026-032", "dsf", "", "Autre", "s", "f", 500.0, lien="", type_facture="individuel")
+        F.enregistrer("F2026-060", "mon-organisme", "", "Q", "s", "f", 940.0, lien="", type_facture="individuel")
+        verifier("l'ancienne est marquee remplacee", F.marquer_remplacee("F2026-032", "F2026-060", "mon-organisme"))
+        reg = F.tout()
+        a = [e for e in reg.values() if e["numero"] == "F2026-032" and e["organisme"] == "mon-organisme"][0]
+        b = [e for e in reg.values() if e["numero"] == "F2026-032" and e["organisme"] == "dsf"][0]
+        n = [e for e in reg.values() if e["numero"] == "F2026-060"][0]
+        verifier("elle porte le numero qui la remplace", a.get("remplacee_par") == "F2026-060")
+        verifier("la meme numero chez l'autre organisme n'est pas touche", not b.get("remplacee_par"))
+        verifier("la nouvelle dit laquelle elle remplace", n.get("remplace") == "F2026-032")
+        verifier("une facture inconnue n'est pas inventee", not F.marquer_remplacee("F2026-999", "F2026-061", "mon-organisme"))
+    finally:
+        R.FICHIER, F._FICHIER = ancien_r, ancien_f
+
+    S = {"organisme": "SAS LBS FORMATION", "titre_complet": "Usures", "date_debut": "2026-11-04", "date_fin": "2026-11-05"}
+    d = FA.pour(S, "F2026-060", "Q", 940.0, 1, remise={"code": "", "montant": 35.0},
+                rectifie={"numero": "F2026-032", "date": "08/10/2026"})
+    verifier("la rectificative nomme la facture qu'elle remplace", d["rectifie"] == {"numero": "F2026-032", "date": "08/10/2026"})
+    verifier("une facture ordinaire n'en porte pas", FA.pour(S, "F1", "Q", 940.0, 1)["rectifie"] is None)
+    verifier("la remise sans code garde le prix public", d["remise"]["prix"] == "975" and d["remise"]["code"] == "")
+    gabarit = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "facture.html"), encoding="utf-8").read()
+    verifier("le gabarit ecrit « annule et remplace »", "annule et remplace" in gabarit and "f.rectifie.numero" in gabarit)
+    verifier("le gabarit n'ecrit pas « (code ) » sans code", "{% if f.remise.code %}" in gabarit)
+
+    ici = os.path.dirname(os.path.abspath(__file__))
+    for nom, quoi in (("envoyer_facture.py", '"facture"'), ("envoyer_attestation.py", '"attestation"'),
+                      ("envoyer_certificats.py", '"attestation"')):
+        texte = io.open(os.path.join(ici, nom), encoding="utf-8").read()
+        verifier("%s respecte les envois retenus" % nom, "_ret.filtrer(" in texte and quoi in texte)
+    b = io.open(os.path.join(ici, "bpf.py"), encoding="utf-8").read()
+    verifier("le bilan ne compte pas une facture remplacee", 'if e.get("remplacee_par"):' in b)
+    verifier("la comptabilite classe les factures remplacees a part", C.REMPLACEE in C.CLASSEES)
+
+
+def tests_ventes_et_avoirs():
+    """LES AVOIRS ET L'EXPORT DES VENTES — 16/11/2026."""
+    print("\n  AVOIRS ET EXPORT DES VENTES")
+    import zipfile as _zf
+    import comptabilite as C
+    import factures as F
+    import facture as FA
+    racine = tempfile.mkdtemp(prefix="dfm-ventes-")
+    dos = os.path.join(racine, "documents", "mon-organisme", "s1", "facture")
+    os.makedirs(dos)
+    for nom in ("Facture F2026-001 - Anne BEE.pdf", "Facture F2026-003 - Carl DEE.pdf", "Avoir AV2026-001 - Anne BEE.pdf"):
+        io.open(os.path.join(dos, nom), "wb").write(b"%PDF-1.4 " + nom.encode("utf-8"))
+    io.open(os.path.join(racine, "compta.json"), "w", encoding="utf-8").write(json.dumps({
+        "organisme": "mon-organisme", "encaissements": [], "factures": [], "stripe": {}}))
+    garde = (C.DOSSIER, C.FICHIER, F._FICHIER)
+    try:
+        C.DOSSIER, C.FICHIER = racine, os.path.join(racine, "compta.json")
+        F._FICHIER = os.path.join(racine, "factures.json")
+        F.enregistrer("F2026-001", "mon-organisme", "", "Anne BEE", "s1", "Usures", 975.0, type_facture="individuel")
+        F.enregistrer("F2026-002", "mon-organisme", "", "Carl DEE", "s1", "Usures", 975.0, type_facture="individuel")
+        F.enregistrer("F2026-003", "mon-organisme", "", "Carl DEE", "s1", "Usures", 940.0, type_facture="individuel")
+        F.marquer_remplacee("F2026-002", "F2026-003", "mon-organisme")
+        verifier("la serie des avoirs commence a AV…-001", F.prochain_avoir("mon-organisme", 2026) == "AV2026-001")
+        F.enregistrer_avoir("AV2026-001", "mon-organisme", "F2026-001", 975.0, motif="inscription annulée")
+        reg = F.tout()
+        av = [e for e in reg.values() if e["numero"] == "AV2026-001"][0]
+        verifier("l'avoir est negatif et dit ce qu'il annule", av["total"] == -975.0 and av["annule"] == "F2026-001"
+                 and av["nature"] == "avoir", av)
+        verifier("la facture annulee le sait", [e for e in reg.values() if e["numero"] == "F2026-001"][0].get("avoir") == "AV2026-001")
+        verifier("les avoirs ne bousculent pas la serie des factures", F.prochain_numero("mon-organisme", annee=2026) == "F2026-004")
+        verifier("ni la leur", F.prochain_avoir("mon-organisme", 2026) == "AV2026-002")
+        try:
+            F.enregistrer_avoir("AV2026-002", "mon-organisme", "F2026-999", 10.0)
+            verifier("un avoir sur une facture inconnue est refuse", False)
+        except KeyError:
+            verifier("un avoir sur une facture inconnue est refuse", True)
+
+        v = C.ventes("mon-organisme")
+        par = {x["numero"]: x for x in v}
+        verifier("quatre pieces vendues", sorted(par) == ["AV2026-001", "F2026-001", "F2026-002", "F2026-003"], sorted(par))
+        verifier("l'avoir est un avoir", par["AV2026-001"]["type"] == "Avoir" and par["AV2026-001"]["statut"] == C.AVOIR)
+        verifier("la facture annulee par avoir le dit", par["F2026-001"]["statut"] == C.ANNULEE_AVOIR)
+        verifier("la remplacee aussi", par["F2026-002"]["statut"] == C.REMPLACEE)
+        verifier("la rectificative est nommee ainsi", par["F2026-003"]["type"] == "Facture rectificative")
+        verifier("chaque piece trouve son PDF, sauf celle qui n'en a pas",
+                 par["F2026-001"]["fichier"].endswith("F2026-001 - Anne BEE.pdf") and not par["F2026-002"]["fichier"])
+        r = C.resume_ventes(v)
+        verifier("total net : l'avoir compense, la remplacee ne compte pas", r["total"] == 940.0 and r["nb_avoirs"] == 1, r)
+        verifier("le filtre par dates", C.ventes("mon-organisme", "2099-01-01") == [])
+        octets, _ = C.export_ventes_zip("mon-organisme", marque="Essai")
+        z = _zf.ZipFile(io.BytesIO(octets))
+        noms = z.namelist()
+        verifier("le lot contient le journal, les encaissements, le mode d'emploi",
+                 {"ventes.csv", "encaissements.csv", "LISEZ-MOI.txt"} <= set(noms), noms)
+        verifier("et les PDF, ranges par mois", len([n for n in noms if n.startswith("pieces/") and n.endswith(".pdf")]) == 3, noms)
+        journal_v = z.read("ventes.csv").decode("utf-8-sig")
+        verifier("le journal signale la piece sans PDF", "PDF manquant" in journal_v and "F2026-002" in journal_v)
+        verifier("l'avoir y est en negatif", "-975,00" in journal_v)
+        import app as A
+        import acces
+        garde_a = acces.protege
+        try:
+            acces.protege = lambda *x, **k: False
+            rep = A.app.test_client().get("/comptabilite/ventes.zip?du=2026-01-01&au=2026-12-31")
+            verifier("l'export se telecharge depuis DFM", rep.status_code == 200 and rep.data[:2] == b"PK", rep.status_code)
+            rep = A.app.test_client().get("/comptabilite/ventes.zip?du=../../etc")
+            verifier("une date forgee est ignoree", rep.status_code == 200)
+        finally:
+            acces.protege = garde_a
+    finally:
+        C.DOSSIER, C.FICHIER, F._FICHIER = garde
+
+    S = {"organisme": "SAS LBS FORMATION", "titre_complet": "Usures", "date_debut": "2026-11-04", "date_fin": "2026-11-05"}
+    d = FA.pour(S, "AV2026-001", "Anne BEE", 975.0, 1, avoir={"facture": "F2026-001", "date": "04/10/2026",
+                                                            "motif": "Inscription annulée",
+                                                            "rembourse": {"le": "15/11/2026", "mode": "virement"}})
+    verifier("le dossier d'un avoir", d["avoir"]["facture"] == "F2026-001" and d["avoir"]["rembourse"]["le"] == "15/11/2026")
+    g = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "facture.html"), encoding="utf-8").read()
+    verifier("le gabarit titre « Avoir » et dit s'il y a eu remboursement",
+             '"Avoir" if f.avoir' in g and "Somme remboursée" in g and "Annulation sans remboursement" in g)
+    p = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "pre_dfm.py"), encoding="utf-8").read()
+    verifier("une facture d'avant DFM emise par DFM ne compte qu'une fois au bilan", 'f.get("registre")' in p)
+
+
 def main():
     print()
     print("  LES TESTS DE DFM")
@@ -3240,7 +3387,7 @@ def main():
                   tests_relances_en_modeles, tests_versements,
                   tests_ordre_de_la_chaine, tests_mur_smtp,
                   tests_lien_produit, tests_questionnaires_sans_action,
-                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes, tests_date_limite_a_l_ecran, tests_rappel_reglement_cycle, tests_bilan_pedagogique, tests_reglements_sans_demandes, tests_mentions_et_presences, tests_sauvegarde_externe, tests_pre_dfm, tests_comptabilite, tests_ajout_apres_coup,
+                  tests_guet_questionnaires, tests_alerte_a_compteur, tests_echecs_alternes, tests_codes_promo, tests_certificats, tests_objectifs_attestation, tests_mail_du_certificat, tests_certificats_a_imprimer, tests_accuse_selon_situation, tests_fiche_session_deux_presentations, tests_chrome_sans_restes, tests_date_limite_a_l_ecran, tests_rappel_reglement_cycle, tests_bilan_pedagogique, tests_reglements_sans_demandes, tests_mentions_et_presences, tests_sauvegarde_externe, tests_pre_dfm, tests_comptabilite, tests_ajout_apres_coup, tests_envois_retenus_et_rectificatives, tests_ventes_et_avoirs,
                   tests_archive_et_verrous, tests_attestations_par_vagues,
                   tests_inscrite_a_la_main, tests_miroir_debloque):
         try:

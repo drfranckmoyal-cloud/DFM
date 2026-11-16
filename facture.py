@@ -46,7 +46,8 @@ def _jours(S):
 
 
 def pour(S, numero, destinataire, unitaire, quantite, civilite="",
-         mention_reglement="", ligne_reglement="", paiement=None, remise=None):
+         mention_reglement="", ligne_reglement="", paiement=None, remise=None,
+         rectifie=None, avoir=None):
     """Le dossier d'une facture, prêt pour le gabarit.
 
     `destinataire` est le praticien ou la raison sociale : la facture ne
@@ -94,6 +95,18 @@ def pour(S, numero, destinataire, unitaire, quantite, civilite="",
         "remise": ({"code": remise["code"], "montant": _montant(remise["montant"]),
                     "prix": _montant(unitaire + remise["montant"])}
                    if remise and remise.get("montant") else None),
+        # LA FACTURE RECTIFICATIVE — 16/11/2026. Une facture emise ne se modifie
+        # pas : on en emet une nouvelle, sous un nouveau numero, qui dit
+        # laquelle elle annule et remplace. {"numero": "F2026-032",
+        # "date": "08/10/2026"}, ou None.
+        "rectifie": ({"numero": rectifie["numero"], "date": rectifie.get("date") or ""}
+                     if rectifie and rectifie.get("numero") else None),
+        # L'AVOIR — 16/11/2026. Meme document, autre titre : il annule tout ou
+        # partie d'une facture emise. {"facture": "F2026-042", "date": "27/10/2026",
+        # "motif": "...", "rembourse": {"le": ..., "mode": ...} ou None}.
+        "avoir": ({"facture": avoir["facture"], "date": avoir.get("date") or "",
+                   "motif": avoir.get("motif") or "", "rembourse": avoir.get("rembourse") or None}
+                  if avoir and avoir.get("facture") else None),
     }
 
 

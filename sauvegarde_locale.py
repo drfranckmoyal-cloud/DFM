@@ -63,6 +63,7 @@ CONTENU = [
     # et rapprochees de la banque. Refaire ce travail prendrait une journee.
     "pre_dfm.json",
     "compta.json",                   # le rapprochement encaissements / pieces (15/11/2026)
+    "retenues.json",                 # les envois retenus (16/11/2026)
     # LES DOCUMENTS PRODUITS ET DEPOSES. Conventions, factures, attestations,
     # emargements, CV et diplomes des formateurs, programmes et RIB.
     # 4,7 Mo — les caches en sont exclus, voir CACHES ci-dessous.

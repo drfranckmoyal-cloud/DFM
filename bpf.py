@@ -519,6 +519,10 @@ def chiffres(organisme, exercice, aujourdhui=None):
         for e in _F.tout().values():
             if not isinstance(e, dict) or e.get("organisme") != organisme:
                 continue
+            # UNE FACTURE ANNULEE ET REMPLACEE NE COMPTE PLUS (16/11/2026) : sa
+            # rectificative, au registre elle aussi, compte a sa place.
+            if e.get("remplacee_par"):
+                continue
             d = _date(e.get("date"))
             if not d or not (debut <= d <= fin):
                 continue

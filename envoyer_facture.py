@@ -29,6 +29,10 @@ print("-> Lecture du suivi...")
 lignes = suivi.lire_lignes_de(CODE)
 a_envoyer = [l for l in lignes if l["facture_le"] and l["lien_facture"] and not l["facture_envoyee_le"]]
 a_envoyer = [l for l in a_envoyer if "/d/" in l["lien_facture"]]
+# LES ENVOIS RETENUS — 16/11/2026 : une facture prete que le responsable veut
+# garder (inscrit ajoute apres coup, facture corrigee). Voir retenues.py.
+import retenues as _ret
+a_envoyer = _ret.filtrer(CODE or S["code"], a_envoyer, "facture")
 if not a_envoyer:
     print("-> Aucune facture a envoyer.")
     exit()

@@ -98,7 +98,10 @@ def pour_bilan(organisme, debut, fin):
         formateurs_h += h
         for p in ps:
             for f in p.get("factures") or []:
-                if f.get("retenue") is False:
+                # « registre » : facture emise PAR DFM apres coup (16/11/2026) pour
+                # une session d'avant DFM. Le registre des factures la compte deja
+                # dans le bilan ; la compter ici aussi la doublerait.
+                if f.get("retenue") is False or f.get("registre"):
                     continue      # un numero en double : seule la version payee compte
                 d = _d(f.get("date"))
                 if d and debut <= d <= fin:

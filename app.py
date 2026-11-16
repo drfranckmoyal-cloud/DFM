@@ -10525,9 +10525,14 @@ def page_comptabilite():
     fac = d.get("factures") or []
     ne = _co.Counter(e["statut"] for e in enc)
     nf = _co.Counter(f["statut"] for f in fac)
+    try:
+        _rv = _C.resume_ventes(_C.ventes(org))
+    except Exception:
+        _rv = None
     return render_template("comptabilite.html", enc=enc, fac=fac, resume=_C.resume(org), nb_enc=ne, nb_fac=nf,
+                           ventes_resume=_rv,
                            filtres_enc=[[s, ne[s]] for s in _C.JUSTIFIE + _C.A_TRAITER_ENC if ne[s]],
-                           filtres_fac=[[s, nf[s]] for s in _C.ENCAISSEE + _C.A_TRAITER_FAC if nf[s]],
+                           filtres_fac=[[s, nf[s]] for s in _C.ENCAISSEE + _C.A_TRAITER_FAC + _C.CLASSEES if nf[s]],
                            stripe_detail=d.get("stripe_detail") or {},
                            perimetre=d.get("perimetre") or "", releves=d.get("releves_jusquau") or "",
                            stripe=d.get("stripe") or {})
@@ -10585,6 +10590,37 @@ def comptabilite_zip():
                     headers={"Content-Disposition": "attachment; filename=%s" % nom})
 
 
+@app.route("/comptabilite/ventes.zip")
+def comptabilite_ventes_zip():
+    """LES VENTES ET LEURS FACTURES, EN UN LOT — 16/11/2026. Pour transmettre
+    au comptable : journal des ventes, encaissements rapproches, PDF par mois.
+    « du » et « au » (AAAA-MM-JJ) bornent la date des pieces ; sans eux, tout."""
+    import re as _re
+    from flask import Response
+    import comptabilite as _C
+    import profil as _pr
+    org = _pr.actif()
+    du = (request.args.get("du") or "").strip()
+    au = (request.args.get("au") or "").strip()
+    du = du if _re.match(r"^\d{4}-\d{2}-\d{2}$", du) else ""
+    au = au if _re.match(r"^\d{4}-\d{2}-\d{2}$", au) else ""
+    try:
+        marque = _pr.valeur("marque") or _pr.valeur("organisme") or org
+    except Exception:
+        marque = org
+    octets, liste = _C.export_ventes_zip(org, du or None, au or None, marque=marque)
+    nom = "ventes-%s-%s%s.zip" % (org, (du + "_" + au) if (du or au) else "tout", "")
+    try:
+        r = _C.resume_ventes(liste)
+        journal.ecrire("Ventes exportées pour le comptable", "",
+                       "%d pièces, total net %s € (%s)" % (r["nb"], ("%.2f" % r["total"]).replace(".", ","),
+                                                         ("du %s au %s" % (du or "début", au or "ce jour")) if (du or au) else "tout"))
+    except Exception:
+        pass
+    return Response(octets, mimetype="application/zip",
+                    headers={"Content-Disposition": "attachment; filename=%s" % nom})
+
+
 # ---------------------------------------------------------------------------
 # LES FORMATIONS D'AVANT DFM — 15/11/2026. Voir pre_dfm.py. Lecture seule.
 # ---------------------------------------------------------------------------
@@ -10633,7 +10669,19 @@ def page_pre_dfm():
     non_rattaches = [c for c in credits if c.get("nature") == "formation" and not c.get("attribue_a")]
     nb = _co.Counter(p["statut"] for p in pers)
     verif = _co.Counter(p["session"] for p in pers if p["statut"] in _P.A_VERIFIER)
+    # LE PDF DE CHAQUE FACTURE (16/11/2026), pour l'ouvrir depuis la liste : les
+    # pieces d'avant DFM et celles que DFM a emises apres coup.
+    pdf = {}
+    try:
+        import comptabilite as _C
+        for v in _C.ventes(org):
+            if v.get("fichier"):
+                pdf.setdefault((v["numero"], v["session"]), v["fichier"])
+    except Exception:
+        pdf = {}
     return render_template("pre_dfm.html", sessions=sess, personnes=pers, verif_session=verif,
+                           pdf={"%s|%s" % k: v for k, v in pdf.items()},
+                           sans_suite=["Prospect sans suite", "À recontacter (sans suite)", "Inscription sans suite visible"],
                            dates={c: _pd_dates(s.get("jours")) for c, s in sess.items()},
                            nb_statut=nb, nb_verifier=sum(nb[s] for s in _P.A_VERIFIER),
                            a_verifier=sorted(_P.A_VERIFIER), autres_credits=autres,

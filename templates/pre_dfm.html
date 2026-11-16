@@ -25,6 +25,15 @@ html[data-sombre] .st-at{background:#3d2c10;color:#f5c87a}html[data-sombre] .st-
 .pd-sm{display:block;font-size:11px;color:var(--muted);margin-top:2px;line-height:1.45}
 .pd-cache{display:none}
 .pd-note{font-size:12px;color:var(--muted);line-height:1.6;padding:12px 18px}
+.pd-bt{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 16px}
+.pd-bd{font-weight:400;color:var(--muted)}
+.pd-bc{font:500 12px Inter,sans-serif;color:var(--muted)}
+.pd-paye b{font-variant-numeric:tabular-nums;font-size:12.5px}
+.pd-f{font-size:12px;margin:1px 0 4px}
+.pd-barre .pd-num{text-decoration:line-through;opacity:.6}
+.pd-num{display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:6px;background:#e3eaff;color:#2448b8;font:600 11.5px ui-monospace,Menlo,monospace;text-decoration:none;white-space:nowrap}
+.pd-num.vide{background:var(--bg);color:var(--muted)}
+html[data-sombre] .pd-num{background:#1d2b55;color:#a9c0ff}
 </style>
 
 {% if not sessions %}
@@ -90,33 +99,57 @@ html[data-sombre] .st-at{background:#3d2c10;color:#f5c87a}html[data-sombre] .st-
 
 <div class="ap-outils">
   <div class="ap-pilules" id="pd_pil">
-    <button class="on" data-f="" onclick="pdFiltre('')">Tous ({{ personnes|length }})</button>
+    <button class="on" data-f="apprenants" onclick="pdFiltre('apprenants')">Apprenants ({{ personnes|rejectattr('statut', 'in', sans_suite)|list|length }})</button>
+    <button data-f="sansfacture" onclick="pdFiltre('sansfacture')">Sans facture</button>
     <button data-f="verifier" onclick="pdFiltre('verifier')">À vérifier ({{ nb_verifier }})</button>
-    <button data-f="Rapproché" onclick="pdFiltre('Rapproché')">Rapprochés ({{ nb_statut['Rapproché'] or 0 }})</button>
     <button data-f="Invité(e)" onclick="pdFiltre('Invité(e)')">Invités ({{ nb_statut['Invité(e)'] or 0 }})</button>
     <button data-f="prospect" onclick="pdFiltre('prospect')">Sans suite</button>
+    <button data-f="" onclick="pdFiltre('')">Tous ({{ personnes|length }})</button>
   </div>
   <div class="ap-recherche"><i class="ti ti-search" style="font-size:14px;color:var(--muted)"></i><input type="text" id="pd_q" placeholder="Rechercher un praticien…" oninput="pdAppliquer()"></div>
 </div>
-<div class="table-wrap"><div class="table-scroll">
-<table class="ap-table" style="min-width:1050px">
-  <thead><tr><th style="width:150px">Session</th><th>Praticien</th><th style="width:190px">Statut</th><th style="width:170px">Facture</th><th style="width:210px">Virement</th><th style="width:80px">Attestation</th><th style="width:280px">Écarts</th></tr></thead>
-  <tbody id="pd_corps">
-  {% for p in personnes %}
-  {% set cls = 'st-ok' if p.statut == 'Rapproché' else ('st-ko' if p.statut in ('Facturé, paiement non retrouvé', 'Présent(e) sans facture ni paiement') else ('st-at' if p.statut in ('Écart de montant', 'Payé sans facture') else ('st-bl' if p.statut == 'Invité(e)' else 'st-gr'))) %}
-  <tr data-session="{{ p.session }}" data-statut="{{ p.statut }}" data-q="{{ (p.nom ~ ' ' ~ (p.mail or ''))|lower }}">
-    <td style="font-size:12px">{{ sessions[p.session].formation }}<span class="pd-sm">{{ dates[p.session] }}</span></td>
-    <td><b style="font-size:12.5px">{{ p.nom }}</b><span class="pd-sm">{{ p.mail }}</span></td>
-    <td><span class="pd-pill {{ cls }}">{{ p.statut }}</span></td>
-    <td style="font-size:12px">{% for f in p.factures %}<span style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px">{{ f.numero or 'sans n°' }}</span> · {{ "{:,.0f}".format(f.total or 0).replace(",", " ") }} €<span class="pd-sm">{{ f.date }}{% if f.type == 'client' %} · à {{ f.adressee_a }}{% endif %}</span>{% else %}<span style="color:var(--muted)">—</span>{% endfor %}</td>
-    <td style="font-size:12px">{% for x in p.paiements %}{{ x.date[8:10] }}/{{ x.date[5:7] }}/{{ x.date[:4] }} · <b>{{ "{:,.2f}".format(x.montant).replace(",", " ").replace(".", ",") }} €</b><span class="pd-sm">{{ x.payeur }}</span>{% endfor %}{% for x in p.remboursements %}<span class="pd-sm" style="color:var(--danger)">remboursé {{ "{:,.0f}".format(-x.montant).replace(",", " ") }} € le {{ x.date[8:10] }}/{{ x.date[5:7] }}/{{ x.date[:4] }}</span>{% endfor %}{% if not p.paiements and not p.remboursements %}<span style="color:var(--muted)">—</span>{% endif %}</td>
-    <td style="font-size:12px">{{ 'oui' if p.present else ('non archivée' if not sessions[p.session].presence_archivee else '—') }}</td>
-    <td>{% if p.ecarts %}<ul class="pd-e">{% for e in p.ecarts %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}</td>
-  </tr>
-  {% endfor %}
-  </tbody>
-</table>
-</div></div>
+
+{% for c, s in sessions.items() %}
+{% set N = namespace(app=0, pres=0, paye=0, avec=0, payants=0) %}
+{% for p in personnes if p.session == c and p.statut not in sans_suite %}
+  {% set N.app = N.app + 1 %}{% if p.present %}{% set N.pres = N.pres + 1 %}{% endif %}
+  {% set verse = (p.paiements|sum(attribute='montant')) + (p.remboursements|sum(attribute='montant')) %}
+  {% set N.paye = N.paye + verse %}{% if verse > 0 %}{% set N.payants = N.payants + 1 %}{% endif %}
+  {% if p.factures|rejectattr('remplacee_par')|list %}{% set N.avec = N.avec + 1 %}{% endif %}
+{% endfor %}
+<section class="ap-carte pd-bloc" data-session="{{ c }}" id="liste-{{ c }}" style="margin-bottom:16px">
+  <div class="ap-carte-t pd-bt">
+    <span>{{ s.formation }} <span class="pd-bd">· {{ dates[c] }} · {{ s.heures }} h</span></span>
+    <span class="pd-bc">{{ N.app }} apprenants · {{ N.pres if s.presence_archivee else 'présence non archivée' }}{{ ' présents' if s.presence_archivee }} · {{ "{:,.0f}".format(N.paye).replace(",", " ") }} € payés · {{ N.avec }} avec facture</span>
+  </div>
+  <div class="table-scroll">
+  <table class="ap-table" style="min-width:980px">
+    <thead><tr><th>Apprenant</th><th style="width:110px">Présence</th><th style="width:170px">Payé</th><th style="width:230px">Facture</th><th style="width:180px">Statut</th><th style="width:250px">Écarts</th></tr></thead>
+    <tbody class="pd-corps">
+    {% for p in personnes if p.session == c %}
+    {% set actives = p.factures|rejectattr('remplacee_par')|list %}
+    {% set verse = (p.paiements|sum(attribute='montant')) + (p.remboursements|sum(attribute='montant')) %}
+    {% set cls = 'st-ok' if p.statut == 'Rapproché' else ('st-ko' if p.statut in ('Facturé, paiement non retrouvé', 'Présent(e) sans facture ni paiement') else ('st-at' if p.statut in ('Écart de montant', 'Payé sans facture') else ('st-bl' if p.statut == 'Invité(e)' else 'st-gr'))) %}
+    <tr data-session="{{ p.session }}" data-statut="{{ p.statut }}" data-fac="{{ 1 if actives else 0 }}" data-q="{{ (p.nom ~ ' ' ~ (p.mail or '') ~ ' ' ~ (p.factures|map(attribute='numero')|join(' ')))|lower }}">
+      <td><b style="font-size:12.5px">{{ p.nom }}</b><span class="pd-sm">{{ p.mail }}</span></td>
+      <td>{% if p.present %}<span class="pd-pill st-ok">Présent(e)</span>{% elif not s.presence_archivee %}<span class="pd-pill st-gr">Non archivée</span>{% else %}<span class="pd-pill st-gr">Non prouvée</span>{% endif %}</td>
+      <td class="pd-paye">{% if p.paiements or p.remboursements %}<b>{{ "{:,.2f}".format(verse).replace(",", " ").replace(".", ",") }} €</b>
+        {% for x in p.paiements %}<span class="pd-sm">{{ x.date[8:10] }}/{{ x.date[5:7] }}/{{ x.date[:4] }} · {{ "{:,.0f}".format(x.montant).replace(",", " ") }} € · {{ x.payeur }}</span>{% endfor %}
+        {% for x in p.remboursements %}<span class="pd-sm" style="color:var(--danger)">remboursé {{ "{:,.0f}".format(-x.montant).replace(",", " ") }} € le {{ x.date[8:10] }}/{{ x.date[5:7] }}/{{ x.date[:4] }}</span>{% endfor %}
+        {% else %}<span style="color:var(--muted)">Rien de payé</span>{% endif %}</td>
+      <td>{% for f in p.factures %}{% set lien = pdf.get((f.numero or '') ~ '|' ~ c) %}
+        <div class="pd-f{{ ' pd-barre' if f.remplacee_par }}">{% if lien %}<a class="pd-num" href="/comptabilite/piece?chemin={{ lien|urlencode }}" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i>{{ f.numero or 'sans n°' }}</a>{% else %}<span class="pd-num vide">{{ f.numero or 'sans n°' }}</span>{% endif %} {{ "{:,.0f}".format(f.total or 0).replace(",", " ") }} €
+          <span class="pd-sm">{{ f.date }}{% if f.type == 'client' %} · à {{ f.adressee_a }}{% endif %}{% if f.registre %} · émise par DFM{% endif %}{% if f.remplacee_par %} · annulée, remplacée par {{ f.remplacee_par }}{% endif %}</span></div>
+        {% endfor %}{% if not actives %}<span class="pd-pill {{ 'st-ko' if verse > 0 or p.present else 'st-gr' }}">Aucune facture</span>{% endif %}</td>
+      <td><span class="pd-pill {{ cls }}">{{ p.statut }}</span></td>
+      <td>{% if p.ecarts %}<ul class="pd-e">{% for e in p.ecarts %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endfor %}
 
 <section class="ap-carte" id="banque" style="margin-top:16px">
   <div class="ap-carte-t"><span>Entrées d'argent hors participants d'avant DFM</span></div>
@@ -132,7 +165,7 @@ html[data-sombre] .st-at{background:#3d2c10;color:#f5c87a}html[data-sombre] .st-
     </tbody>
   </table>
   </div>
-  {% if stripe.versements %}<div class="pd-note">Stripe a versé {{ "{:,.2f}".format(stripe.total).replace(",", " ").replace(".", ",") }} € en {{ stripe.versements }} virements entre le {{ stripe.premier[8:10] }}/{{ stripe.premier[5:7] }} et le {{ stripe.dernier[8:10] }}/{{ stripe.dernier[5:7] }}/{{ stripe.dernier[:4] }} ; DFM note {{ stripe.dfm_paiements_carte }} paiements par carte ({{ "{:,.0f}".format(stripe.dfm_total).replace(",", " ") }} €). Le détail est à rapprocher depuis le tableau de bord Stripe.</div>{% endif %}
+  {% if stripe.versements %}<div class="pd-note">Stripe a versé {{ "{:,.2f}".format(stripe.total).replace(",", " ").replace(".", ",") }} € en {{ stripe.versements }} virements entre le {{ stripe.premier[8:10] }}/{{ stripe.premier[5:7] }} et le {{ stripe.dernier[8:10] }}/{{ stripe.dernier[5:7] }}/{{ stripe.dernier[:4] }} ; DFM note {{ stripe.dfm_paiements_carte }} paiements par carte ({{ "{:,.0f}".format(stripe.dfm_total).replace(",", " ") }} €). Le détail, versement par versement, est dans <a href="/comptabilite#stripe">Comptabilité</a>.</div>{% endif %}
 </section>
 
 <section class="ap-carte" style="margin-top:16px">
@@ -142,24 +175,33 @@ html[data-sombre] .st-at{background:#3d2c10;color:#f5c87a}html[data-sombre] .st-
 </section>
 
 <script>
-var PD_F = '', PD_S = '';
+var PD_F = 'apprenants', PD_S = '';
 var VERIF = {{ a_verifier|tojson }};
+var SANS_SUITE = {{ sans_suite|tojson }};
 function pdFiltre(f){ PD_F = f; document.querySelectorAll('#pd_pil button').forEach(function(b){ b.classList.toggle('on', b.dataset.f === f); }); pdAppliquer(); }
 function pdSession(el){ PD_S = (PD_S === el.dataset.code) ? '' : el.dataset.code;
-  document.querySelectorAll('.pd-s').forEach(function(x){ x.classList.toggle('on', x.dataset.code === PD_S); }); pdAppliquer(); }
+  document.querySelectorAll('.pd-s').forEach(function(x){ x.classList.toggle('on', x.dataset.code === PD_S); }); pdAppliquer();
+  if(PD_S){ var b = document.getElementById('liste-' + PD_S); if(b) b.scrollIntoView({behavior:'smooth', block:'start'}); } }
 function pdAppliquer(){
   var q = (document.getElementById('pd_q').value || '').toLowerCase().trim();
-  document.querySelectorAll('#pd_corps tr').forEach(function(tr){
-    var st = tr.dataset.statut, ok = true;
-    if(PD_S && tr.dataset.session !== PD_S) ok = false;
-    if(PD_F === 'verifier' && VERIF.indexOf(st) < 0) ok = false;
-    else if(PD_F === 'ecart' && st !== 'Écart de montant' && st !== 'Payé sans facture') ok = false;
-    else if(PD_F === 'prospect' && st.indexOf('sans suite') < 0) ok = false;
-    else if(PD_F && ['verifier','ecart','prospect'].indexOf(PD_F) < 0 && st !== PD_F) ok = false;
-    if(q && tr.dataset.q.indexOf(q) < 0) ok = false;
-    tr.classList.toggle('pd-cache', !ok);
+  document.querySelectorAll('.pd-bloc').forEach(function(bloc){
+    bloc.classList.toggle('pd-cache', !!PD_S && bloc.dataset.session !== PD_S);
+    var vus = 0;
+    bloc.querySelectorAll('.pd-corps tr').forEach(function(tr){
+      var st = tr.dataset.statut, ok = true;
+      if(PD_F === 'apprenants' && SANS_SUITE.indexOf(st) >= 0) ok = false;
+      else if(PD_F === 'sansfacture' && (tr.dataset.fac === '1' || SANS_SUITE.indexOf(st) >= 0)) ok = false;
+      else if(PD_F === 'verifier' && VERIF.indexOf(st) < 0) ok = false;
+      else if(PD_F === 'prospect' && SANS_SUITE.indexOf(st) < 0) ok = false;
+      else if(PD_F && ['apprenants','sansfacture','verifier','prospect'].indexOf(PD_F) < 0 && st !== PD_F) ok = false;
+      if(q && tr.dataset.q.indexOf(q) < 0) ok = false;
+      tr.classList.toggle('pd-cache', !ok);
+      if(ok) vus++;
+    });
+    if(!PD_S) bloc.classList.toggle('pd-cache', vus === 0);
   });
 }
+pdAppliquer();
 (function(){ var h = location.hash.replace('#',''); var el = h && document.getElementById(h); if(el && el.classList.contains('pd-s')) pdSession(el); })();
 </script>
 {% endif %}

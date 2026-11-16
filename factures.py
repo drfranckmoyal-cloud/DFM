@@ -248,3 +248,83 @@ def de_l_organisme(organisme, annee=None):
     if annee:
         l = [e for e in l if _annee_de(e) == annee]
     return sorted(l, key=lambda e: e.get("numero") or "")
+
+
+def marquer_remplacee(ancien, nouveau, organisme, motif=""):
+    """Note au registre qu'une facture est annulee et remplacee — 16/11/2026.
+
+    On n'efface rien : l'ancienne garde son numero et sa ligne (un numero emis
+    ne disparait pas de la suite), elle porte seulement « remplacee_par ». Le
+    bilan pedagogique et la comptabilite ne la comptent plus ; la nouvelle,
+    qui porte « remplace », compte a sa place. Rend True si l'ancienne a ete
+    trouvee dans la serie de CET organisme.
+    """
+    import fichiers
+    trouvee = False
+    with fichiers.modifier(_FICHIER, {}) as d:
+        for e in d.values():
+            if not isinstance(e, dict) or (e.get("organisme") or "") != (organisme or ""):
+                continue
+            if e.get("numero") == ancien:
+                e["remplacee_par"] = nouveau
+                if motif:
+                    e["motif_remplacement"] = motif
+                trouvee = True
+            elif e.get("numero") == nouveau:
+                e["remplace"] = ancien
+    return trouvee
+
+
+def prefixe_avoir(annee=None):
+    return "AV%d-" % (annee or datetime.now().year)
+
+
+def prochain_avoir(organisme, annee=None):
+    """Le prochain numero d'avoir de CET organisme — 16/11/2026.
+
+    Une serie a part, continue elle aussi : « AV2026-001 ». Elle ne se mele pas
+    a celle des factures, dont la regle de numerotation ne lit que « F2026- ».
+    """
+    annee = annee or datetime.now().year
+    p = prefixe_avoir(annee)
+    connus = []
+    for cle, e in tout().items():
+        if (e.get("organisme") or "") != organisme:
+            continue
+        m = re.match(r"^" + re.escape(p) + r"(\d{3})(?!\d)", str(e.get("numero") or ""))
+        if m:
+            connus.append(int(m.group(1)))
+    return "%s%03d" % (p, (max(connus) + 1) if connus else 1)
+
+
+def enregistrer_avoir(numero, organisme, facture, montant, lien="", motif=""):
+    """Inscrit un avoir au registre, en NEGATIF, et le lie a sa facture.
+
+    La facture annulee reste au registre et continue de compter ; l'avoir, negatif,
+    la compense. Le bilan pedagogique et la comptabilite, qui additionnent le
+    registre, retombent donc juste sans regle particuliere. Le type (individuel ou
+    client) est celui de la facture : la ligne du bilan ou il se retranche.
+    """
+    import fichiers
+    origine = next((e for e in tout().values()
+                    if isinstance(e, dict) and e.get("numero") == facture
+                    and (e.get("organisme") or "") == (organisme or "")), None)
+    if not origine:
+        raise KeyError("Facture %s introuvable dans la serie de %s" % (facture, organisme))
+    m = -abs(float(montant))
+    enregistrer(numero, organisme, origine.get("client_id") or "", origine.get("client") or "",
+                origine.get("session") or "", origine.get("formation") or "", m,
+                participants=origine.get("participants") or 1, unitaire=m, lien=lien,
+                type_facture=origine.get("type") or "individuel")
+    with fichiers.modifier(_FICHIER, {}) as d:
+        for e in d.values():
+            if not isinstance(e, dict) or (e.get("organisme") or "") != (organisme or ""):
+                continue
+            if e.get("numero") == numero:
+                e["nature"] = "avoir"
+                e["annule"] = facture
+                if motif:
+                    e["motif"] = motif
+            elif e.get("numero") == facture:
+                e["avoir"] = numero
+    return numero
