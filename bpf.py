@@ -433,6 +433,50 @@ def _formateur_cle(nom):
     return " ".join(mots)
 
 
+def _apres(code, fin, cache):
+    """Vrai quand la session commence APRES la fin de l'exercice."""
+    if not code:
+        return False
+    if code not in cache:
+        try:
+            import sessions as _S
+            import jours as _J
+            if code not in (_S.SESSIONS or {}):
+                cache[code] = None
+            else:
+                cache[code] = _date(str(_J.resume(_S.session(code)).get("date_debut") or ""))
+        except Exception:
+            cache[code] = None
+    return bool(cache[code] and cache[code] > fin)
+
+
+def _encaisse_dans(code, client, debut, fin, cache):
+    """Ce que le client de cette facture a verse entre debut et fin."""
+    import suivi as _s
+    if code not in cache:
+        try:
+            cache[code] = _s.lire_lignes_de(code)
+        except Exception:
+            cache[code] = []
+
+    def j(x):
+        x = "".join(c for c in __import__("unicodedata").normalize("NFD", str(x or ""))
+                    if __import__("unicodedata").category(c) != "Mn").lower()
+        return {m for m in re.split(r"[^a-z]+", x) if len(m) >= 3}
+    t = j(client)
+    lignes = [l for l in cache[code] if len(t & j("%s %s" % (l.get("prenom"), l.get("nom")))) >= min(2, len(t))]
+    total = 0.0
+    for l in lignes[:1]:
+        for v in _s.versements(l):
+            d = _date(v.get("le"))
+            if d and debut <= d <= fin:
+                try:
+                    total += float(str(v.get("montant") or 0).replace(",", ".").replace(" ", ""))
+                except ValueError:
+                    pass
+    return round(total, 2)
+
+
 def chiffres(organisme, exercice, aujourdhui=None):
     """Ce que DFM sait de l'exercice : sessions, stagiaires, heures, factures.
 
@@ -514,6 +558,8 @@ def chiffres(organisme, exercice, aujourdhui=None):
     # LES FACTURES, une fois chacune : le registre garde parfois un numero sous
     # deux cles (« F2026-012 » et « mon-organisme/F2026-012 »).
     vues, factures = set(), []
+    avance = {"facture": 0.0, "encaisse": 0.0, "sessions": set()}
+    cache_debut, cache_lignes = {}, {}
     try:
         import factures as _F
         for e in _F.tout().values():
@@ -534,13 +580,32 @@ def chiffres(organisme, exercice, aujourdhui=None):
                 tot = float(e.get("total") or 0)
             except (TypeError, ValueError):
                 tot = 0.0
+            # FACTUREE D'AVANCE POUR UNE FORMATION D'UN EXERCICE SUIVANT — regle
+            # de Franck du 16/11/2026 : « que ce qui a ete encaisse ». Esthetique
+            # 360 facture le cycle 2027 a l'inscription, en 2026 ; seul ce qui est
+            # arrive dans l'exercice compte, l'avoir d'une telle facture aussi
+            # n'a donc plus rien a retrancher.
+            if _apres(e.get("session"), fin, cache_debut):
+                if e.get("nature") == "avoir":
+                    continue
+                recu = _encaisse_dans(e.get("session"), e.get("client"), debut, fin, cache_lignes)
+                avance["facture"] += tot
+                avance["encaisse"] += recu
+                avance["sessions"].add(e.get("session") or "")
+                if not recu:
+                    continue
+                tot = recu
             factures.append({"numero": e.get("numero") or "", "date": d,
                              "client": e.get("client") or "", "session": e.get("session") or "",
                              "type": "client" if e.get("type") == "client" else "individuel",
                              "total": tot})
     except Exception:
         pass
-    # LES SESSIONS D'AVANT DFM (15/11/2026, voir pre_dfm.py) : le premier
+    if avance["facture"]:
+        alertes.append("Facturé d'avance pour une formation d'un exercice suivant (%s) : %s € ; seuls les %s € "
+                       "encaissés dans l'exercice comptent." % (", ".join(sorted(avance["sessions"])),
+                                                                 "%.0f" % avance["facture"], "%.0f" % avance["encaisse"]))
+        # LES SESSIONS D'AVANT DFM (15/11/2026, voir pre_dfm.py) : le premier
     # exercice de LBS commence en juin 2025, cinq sessions ont eu lieu hors de
     # DFM. Leurs presents (attestation archivee), leurs heures et leurs factures
     # comptent dans le bilan ; ce qui n'est pas prouve reste en alerte.

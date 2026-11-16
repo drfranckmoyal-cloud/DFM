@@ -115,7 +115,7 @@ html[data-sombre] .pd-num{background:#1d2b55;color:#a9c0ff}
   {% set N.app = N.app + 1 %}{% if p.present %}{% set N.pres = N.pres + 1 %}{% endif %}
   {% set verse = (p.paiements|sum(attribute='montant')) + (p.remboursements|sum(attribute='montant')) %}
   {% set N.paye = N.paye + verse %}{% if verse > 0 %}{% set N.payants = N.payants + 1 %}{% endif %}
-  {% if p.factures|rejectattr('remplacee_par')|list %}{% set N.avec = N.avec + 1 %}{% endif %}
+  {% if p.factures|rejectattr('remplacee_par')|rejectattr('annulee_par_avoir')|rejectattr('avoir_sur')|list %}{% set N.avec = N.avec + 1 %}{% endif %}
 {% endfor %}
 <section class="ap-carte pd-bloc" data-session="{{ c }}" id="liste-{{ c }}" style="margin-bottom:16px">
   <div class="ap-carte-t pd-bt">
@@ -127,9 +127,9 @@ html[data-sombre] .pd-num{background:#1d2b55;color:#a9c0ff}
     <thead><tr><th>Apprenant</th><th style="width:110px">Présence</th><th style="width:170px">Payé</th><th style="width:230px">Facture</th><th style="width:180px">Statut</th><th style="width:250px">Écarts</th></tr></thead>
     <tbody class="pd-corps">
     {% for p in personnes if p.session == c %}
-    {% set actives = p.factures|rejectattr('remplacee_par')|list %}
+    {% set actives = p.factures|rejectattr('remplacee_par')|rejectattr('annulee_par_avoir')|rejectattr('avoir_sur')|list %}
     {% set verse = (p.paiements|sum(attribute='montant')) + (p.remboursements|sum(attribute='montant')) %}
-    {% set cls = 'st-ok' if p.statut == 'Rapproché' else ('st-ko' if p.statut in ('Facturé, paiement non retrouvé', 'Présent(e) sans facture ni paiement') else ('st-at' if p.statut in ('Écart de montant', 'Payé sans facture') else ('st-bl' if p.statut == 'Invité(e)' else 'st-gr'))) %}
+    {% set cls = 'st-ok' if p.statut == 'Rapproché' else ('st-ko' if p.statut in ('Facturé, paiement non retrouvé', 'Présent(e) sans facture ni paiement') else ('st-at' if p.statut in ('Écart de montant', 'Payé sans facture') else ('st-bl' if p.statut in ('Invité(e)', 'Pris en charge (BLENDI)') else 'st-gr'))) %}
     <tr data-session="{{ p.session }}" data-statut="{{ p.statut }}" data-fac="{{ 1 if actives else 0 }}" data-q="{{ (p.nom ~ ' ' ~ (p.mail or '') ~ ' ' ~ (p.factures|map(attribute='numero')|join(' ')))|lower }}">
       <td><b style="font-size:12.5px">{{ p.nom }}</b><span class="pd-sm">{{ p.mail }}</span></td>
       <td>{% if p.present %}<span class="pd-pill st-ok">Présent(e)</span>{% elif not s.presence_archivee %}<span class="pd-pill st-gr">Non archivée</span>{% else %}<span class="pd-pill st-gr">Non prouvée</span>{% endif %}</td>
@@ -138,9 +138,9 @@ html[data-sombre] .pd-num{background:#1d2b55;color:#a9c0ff}
         {% for x in p.remboursements %}<span class="pd-sm" style="color:var(--danger)">remboursé {{ "{:,.0f}".format(-x.montant).replace(",", " ") }} € le {{ x.date[8:10] }}/{{ x.date[5:7] }}/{{ x.date[:4] }}</span>{% endfor %}
         {% else %}<span style="color:var(--muted)">Rien de payé</span>{% endif %}</td>
       <td>{% for f in p.factures %}{% set lien = pdf.get((f.numero or '') ~ '|' ~ c) %}
-        <div class="pd-f{{ ' pd-barre' if f.remplacee_par }}">{% if lien %}<a class="pd-num" href="/comptabilite/piece?chemin={{ lien|urlencode }}" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i>{{ f.numero or 'sans n°' }}</a>{% else %}<span class="pd-num vide">{{ f.numero or 'sans n°' }}</span>{% endif %} {{ "{:,.0f}".format(f.total or 0).replace(",", " ") }} €
-          <span class="pd-sm">{{ f.date }}{% if f.type == 'client' %} · à {{ f.adressee_a }}{% endif %}{% if f.registre %} · émise par DFM{% endif %}{% if f.remplacee_par %} · annulée, remplacée par {{ f.remplacee_par }}{% endif %}</span></div>
-        {% endfor %}{% if not actives %}<span class="pd-pill {{ 'st-ko' if verse > 0 or p.present else 'st-gr' }}">Aucune facture</span>{% endif %}</td>
+        <div class="pd-f{{ ' pd-barre' if f.remplacee_par or f.annulee_par_avoir }}">{% if lien %}<a class="pd-num" href="/comptabilite/piece?chemin={{ lien|urlencode }}" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i>{{ f.numero or 'sans n°' }}</a>{% else %}<span class="pd-num vide">{{ f.numero or 'sans n°' }}</span>{% endif %} {{ "{:,.0f}".format(f.total or 0).replace(",", " ") }} €
+          <span class="pd-sm">{{ f.date }}{% if f.type == 'client' %} · à {{ f.adressee_a }}{% endif %}{% if f.registre %} · émise par DFM{% endif %}{% if f.remplacee_par %} · annulée, remplacée par {{ f.remplacee_par }}{% endif %}{% if f.annulee_par_avoir %} · annulée par l'avoir {{ f.annulee_par_avoir }}{% endif %}{% if f.avoir_sur %} · avoir sur {{ f.avoir_sur }}{% endif %}</span></div>
+        {% endfor %}{% if not actives %}{% if p.statut in ('Invité(e)', 'Pris en charge (BLENDI)') %}<span class="pd-pill st-bl">Rien à facturer</span>{% else %}<span class="pd-pill {{ 'st-ko' if verse > 0 else 'st-gr' }}">Aucune facture</span>{% endif %}{% endif %}</td>
       <td><span class="pd-pill {{ cls }}">{{ p.statut }}</span></td>
       <td>{% if p.ecarts %}<ul class="pd-e">{% for e in p.ecarts %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}</td>
     </tr>

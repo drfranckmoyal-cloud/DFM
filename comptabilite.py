@@ -382,6 +382,19 @@ def export_ventes_zip(organisme, du=None, au=None, marque=""):
             z.writestr(nom, "﻿" + t.getvalue())
         r = resume_ventes(liste)
         fs = sorted(((donnees(organisme).get("stripe_detail") or {}).get("factures_stripe")) or [])
+        # Facturees d'avance pour une formation qui commence l'annee suivante.
+        avance = {}
+        try:
+            import bpf as _B
+            import datetime as _dtm
+            cache = {}
+            for v in liste:
+                if v["type"] == "Avoir" or v["statut"] == REMPLACEE or not v["date"]:
+                    continue
+                if _B._apres(v["session"], _dtm.date(int(v["date"][:4]), 12, 31), cache):
+                    avance[v["session"]] = avance.get(v["session"], 0.0) + v["montant"]
+        except Exception:
+            avance = {}
         periode = ("du %s au %s" % (_fr(du) or "début", _fr(au) or "ce jour")) if (du or au) else "toutes les pièces"
         z.writestr("LISEZ-MOI.txt", "\n".join([
             "Export des ventes — %s" % (marque or organisme),
@@ -401,6 +414,12 @@ def export_ventes_zip(organisme, du=None, au=None, marque=""):
             "Paiements par carte : encaissés par Stripe, qui verse le net de ses frais sur le compte ;",
             "le détail, versement par versement, figure dans DFM, rubrique Comptabilité.",
         ] + ([
+            "",
+            "Factures émises d'avance pour une formation de l'année suivante (%s) : %s €."
+            % (", ".join(sorted(avance)), _e(sum(avance.values()))),
+            "Règle de l'organisme : seul ce qui est encaissé dans l'exercice relève de l'exercice",
+            "(colonne « Encaissé ») ; le reste suit la formation.",
+        ] if avance else []) + ([
             "",
             "Factures Stripe : %s émises automatiquement par Stripe (%s à %s) pour des ventes"
             % (len(fs), fs[0], fs[-1]),

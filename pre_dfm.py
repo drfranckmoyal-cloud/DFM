@@ -35,7 +35,7 @@ DOSSIER = os.path.dirname(os.path.abspath(__file__))
 FICHIER = os.path.join(DOSSIER, "pre_dfm.json")
 
 STATUTS = ["Facturé, paiement non retrouvé", "Présent(e) sans facture ni paiement", "Écart de montant",
-           "Payé sans facture", "Inscription sans suite visible", "Rapproché", "Invité(e)",
+           "Payé sans facture", "Inscription sans suite visible", "Rapproché", "Invité(e)", "Pris en charge (BLENDI)",
            "À recontacter (sans suite)", "Prospect sans suite"]
 A_VERIFIER = set(STATUTS[:5])
 
@@ -84,7 +84,7 @@ def pour_bilan(organisme, debut, fin):
         ps = personnes(code, organisme)
         presents = [p for p in ps if p.get("present")]
         payants_sans_preuve = [p for p in ps if not p.get("present") and (p.get("facture_total") or p.get("paye_total"))
-                               and p.get("statut") not in ("Invité(e)",)]
+                               and p.get("statut") not in ("Invité(e)", "Pris en charge (BLENDI)")]
         if not s.get("presence_archivee", True):
             alertes.append("%s (pré-DFM) : aucune attestation archivée — %d inscrits facturés ou payants, "
                            "présence à confirmer avant de les compter." % (s.get("formation"), len(payants_sans_preuve)))

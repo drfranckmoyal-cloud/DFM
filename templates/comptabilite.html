@@ -91,8 +91,8 @@ html[data-sombre] .cp-num{background:#1d2b55;color:#a9c0ff}
     <span class="ap-af-s">DFM note un virement que les relevés ne montrent pas : souvent un paiement par carte noté « Virement ».</span>
     <button type="button" class="btn ap-btn-noir" onclick="cpVoir('fac','Payée selon DFM, virement non retrouvé')">Voir</button></div></div>
   <div class="ap-af ap-af-violet"><b>{{ (stripe_detail.factures_stripe or [])|length }}</b><div>
-    <span class="ap-af-t">ventes facturées deux fois</span>
-    <span class="ap-af-s">Stripe a émis ses propres factures ({{ (stripe_detail.factures_stripe or [''])[0] }}…) pour des ventes que DFM a aussi facturées.</span>
+    <span class="ap-af-t">factures Stripe, hors comptabilité</span>
+    <span class="ap-af-s">Émises automatiquement par Stripe ({{ (stripe_detail.factures_stripe or [''])[0] }}…) pour des ventes facturées par DFM ; non utilisées, émission coupée le 16/11/2026.</span>
     <a class="btn ap-btn-noir" href="#stripe">Voir le détail Stripe</a></div></div>
   <div class="ap-af ap-af-bleu"><b>{{ (nb_fac["Facture d'essai"] or 0) + (nb_fac['Inscription annulée'] or 0) }}</b><div>
     <span class="ap-af-t">factures à annuler par un avoir</span>

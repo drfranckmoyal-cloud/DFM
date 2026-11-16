@@ -3324,6 +3324,13 @@ def tests_ventes_et_avoirs():
             verifier("un avoir sur une facture inconnue est refuse", False)
         except KeyError:
             verifier("un avoir sur une facture inconnue est refuse", True)
+        F.enregistrer_avoir("AV2026-002", "mon-organisme", "US-2026-02", 470.0, motif="invité",
+                            hors_registre={"client": "CDS Choisy", "session": "usures-juin26", "formation": "Usures",
+                                           "type": "client"})
+        h = [e for e in F.tout().values() if e["numero"] == "AV2026-002"][0]
+        verifier("un avoir sur une facture d'avant DFM", h["total"] == -470.0 and h["annule"] == "US-2026-02"
+                 and h["type"] == "client" and h.get("annule_hors_registre"), h)
+        F._ecrire({k: v for k, v in F.tout().items() if v.get("numero") != "AV2026-002"})
 
         v = C.ventes("mon-organisme")
         par = {x["numero"]: x for x in v}
@@ -3370,6 +3377,23 @@ def tests_ventes_et_avoirs():
              '"Avoir" if f.avoir' in g and "Somme remboursée" in g and "Annulation sans remboursement" in g)
     p = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "pre_dfm.py"), encoding="utf-8").read()
     verifier("une facture d'avant DFM emise par DFM ne compte qu'une fois au bilan", 'f.get("registre")' in p)
+    import bpf as B
+    import suivi as _sv
+    import datetime as _dtm
+    garde_l = _sv.lire_lignes_de
+    try:
+        _sv.lire_lignes_de = lambda code=None: [{"prenom": "Jonas", "nom": "NATAF", "versements": "",
+                                                  "paiement_recu_le": "02/11/2026", "montant_recu": "600",
+                                                  "mode_paiement": "Virement", "reference_paiement": ""}]
+        recu = B._encaisse_dans("x", "Jonas NATAF", _dtm.date(2025, 6, 30), _dtm.date(2026, 12, 31), {})
+        verifier("facture d'avance : on compte l'encaisse de l'exercice", recu == 600.0, recu)
+        recu = B._encaisse_dans("x", "Jonas NATAF", _dtm.date(2027, 1, 1), _dtm.date(2027, 12, 31), {})
+        verifier("et rien de ce qui est arrive avant", recu == 0.0, recu)
+    finally:
+        _sv.lire_lignes_de = garde_l
+    verifier("une session de l'exercice suivant est reconnue",
+             B._apres("inconnue", _dtm.date(2026, 12, 31), {"inconnue": _dtm.date(2027, 1, 6)})
+             and not B._apres("inconnue", _dtm.date(2026, 12, 31), {"inconnue": _dtm.date(2026, 11, 4)}))
 
 
 def main():

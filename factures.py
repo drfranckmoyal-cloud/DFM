@@ -297,7 +297,7 @@ def prochain_avoir(organisme, annee=None):
     return "%s%03d" % (p, (max(connus) + 1) if connus else 1)
 
 
-def enregistrer_avoir(numero, organisme, facture, montant, lien="", motif=""):
+def enregistrer_avoir(numero, organisme, facture, montant, lien="", motif="", hors_registre=None):
     """Inscrit un avoir au registre, en NEGATIF, et le lie a sa facture.
 
     La facture annulee reste au registre et continue de compter ; l'avoir, negatif,
@@ -309,6 +309,10 @@ def enregistrer_avoir(numero, organisme, facture, montant, lien="", motif=""):
     origine = next((e for e in tout().values()
                     if isinstance(e, dict) and e.get("numero") == facture
                     and (e.get("organisme") or "") == (organisme or "")), None)
+    # UNE FACTURE D'AVANT DFM (16/11/2026) n'est pas au registre : l'appelant
+    # dit qui, quoi, et de quel type. Elle ne porte donc pas le lien retour.
+    if not origine and hors_registre:
+        origine = dict(hors_registre)
     if not origine:
         raise KeyError("Facture %s introuvable dans la serie de %s" % (facture, organisme))
     m = -abs(float(montant))
@@ -323,6 +327,8 @@ def enregistrer_avoir(numero, organisme, facture, montant, lien="", motif=""):
             if e.get("numero") == numero:
                 e["nature"] = "avoir"
                 e["annule"] = facture
+                if hors_registre:
+                    e["annule_hors_registre"] = True
                 if motif:
                     e["motif"] = motif
             elif e.get("numero") == facture:
